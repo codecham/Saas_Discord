@@ -42,7 +42,11 @@ export class EndpointTesterService {
       }
 
       // Construire l'URL complète
-      const fullUrl = `${environment.apiUrl}${endpoint.url}`;
+      let fullUrl = `${environment.apiUrl}${endpoint.url}`;
+
+      if (endpoint.url == '/api/discord/user/') {
+        fullUrl + this.authFacade.discordUser()?.id;
+      }
 
       // Faire la requête
       const response = await this.http.request(endpoint.method, fullUrl, {

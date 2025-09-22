@@ -871,3 +871,358 @@ Le système suit un pattern cohérent facilement extensible :
 - Gestion automatique des comptes utilisateurs
 
 Cette architecture permet d'ajouter facilement GitHub, LinkedIn, Apple, etc. en suivant le même pattern que Google et Discord.
+
+# Module Discord API - Documentation
+
+Cette section décrit l'intégration complète du module Discord API dans le template fullstack, permettant de créer des applications d'administration Discord.
+
+## Architecture du Module Discord
+
+### Structure Backend (NestJS)
+
+```
+apps/backend/src/modules/discord/
+├── controllers/
+│   └── discord.controller.ts     # Endpoints API Discord
+├── services/
+│   └── discord.service.ts        # Service principal Discord
+└── discord.module.ts             # Module NestJS
+```
+
+### Types Partagés
+
+```
+packages/shared-types/src/dtos/
+└── discord.dto.ts                # DTOs Discord avec nomenclature cohérente
+```
+
+### Frontend (Angular)
+
+```
+apps/frontend/src/app/
+├── services/
+│   └── endpoint-tester.service.ts   # Service de test des APIs
+├── pages/
+│   └── endpoint-tester/             # Page de test interactive
+├── config/
+│   └── test-endpoints.config.ts    # Configuration des endpoints
+└── types/
+    └── endpoint-tester.types.ts     # Types pour le testeur
+```
+
+## Configuration Discord
+
+### Variables d'Environnement
+
+**Backend (`.env.development`)** :
+```env
+# Discord OAuth (existant)
+DISCORD_ENABLED=true
+DISCORD_CLIENT_ID=your-discord-client-id
+DISCORD_CLIENT_SECRET=your-discord-client-secret
+
+# Discord Bot Token (nouveau)
+DISCORD_BOT_TOKEN=your-discord-bot-token
+```
+
+### Scopes Discord OAuth
+
+Modifiez les scopes dans `apps/backend/src/modules/auth/strategies/discord.strategy.ts` :
+
+```typescript
+scope: ['identify', 'email', 'guilds'], // Ajout du scope 'guilds'
+```
+
+**Scopes supportés** :
+- `identify` - Informations utilisateur de base
+- `email` - Adresse email
+- `guilds` - Liste des serveurs Discord
+- `guilds.join` - Ajouter l'utilisateur à un serveur
+- `guilds.members.read` - Lire les membres des serveurs
+
+## API Endpoints Discord
+
+### Endpoints de Diagnostic
+
+| Endpoint | Méthode | Auth | Description |
+|----------|---------|------|-------------|
+| `/api/discord/ping` | GET | Non | Test de connectivité Discord API |
+
+### Endpoints Utilisateur
+
+| Endpoint | Méthode | Auth | Description |
+|----------|---------|------|-------------|
+| `/api/discord/user` | GET | Oui | Profil Discord de l'utilisateur connecté |
+| `/api/discord/user/:userId` | GET | Bot | Informations d'un utilisateur par ID |
+
+### Endpoints Serveurs
+
+| Endpoint | Méthode | Auth | Description |
+|----------|---------|------|-------------|
+| `/api/discord/guilds` | GET | Oui | Tous les serveurs de l'utilisateur |
+| `/api/discord/guilds/admin` | GET | Oui | Serveurs avec droits admin seulement |
+
+### Endpoints Debug
+
+| Endpoint | Méthode | Auth | Description |
+|----------|---------|------|-------------|
+| `/api/discord/debug/user-info` | GET | Oui | Infos utilisateur app + comptes liés |
+
+## Gestion des Permissions Discord
+
+### Détection des Droits Admin
+
+Le système détecte automatiquement les droits d'administration sur les serveurs Discord :
+
+```typescript
+// Un utilisateur a des droits admin s'il est :
+- Propriétaire du serveur (owner: true)
+- A la permission ADMINISTRATOR (0x8)
+- A la permission MANAGE_GUILD (0x20)
+```
+
+### Structure des DTOs
+
+**Nomenclature cohérente** : Tous les DTOs suivent le pattern `NomDto`
+
+```typescript
+// Types de base
+DiscordUserDto        // Utilisateur Discord
+DiscordGuildDto       // Serveur Discord avec infos admin
+DiscordGatewayDto     // Gateway Discord
+
+// Types de diagnostic (gardés pour métadonnées)
+DiscordPingResultDto  // Résultat ping avec latence
+```
+
+## Service Discord
+
+### Méthodes Principales
+
+```typescript
+class DiscordService {
+  // Test de connectivité
+  async ping(): Promise
+  
+  // Utilisateurs
+  async getAuthenticatedUser(token: string): Promise
+  async getUser(userId: string): Promise
+  
+  // Serveurs
+  async getUserGuilds(token: string): Promise
+  async getUserAdminGuilds(token: string): Promise
+  
+  // Utilitaires
+  formatUserAvatar(user: DiscordUserDto): string
+}
+```
+
+### Gestion d'Erreurs
+
+- **DTOs directs** pour les données métier
+- **Exceptions NestJS** pour les erreurs (pas de wrapper `{success, error}`)
+- **DTOs Result** seulement pour les endpoints de diagnostic avec métadonnées
+
+## Testeur d'Endpoints Intégré
+
+### Configuration des Tests
+
+Tous les endpoints sont configurés dans `test-endpoints.config.ts` :
+
+```typescript
+const TEST_ENDPOINTS: ApiEndpoint[] = [
+  {
+    id: 'discord-ping',
+    name: 'Discord API Ping',
+    method: 'GET',
+    url: '/api/discord/ping',
+    requiresAuth: false,
+    category: 'Discord - Diagnostic',
+    expectedResponse: 'DiscordPingResultDto'
+  },
+  // ... autres endpoints
+];
+```
+
+### Fonctionnalités
+
+- **Test unitaire** - Chaque endpoint individuellement
+- **Test par catégorie** - Tous les endpoints d'une catégorie
+- **Gestion automatique de l'auth** - Désactive les endpoints auth si non connecté
+- **Historique des résultats** - 50 derniers tests conservés
+- **Interface intuitive** - Groupage par catégorie, temps de réponse, statuts visuels
+
+### Accès
+
+```
+http://localhost:4200/endpoint-tester
+```
+
+## Intégration Dashboard
+
+### Profil Discord
+
+Le dashboard affiche automatiquement :
+- **Avatar Discord** (priorité sur l'avatar app)
+- **Nom d'utilisateur Discord** avec discriminator
+- **Statut de connexion** Discord dans les informations personnelles
+
+### Configuration AuthFacade
+
+```typescript
+// Le signal discordUser est automatiquement chargé lors de la connexion
+discordUser = signal(null);
+```
+
+## Installation et Configuration
+
+### 1. Ajouter le Module Discord
+
+```typescript
+// apps/backend/src/app.module.ts
+import { DiscordModule } from './modules/discord/discord.module';
+
+@Module({
+  imports: [
+    // ... autres modules
+    DiscordModule,
+  ],
+})
+export class AppModule {}
+```
+
+### 2. Compiler les Types Partagés
+
+```bash
+cd packages/shared-types
+npm run build
+```
+
+### 3. Ajouter les Routes Frontend
+
+```typescript
+// apps/frontend/src/app/app.routes.ts
+{
+  path: 'endpoint-tester',
+  component: EndpointTesterComponent,
+  title: 'API Endpoint Tester'
+}
+```
+
+### 4. Configurer les Scopes Discord
+
+1. **Modifier la stratégie Discord** pour inclure le scope `guilds`
+2. **Se reconnecter via Discord OAuth** pour obtenir les nouvelles permissions
+3. **Vérifier en base** que les tokens Discord sont sauvegardés
+
+## Configuration Bot Discord (Optionnel)
+
+Pour utiliser l'endpoint `/api/discord/user/:userId` :
+
+### 1. Créer un Bot Discord
+
+1. Aller sur https://discord.com/developers/applications
+2. Sélectionner votre application
+3. Aller dans "Bot" → "Add Bot"
+4. Copier le token
+
+### 2. Configurer le Token
+
+```env
+DISCORD_BOT_TOKEN=your-bot-token-here
+```
+
+### 3. Permissions Bot
+
+Le bot n'a besoin d'aucune permission spéciale pour les endpoints actuels.
+
+## Sécurité
+
+### Tokens
+
+- **User Tokens** : Utilisés pour les actions au nom de l'utilisateur (serveurs, profil)
+- **Bot Token** : Utilisé pour récupérer des informations publiques Discord
+- **Refresh automatique** : Géré par l'intercepteur Angular existant
+
+### Scopes Minimum
+
+Pour une app d'administration Discord de base :
+```typescript
+scope: ['identify', 'email', 'guilds']
+```
+
+### Variables Sensibles
+
+- `DISCORD_CLIENT_SECRET` et `DISCORD_BOT_TOKEN` ne doivent jamais être exposés côté client
+- Utiliser des variables d'environnement séparées pour production
+
+## Développement et Debug
+
+### Tests Rapides
+
+1. **Page testeur** - `http://localhost:4200/endpoint-tester`
+2. **Test ping** - Vérifier la connectivité Discord
+3. **Test auth** - Vérifier les tokens utilisateur
+4. **Test serveurs** - Lister les serveurs avec permissions
+
+### Logs Utiles
+
+```typescript
+// Debug token bot
+console.log('Bot token configured:', !!this.botToken);
+
+// Debug scopes utilisateur
+console.log('User accounts:', req.user.accounts);
+```
+
+### Erreurs Communes
+
+**"Discord bot token not configured"**
+- Vérifier `DISCORD_BOT_TOKEN` dans `.env.development`
+- Redémarrer le backend après modification
+
+**"No Discord account linked"**
+- Se reconnecter via Discord OAuth
+- Vérifier que les tokens sont sauvegardés en base
+
+**Scopes insuffisants**
+- Ajouter le scope `guilds` dans la stratégie Discord
+- Se reconnecter pour obtenir les nouvelles permissions
+
+## Extensibilité
+
+### Ajouter de Nouveaux Endpoints
+
+1. **Créer la méthode** dans `DiscordService`
+2. **Ajouter l'endpoint** dans `DiscordController`
+3. **Définir les types** dans `discord.dto.ts`
+4. **Configurer le test** dans `test-endpoints.config.ts`
+
+### Pattern Répétable
+
+```typescript
+// Service
+async getGuildMembers(guildId: string): Promise {
+  return this.makeDiscordRequest(
+    `/guilds/${guildId}/members`,
+    this.getBotHeaders()
+  );
+}
+
+// Controller
+@Get('guild/:guildId/members')
+async getGuildMembers(@Param('guildId') guildId: string): Promise {
+  return await this.discordService.getGuildMembers(guildId);
+}
+
+// Test config
+{
+  id: 'discord-guild-members',
+  name: 'Membres du serveur',
+  url: '/api/discord/guild/123456789/members',
+  requiresAuth: false,
+  category: 'Discord - Serveurs'
+}
+```
+
+Ce module Discord fournit une base solide et extensible pour créer des applications d'administration Discord complètes.

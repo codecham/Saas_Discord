@@ -17,6 +17,7 @@ export class DashboardComponent {
 
   // ===== SIGNAUX DE LA FAÇADE =====
   user = this.authFacade.user;
+  discordUser = this.authFacade.discordUser;
   isLoading = this.authFacade.isLoading;
   userRole = this.authFacade.userRole;
   isEmailVerified = this.authFacade.isEmailVerified;
@@ -69,6 +70,12 @@ export class DashboardComponent {
       default:
         return 'bg-blue-100 text-blue-800';
     }
+  }
+
+  getDiscordAvatarUrl(): string {
+  const discord = this.discordUser();
+  if (!discord?.avatar) return '';
+    return `https://cdn.discordapp.com/avatars/${discord.id}/${discord.avatar}.png`;
   }
 
   formatDate(date: Date | string): string {

@@ -26,6 +26,7 @@ export class AuthFacadeService {
 
   // ===== SIGNAUX PUBLICS (EXPOSÉS AUX COMPOSANTS) =====
   readonly user = this.authData.user;
+  readonly discordUser = this.authData.discordUser;
   readonly isAuthenticated = this.authData.isAuthenticated;
   readonly isLoading = this.authData.isLoading;
   readonly error = this.authData.error;
@@ -386,17 +387,19 @@ export class AuthFacadeService {
   /**
    * Charge le profil complet en arrière-plan (sans bloquer)
    */
-    private async loadProfileSilently(): Promise<void> {
+  private async loadProfileSilently(): Promise<void> {
     if (!this.authData.isAuthenticated()) {
       return;
     }
 
     try {
       const user = await firstValueFrom(this.authApi.getProfile());
+      const discordUser = await firstValueFrom(this.authApi.getDiscordUser());
       this.authData.setUser(user);
+      this.authData.setDiscordUser(discordUser);
     } catch (error) {
-      // En cas d'erreur, on garde l'utilisateur minimal du JWT
-      // L'utilisateur reste connecté mais avec des infos limitées
+    // En cas d'erreur, on garde l'utilisateur minimal du JWT
+    // L'utilisateur reste connecté mais avec des infos limitées
       console.warn('Impossible de charger le profil complet:', error);
     }
   }
