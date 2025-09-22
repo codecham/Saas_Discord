@@ -12,7 +12,9 @@
       "@guards/*": ["src/app/guards/*"],
       "@utils/*": ["src/app/utils/*"],
       "@interceptor/*": ["src/app/interceptors/*"],
-      "@environment/*": ["src/app/environments/*"]
+      "@environment/*": ["src/app/environments/*"],
+      "@interfaces/*": ["src/app/interfaces/*"],
+      "@config/*": ["src/app/config/*"],
     },
     "outDir": "./dist/out-tsc",
     "strict": true,

@@ -19,7 +19,7 @@ export class DiscordStrategy extends PassportStrategy(Strategy, 'discord') {
       clientSecret: config.clientSecret || 'placeholder',
       callbackURL:
         config.callbackUrl || 'http://localhost:3000/api/auth/discord/callback',
-      scope: ['identify', 'email'],
+      scope: ['identify', 'email', 'guilds', 'guilds.members.read'],
     });
 
     this.isEnabled = config.enabled;
@@ -50,6 +50,8 @@ export class DiscordStrategy extends PassportStrategy(Strategy, 'discord') {
       'discord',
       profile.id,
       avatar,
+      accessToken,
+      refreshToken,
     );
 
     return user;

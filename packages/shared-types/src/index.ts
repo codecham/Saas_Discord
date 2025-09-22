@@ -7,6 +7,7 @@
 export * from './dtos/auth.dto';
 export * from './dtos/test.dto';
 export * from './dtos/demo.dto';
+export * from './dtos/discord.dto';
 
 // Pour l'instant, on peut mettre un placeholder
 export const SHARED_TYPES_VERSION = '1.0.0';
