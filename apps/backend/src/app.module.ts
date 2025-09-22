@@ -10,6 +10,7 @@ import { DemoModule } from './modules/demo/demo.module';
 import { UsersService } from './modules/users/users.service';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { DiscordModule } from './modules/discord/discord.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { AuthModule } from './modules/auth/auth.module';
     DemoModule,
     UsersModule,
     AuthModule.forRoot(),
+    DiscordModule,
   ],
   controllers: [AppController, DemoController],
   providers: [AppService, PrismaService, DemoService, UsersService],

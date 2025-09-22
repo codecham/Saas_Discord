@@ -41,6 +41,11 @@ export interface UserDto {
   isActive: boolean;
   emailVerified: boolean;
   createdAt: Date;
+    accounts?: Array<{
+    provider: string;
+    accessToken: string | null;
+    providerAccountId: string;
+  }>;
 }
 
 // DTOs pour la gestion des utilisateurs

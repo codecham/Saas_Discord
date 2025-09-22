@@ -48,10 +48,27 @@ export class UsersService {
   async findById(id: string): Promise<UserDto | null> {
     const user = await this.prisma.user.findUnique({
       where: { id },
+      include: {
+        accounts: true, // Inclure les comptes OAuth liés
+      },
     });
 
     if (!user) return null;
-    return this.toUserDto(user);
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name || '',
+      avatar: user.avatar || undefined,
+      role: user.role,
+      isActive: user.isActive,
+      emailVerified: !!user.emailVerified,
+      createdAt: user.createdAt,
+      accounts: user.accounts.map((account) => ({
+        provider: account.provider,
+        accessToken: account.accessToken,
+        providerAccountId: account.providerAccountId,
+      })),
+    };
   }
 
   async update(id: string, data: UpdateUserDto): Promise<UserDto> {
@@ -75,6 +92,8 @@ export class UsersService {
     provider: string,
     providerAccountId: string,
     avatar?: string,
+    accessToken?: string,
+    refreshToken?: string,
   ): Promise<User> {
     // Chercher utilisateur existant
     let user = await this.prisma.user.findUnique({
@@ -89,13 +108,24 @@ export class UsersService {
       );
 
       if (!existingAccount) {
-        // Lier le nouveau compte OAuth
+        // Créer nouveau compte OAuth
         await this.prisma.account.create({
           data: {
             userId: user.id,
             provider,
             providerAccountId,
             type: 'oauth',
+            accessToken,
+            refreshToken,
+          },
+        });
+      } else {
+        // CORRIGER ICI : Mettre à jour les tokens du compte existant
+        await this.prisma.account.update({
+          where: { id: existingAccount.id },
+          data: {
+            accessToken,
+            refreshToken,
           },
         });
       }
@@ -113,6 +143,8 @@ export class UsersService {
               provider,
               providerAccountId,
               type: 'oauth',
+              accessToken, // CORRIGER ICI : Ajouter les tokens
+              refreshToken, // CORRIGER ICI : Ajouter les tokens
             },
           },
         },
