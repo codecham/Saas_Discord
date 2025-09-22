@@ -1,6 +1,6 @@
 // services/auth/auth-data.service.ts
 import { Injectable, signal, computed } from '@angular/core';
-import { AuthState, AuthTokens, UserDto } from '@my-project/shared-types';
+import { AuthState, AuthTokens, UserDto, DiscordUserDto } from '@my-project/shared-types';
 
 @Injectable({
   providedIn: 'root'
@@ -10,6 +10,7 @@ export class AuthDataService {
   // Ces signaux ne doivent JAMAIS être exposés directement aux composants
   
   private readonly _user = signal<UserDto | null>(null);
+  private readonly _discordUser = signal<DiscordUserDto | null>(null);
   private readonly _isLoading = signal<boolean>(false);
   private readonly _error = signal<string | null>(null);
   private readonly _tokens = signal<AuthTokens | null>(null);
@@ -18,6 +19,7 @@ export class AuthDataService {
   // Ces signaux sont exposés en lecture seule pour les composants
   
   readonly user = this._user.asReadonly();
+  readonly discordUser = this._discordUser.asReadonly();
   readonly isLoading = this._isLoading.asReadonly();
   readonly error = this._error.asReadonly();
   
@@ -69,6 +71,10 @@ export class AuthDataService {
     return this._error();
   }
 
+  getDiscordUser(): DiscordUserDto | null {
+    return this._discordUser();
+  }
+
   // ===== SETTERS PRIVÉS =====
   // Ces setters permettent à la façade de modifier l'état
   
@@ -78,6 +84,10 @@ export class AuthDataService {
     if (user) {
       this._error.set(null);
     }
+  }
+
+  setDiscordUser(discordUser: DiscordUserDto | null): void {
+    this._discordUser.set(discordUser);
   }
 
   setTokens(tokens: AuthTokens | null): void {

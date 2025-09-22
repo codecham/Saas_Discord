@@ -27,7 +27,7 @@ export const TEST_ENDPOINTS: ApiEndpoint[] = [
   {
     id: 'discord-user-by-id',
     name: 'Utilisateur Discord par ID',
-    description: 'Récupère un utilisateur Discord par son ID (token bot)',
+    description: 'Récupère un utilisateur Discord par son ID (token bot): Ajouter idUser',
     method: 'GET',
     url: '/api/discord/user/',
     requiresAuth: false,

@@ -9,6 +9,7 @@ import {
   RegisterDto,
   RefreshTokenDto,
   UserDto,
+  DiscordUserDto,
 } from '@my-project/shared-types'; // Ajuste le chemin
 
 @Injectable({
@@ -16,6 +17,7 @@ import {
 })
 export class AuthApiService {
   private readonly baseUrl = `${environment.apiUrl}/api/auth`; // Ajuste selon ton config
+  private readonly baseUrlDiscord = `${environment.apiUrl}/api/discord`;
   private http = inject(HttpClient);
 
   // ===== AUTHENTIFICATION LOCALE =====
@@ -26,6 +28,10 @@ export class AuthApiService {
 
   register(userData: RegisterDto): Observable<AuthResponseDto> {
     return this.http.post<AuthResponseDto>(`${this.baseUrl}/register`, userData);
+  }
+
+  getDiscordUser(): Observable<DiscordUserDto> {
+    return this.http.get<DiscordUserDto>(`${this.baseUrlDiscord}/user`);
   }
 
   // ===== GESTION DES TOKENS =====
