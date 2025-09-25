@@ -9,7 +9,10 @@
   "scripts": {
     "dev:backend": "npm run start:dev --workspace=apps/backend",
     "dev:frontend": "npm run start --workspace=apps/frontend",
-    "dev:all": "npm run db:up && concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:gateway": "cd apps/gateway && npm run start:dev",
+    "dev:bot": "cd apps/bot && npm run watch:start",
+    "dev:all": "npm run db:up && concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:gateway\" \"npm run dev:bot\"",
+    "build:gateway": "cd apps/gateway && npm run build",
     "db:up": "cd infrastructure/docker && docker-compose --env-file .env.dev -f docker-compose.dev.yml up -d",
     "db:down": "cd infrastructure/docker && docker-compose --env-file .env.dev -f docker-compose.dev.yml down",
     "db:logs": "cd infrastructure/docker && docker-compose --env-file .env.dev -f docker-compose.dev.yml logs -f",
@@ -35,5 +38,9 @@
   "devDependencies": {
     "concurrently": "^8.0.0",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@sapphire/framework": "^5.3.6",
+    "discord.js": "^14.22.1"
   }
 }
