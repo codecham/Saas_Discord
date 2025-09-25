@@ -2,16 +2,22 @@ import { ApplyOptions } from '@sapphire/decorators';
 import { Listener } from '@sapphire/framework';
 import type { StoreRegistryValue } from '@sapphire/pieces';
 import { blue, gray, green, magenta, magentaBright, white, yellow } from 'colorette';
+import { EventType } from '@my-project/shared-types';
+import { BotEventDto } from '@my-project/shared-types';
 
 const dev = process.env.NODE_ENV !== 'production';
 
 @ApplyOptions<Listener.Options>({ once: true })
 export class UserEvent extends Listener {
 	private readonly style = dev ? yellow : blue;
+	private sendReady: boolean = false;
 
 	public override run() {
 		this.printBanner();
 		this.printStoreDebugInformation();
+		if (this.sendReady) {
+			this.sendReadyToBackend();
+		}
 	}
 
 	private printBanner() {
@@ -48,4 +54,26 @@ ${line03}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('DEVELOPMENT MO
 	private styleStore(store: StoreRegistryValue, last: boolean) {
 		return gray(`${last ? '└─' : '├─'} Loaded ${this.style(store.size.toString().padEnd(3, ' '))} ${store.name}.`);
 	}
+
+	private sendReadyToBackend() {
+		let done: boolean = false;
+		let i = 0;
+		const readyEvent: BotEventDto = {
+			type: EventType.Ready,
+			guildId: '0',
+			timestamp: Date.now()
+		}
+		const arrayEvent: BotEventDto[] = [];
+
+		arrayEvent.push(readyEvent);
+		while (!done && i < 1000) {
+			console.log(`Try to send ready to backend...`);
+			done = this.container.ws.sendToBackend(arrayEvent);
+		}
+		if (done) {
+			console.log(`Ready send to backend success`);
+		} else {
+			console.log(`Failed to send ready to backend`);
+		}
+	}	
 }
