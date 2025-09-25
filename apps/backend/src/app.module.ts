@@ -11,6 +11,7 @@ import { UsersService } from './modules/users/users.service';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { DiscordModule } from './modules/discord/discord.module';
+import { GatewayModule } from './modules/gateway/gateway.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { DiscordModule } from './modules/discord/discord.module';
     UsersModule,
     AuthModule.forRoot(),
     DiscordModule,
+    GatewayModule,
   ],
   controllers: [AppController, DemoController],
   providers: [AppService, PrismaService, DemoService, UsersService],
