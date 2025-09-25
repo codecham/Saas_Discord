@@ -4,11 +4,11 @@ export interface GatewayConfig {
   heartbeatInterval: number;
 }
 
-export interface BotConfig {
-  id: string;
-  name: string;
-  token: string;
-}
+// export interface BotConfig {
+//   id: string;
+//   name: string;
+//   token: string;
+// }
 
 export interface ConnectedBot {
   id: string;
