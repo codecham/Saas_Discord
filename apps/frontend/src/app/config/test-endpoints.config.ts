@@ -89,6 +89,15 @@ export const TEST_ENDPOINTS: ApiEndpoint[] = [
     requiresAuth: false,
     category: 'Demo',
     expectedResponse: 'Stats de la base de données'
+  },
+  {
+    id: 'ping-bot',
+    name: 'Ping bot',
+    description: 'Test la communication depuis le backend vers le bot à travers la gateway',
+    method: "GET",
+    url: "/api/gateway/ping",
+    requiresAuth: false,
+    category: "Bot"
   }
 ];
 

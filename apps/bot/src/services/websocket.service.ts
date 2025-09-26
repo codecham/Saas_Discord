@@ -92,13 +92,14 @@ export class WebSocketService {
 
   private handleBackendMessage(data: any) {
     // Traiter les commandes du backend si nécessaire
-    switch (data.type) {
-      case 'command':
-        container.logger.info(`Commande reçue: ${data.command}`);
-        break;
-      default:
-        container.logger.debug('Message backend non traité:', data);
-    }
+    container.logger.info(`Commande reçue depuis le backend ${data}`);
+    // switch (data.type) {
+    //   case 'command':
+    //     container.logger.info(`Commande reçue: ${data.command}`);
+    //     break;
+    //   default:
+    //     container.logger.debug('Message backend non traité:', data);
+    // }
   }
 
 
