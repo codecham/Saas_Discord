@@ -1,6 +1,6 @@
 export const BOT_CONFIG = {
   bot: {
-    id: '1380932158155391068',
+    id: '0',
     name: 'Discord Bot Principal',
   },
   

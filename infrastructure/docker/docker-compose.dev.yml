@@ -34,7 +34,7 @@ services:
       ADMINER_DEFAULT_SERVER: postgres
     depends_on:
       - postgres
-
+  
 volumes:
   postgres_data:
   redis_data:
