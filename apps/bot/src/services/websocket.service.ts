@@ -102,7 +102,6 @@ export class WebSocketService {
     // }
   }
 
-
   /**
    * Envoie des données au backend
    */

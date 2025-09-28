@@ -1226,3 +1226,297 @@ async getGuildMembers(@Param('guildId') guildId: string): Promise {
 ```
 
 Ce module Discord fournit une base solide et extensible pour créer des applications d'administration Discord complètes.
+
+# Système Discord Bot - Documentation
+
+Cette section décrit l'architecture complète du système Discord Bot intégré au template, permettant la création d'applications d'administration et de modération Discord.
+
+## Architecture du Système
+
+### Structure des Applications
+
+```
+apps/
+├── backend/                    # API NestJS principal
+├── frontend/                   # Application Angular
+├── gateway/                    # Gateway NestJS WebSocket
+└── discord-bot/               # Bot Discord SapphireJS
+```
+
+### Flux de Communication
+
+```
+Discord ↔ Bot SapphireJS ↔ Gateway NestJS ↔ Backend Principal ↔ Base de données
+                                ↕
+                         Frontend Angular (WebSocket optionnel)
+```
+
+## Architecture Technique
+
+### Gateway NestJS (Port 3001)
+
+**Rôle** : Hub de communication WebSocket entre les bots Discord et le backend principal.
+
+```
+apps/gateway/
+├── src/
+│   ├── modules/bot-gateway/
+│   │   ├── bot.gateway.ts              # WebSocket Gateway principal
+│   │   ├── services/
+│   │   │   └── bot-connection.service.ts # Gestion des connexions bots
+│   │   └── bot-gateway.module.ts
+│   ├── app.module.ts
+│   └── main.ts
+├── .env.development
+└── package.json
+```
+
+**Fonctionnalités** :
+- Gestion des connexions WebSocket multiples
+- Routage des messages Bot ↔ Backend
+- Monitoring des bots connectés
+- Support multi-bots (extensible)
+
+### Bot Discord SapphireJS
+
+**Rôle** : Bot Discord qui capture les événements et les transmet à la Gateway.
+
+```
+apps/discord-bot/
+├── src/
+│   ├── services/
+│   │   ├── gateway-client.service.ts   # Connexion WebSocket à la Gateway
+│   │   └── event-storage.service.ts    # Stockage SQLite événements hors-ligne
+│   ├── listeners/                      # Listeners Discord (guildCreate, messageCreate...)
+│   ├── config/
+│   │   └── bot.config.ts              # Configuration centralisée
+│   └── index.ts
+├── .env
+└── data/events.sqlite                 # Base SQLite pour événements offline
+```
+
+**Fonctionnalités** :
+- Écoute des événements Discord temps réel
+- Transmission via WebSocket à la Gateway
+- Stockage local SQLite en cas de déconnexion
+- Reconnexion automatique avec envoi en batch
+
+### Backend Principal
+
+**Extensions pour Discord** :
+
+```
+apps/backend/src/modules/
+├── gateway/
+│   ├── controllers/gateway.controller.ts    # Endpoints test/contrôle
+│   └── services/gateway-client.service.ts   # Client WebSocket vers Gateway
+├── guild/
+│   ├── services/guild-sync.service.ts       # Synchronisation guilds Discord
+│   └── controllers/guild.controller.ts      # API gestion des serveurs
+└── discord/                                 # Module API Discord existant
+```
+
+## Configuration et Variables d'Environnement
+
+### Gateway (`apps/gateway/.env.development`)
+
+```env
+# Gateway Configuration
+GATEWAY_PORT=3001
+NODE_ENV=development
+
+# CORS et sécurité
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:4200
+
+# Connexion avec le backend principal
+BACKEND_URL=http://localhost:3000
+```
+
+### Bot Discord (`apps/discord-bot/.env`)
+
+```env
+# Discord Bot Configuration
+DISCORD_TOKEN=your-discord-bot-token-here
+BOT_ID=main-discord-bot
+BOT_NAME=Discord Bot Principal
+
+# Gateway Connection
+GATEWAY_URL=http://localhost:3001
+GATEWAY_RECONNECT_INTERVAL=5000
+
+# Stockage local
+SERVICE_NAME=discord-bot
+LOG_LEVEL=debug
+```
+
+### Backend (`apps/backend/.env.development`)
+
+```env
+# Gateway WebSocket (nouveau)
+GATEWAY_URL=http://localhost:3001
+
+# Variables Discord existantes
+DISCORD_ENABLED=true
+DISCORD_CLIENT_ID=your-discord-client-id
+DISCORD_CLIENT_SECRET=your-discord-client-secret
+DISCORD_BOT_TOKEN=your-discord-bot-token
+```
+
+## Modèles de Données
+
+### Guild (Serveurs Discord)
+
+```prisma
+model Guild {
+  id             String  @id @default(cuid())
+  discordGuildId String  @unique @map("discord_guild_id")
+  name           String
+  icon           String?
+  ownerDiscordId String  @map("owner_discord_id")
+  
+  // Status
+  botAddedAt DateTime @default(now()) @map("bot_added_at")
+  isActive   Boolean  @default(true) @map("is_active")
+  
+  // Métadonnées
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("guilds")
+}
+```
+
+### Types Partagés
+
+```typescript
+// packages/shared-types/src/dtos/gateway.dto.ts
+export interface BotEventDto {
+  type: EventType;           // Type d'événement Discord
+  guildId: string;          // ID du serveur Discord
+  userId?: string;          // ID utilisateur (optionnel)
+  channelId?: string;       // ID channel (optionnel)
+  messageId?: string;       // ID message (optionnel)
+  roleId?: string;          // ID rôle (optionnel)
+  timestamp: Date;          // Horodatage
+  data?: any;              // Données supplémentaires
+}
+```
+
+## Démarrage et Développement
+
+### Scripts NPM Mis à Jour
+
+```json
+{
+  "scripts": {
+    "dev:backend": "npm run start:dev --workspace=apps/backend",
+    "dev:frontend": "npm run start --workspace=apps/frontend",
+    "dev:gateway": "cd apps/gateway && npm run start:dev",
+    "dev:bot": "cd apps/discord-bot && npm run dev",
+    "dev:all": "npm run db:up && concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:gateway\" \"npm run dev:bot\"",
+    
+    "build:gateway": "cd apps/gateway && npm run build",
+    "build:bot": "cd apps/discord-bot && npm run build"
+  }
+}
+```
+
+### Démarrage du Système Complet
+
+```bash
+# 1. Setup initial (base de données, migrations)
+npm run setup
+
+# 2. Démarrer tous les services
+npm run dev:all
+
+# Ou démarrage séquentiel pour debug :
+npm run dev:gateway    # Port 3001
+npm run dev:backend    # Port 3000  
+npm run dev:frontend   # Port 4200
+npm run dev:bot        # Se connecte à la Gateway
+```
+
+### Ordre de Démarrage Recommandé
+
+1. **Base de données** (PostgreSQL + Redis via Docker)
+2. **Gateway** - Hub de communication
+3. **Backend** - Se connecte à la Gateway
+4. **Bot Discord** - Se connecte à la Gateway
+5. **Frontend** - Interface utilisateur
+
+## API Endpoints Discord
+
+### Gestion des Serveurs
+
+| Endpoint | Méthode | Description |
+|----------|---------|-------------|
+| `GET /api/guilds` | GET | Liste des serveurs où le bot est présent |
+| `GET /api/guilds/stats` | GET | Statistiques des serveurs |
+| `POST /api/guilds/sync` | POST | Force la synchronisation des serveurs |
+
+### Test de la Gateway
+
+| Endpoint | Méthode | Description |
+|----------|---------|-------------|
+| `GET /api/gateway/ping` | GET | Test communication Backend → Gateway → Bot |
+| `GET /api/gateway/status` | GET | Statut de connexion Gateway |
+| `POST /api/gateway/send-to-bot/:botId` | POST | Envoyer message à un bot spécifique |
+| `POST /api/gateway/broadcast` | POST | Diffuser message à tous les bots |
+
+## Fonctionnalités Clés
+
+### Gestion des Événements Discord
+
+- **Temps réel** : Transmission immédiate des événements Discord
+- **Offline resilience** : Stockage SQLite local en cas de déconnexion
+- **Batch processing** : Envoi par batch lors de la reconnexion
+- **Configuration flexible** : Événements activés/désactivés via config
+
+### Synchronisation des Serveurs
+
+- **Sync automatique** : Lors des événements `guildCreate`/`guildDelete`
+- **Sync complète** : Au démarrage du bot
+- **Gestion des états** : Serveurs actifs/inactifs selon présence du bot
+- **API de contrôle** : Endpoints pour forcer la synchronisation
+
+### Communication Multi-Services
+
+- **WebSocket bidirectionnel** : Communication temps réel
+- **Support multi-bots** : Architecture extensible pour plusieurs bots
+- **Monitoring** : Suivi des connexions et heartbeat
+- **Commandes à distance** : Envoi de commandes aux bots depuis le backend
+
+## Tests et Debug
+
+### Test de Connectivité
+
+```bash
+# Test ping complet Backend → Gateway → Bot
+curl http://localhost:3000/api/gateway/ping
+
+# Test statut Gateway
+curl http://localhost:3000/api/gateway/status
+
+# Test liste des serveurs
+curl http://localhost:3000/api/guilds
+```
+
+### Logs et Monitoring
+
+- **Gateway** : Logs des connexions WebSocket et routage des messages
+- **Bot** : Logs des événements Discord et connexion Gateway
+- **Backend** : Logs de traitement des événements et synchronisation
+- **Stockage** : SQLite pour persistance des événements offline
+
+## Architecture Extensible
+
+Le système est conçu pour supporter :
+
+- **Multiple bots Discord** sur différents serveurs
+- **Événements personnalisés** via la configuration
+- **Intégrations tierces** via l'API Gateway
+- **Scaling horizontal** avec load balancing des bots
+
+Cette architecture fournit une base robuste pour créer des applications Discord complètes avec administration, modération et monétisation des serveurs Discord.
+

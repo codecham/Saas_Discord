@@ -11,11 +11,6 @@ export const BOT_CONFIG = {
   events: {
     enabled: [
       'messageCreate',
-      'guildCreate', 
-      'guildDelete',
-      'guildMemberAdd',
-      'guildMemberRemove',
-      'bot:ready'
     ],
   },
   storage: {
