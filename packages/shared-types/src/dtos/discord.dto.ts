@@ -1,5 +1,7 @@
 // packages/shared-types/src/dtos/discord.dto.ts
 
+import { EventType } from "../enums/eventTypes.enum";
+
 // N'oublie pas d'ajouter ceci dans packages/shared-types/src/index.ts :
 // export * from './dtos/discord.dto';
 
@@ -48,4 +50,13 @@ export interface DiscordPingResultDto {
   latency?: number;
   gateway?: string;
   error?: string;
+}
+
+export interface GuildDTO {
+	id: string;
+	name?: string;
+	icon?: string | null;
+	ownerId?: string;
+	memberCount?: number;
+	joined_at?: Date;
 }

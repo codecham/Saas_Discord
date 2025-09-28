@@ -1,7 +1,7 @@
 import { BotEventDto } from '@my-project/shared-types';
 import { ApplyOptions } from '@sapphire/decorators';
 import { Listener } from '@sapphire/framework';
-import { Message } from 'discord.js';
+import { Message, MessageType } from 'discord.js';
 import { EventType } from '@my-project/shared-types';
 
 @ApplyOptions<Listener.Options>({
@@ -9,7 +9,7 @@ import { EventType } from '@my-project/shared-types';
 })
 export class MessageCreateListener extends Listener {
 	public override run(message: Message) {
-		if (!this.shouldProcessMessage) {
+		if (!this.shouldProcessMessage(message)) {
 			return;
 		}
 		this.container.logger.info(`MessageCreate event catch!`);
@@ -41,8 +41,9 @@ export class MessageCreateListener extends Listener {
 			return false;
 		}
 
-		//UserJoin
-		if (message.type == 7) {
+		// Ignorer les messages système (UserJoin, etc.)
+		// MessageType.UserJoin = 7, mais il y en a d'autres
+		if (message.type !== MessageType.Default && message.type !== MessageType.Reply) {
 			return false;
 		}
 		return true;

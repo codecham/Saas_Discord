@@ -68,40 +68,26 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-model DiscordGuild {
-  id                String   @id // Discord Guild ID (snowflake)
-  name              String
-  icon              String?
-  description       String?
+model Guild {
+  id             String  @id @default(cuid())
+  discordGuildId String  @unique @map("discord_guild_id")
+  name           String
+  icon           String?
+  ownerDiscordId String  @map("owner_discord_id")
   
-  // Propriétaire Discord
-  ownerId           String
+  // Status
+  botAddedAt DateTime @default(now()) @map("bot_added_at")
+  isActive   Boolean  @default(true) @map("is_active")
   
-  // Métadonnées Discord
-  memberCount       Int      @default(0)
-  premiumTier       Int      @default(0)
-  preferredLocale   String?
-  
-  // Paramètres du bot
-  isActive          Boolean  @default(true)
-  joinedAt          DateTime @default(now())
-  leftAt            DateTime?
-  
-  // Configuration bot (JSON pour flexibilité)
-  botConfig         Json?
-  
-  // Timestamps
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
+  // Métadonnées
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   // Relations (à ajouter plus tard)
   // members         DiscordMember[]
   // channels        DiscordChannel[]
   // events          BotEvent[]
-  
-  @@map("discord_guilds")
-  @@index([isActive, joinedAt])
-  @@index([ownerId])
+  @@map("guilds")
 }
 
 

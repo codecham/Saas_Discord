@@ -40,6 +40,7 @@ export enum EventType {
 	GuildDelete = 'GuildDelete',
 	GuildUpdate = 'GuildUpdate',
 	GuildList = 'GuildList',
+	GuildSync = 'GuildSync',
 	GuildUnavailable = 'GuildUnavailable',
 	GuildIntegrationsUpdate = 'GuildIntegrationsUpdate',
 

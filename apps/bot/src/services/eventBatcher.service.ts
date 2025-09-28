@@ -12,7 +12,7 @@ enum PriorityTime {
 	SLOW = 10000
 }
 
-export class EvenBatcher {
+export class EventBatcher {
 	private batches = new Map<string, BotEventDto[]>();
 	private timers = new Map<string, NodeJS.Timeout>();
 
@@ -26,6 +26,7 @@ export class EvenBatcher {
 		presenceUpdate: { maxSize: 100, maxWait: PriorityTime.SLOW }, // 100 présences ou 15s
 		guildBanAdd: { maxSize: 1, maxWait: PriorityTime.CRITICAL },
 		guildMemberRemove: { maxSize: 1, maxWait: PriorityTime.CRITICAL },
+		guildSync: { maxSize: 1, maxWait: PriorityTime.CRITICAL},
 		default: { maxSize: 50, maxWait: PriorityTime.SLOW }
 	};
 
