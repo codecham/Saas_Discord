@@ -131,9 +131,9 @@ export class GatewayClientService implements OnModuleInit {
       // Upsert chaque guild
       for (const guildData of guildsData) {
         await this.prisma.guild.upsert({
-          where: { discordGuildId: guildData.id }, // Correction: utiliser guildData.id
+          where: { guildId: guildData.id }, // Correction: utiliser guildData.id
           create: {
-            discordGuildId: guildData.id,
+            guildId: guildData.id,
             name: guildData.name || 'Nom inconnu', // Gérer les champs optionnels
             icon: guildData.icon,
             ownerDiscordId: guildData.ownerId || 'unknown',
@@ -162,9 +162,9 @@ export class GatewayClientService implements OnModuleInit {
   private async handleGuildCreate(guildData: GuildDTO) {
     try {
       await this.prisma.guild.upsert({
-        where: { discordGuildId: guildData.id },
+        where: { guildId: guildData.id },
         create: {
-          discordGuildId: guildData.id,
+          guildId: guildData.id,
           name: guildData.name || 'Nom inconnu',
           icon: guildData.icon,
           ownerDiscordId: guildData.ownerId || 'unknown',
@@ -187,20 +187,20 @@ export class GatewayClientService implements OnModuleInit {
   }
 
   private async handleGuildDelete(guildData: GuildDTO) {
-    const discordGuildId: string = guildData.id;
+    const guildId: string = guildData.id;
     // Correction du type
     try {
       await this.prisma.guild.update({
-        where: { discordGuildId },
+        where: { guildId },
         data: {
           isActive: false,
           updatedAt: new Date(),
         },
       });
 
-      console.log(`Guild marquée inactive: ${discordGuildId}`);
+      console.log(`Guild marquée inactive: ${guildId}`);
     } catch (error) {
-      console.error(`Erreur handleGuildDelete pour ${discordGuildId}:`, error);
+      console.error(`Erreur handleGuildDelete pour ${guildId}:`, error);
       // Ne pas throw car la guild n'existe peut-être pas en DB
     }
   }
@@ -208,7 +208,7 @@ export class GatewayClientService implements OnModuleInit {
   private async handleGuildUpdate(guildData: GuildDTO) {
     try {
       await this.prisma.guild.update({
-        where: { discordGuildId: guildData.id },
+        where: { guildId: guildData.id },
         data: {
           name: guildData.name || 'Nom inconnu',
           icon: guildData.icon,

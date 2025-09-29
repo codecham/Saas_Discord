@@ -70,7 +70,7 @@ model RefreshToken {
 
 model Guild {
   id             String  @id @default(cuid())
-  discordGuildId String  @unique @map("discord_guild_id")
+  guildId        String  @unique @map("discord_guild_id")
   name           String
   icon           String?
   ownerDiscordId String  @map("owner_discord_id")
