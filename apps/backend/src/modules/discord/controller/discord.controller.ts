@@ -49,6 +49,7 @@ export class DiscordController {
    * Récupère les infos de l'utilisateur Discord connecté
    * GET /api/discord/user
    */
+
   @UseGuards(JwtAuthGuard)
   @Get('user')
   async getAuthenticatedUser(

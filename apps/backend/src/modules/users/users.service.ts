@@ -143,8 +143,8 @@ export class UsersService {
               provider,
               providerAccountId,
               type: 'oauth',
-              accessToken, // CORRIGER ICI : Ajouter les tokens
-              refreshToken, // CORRIGER ICI : Ajouter les tokens
+              accessToken,
+              refreshToken,
             },
           },
         },

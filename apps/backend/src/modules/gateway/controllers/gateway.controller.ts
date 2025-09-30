@@ -35,7 +35,6 @@ export class GatewayController {
     } catch (error) {
       return {
         success: false,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         message: `Erreur: ${error.message}`,
         timestamp: new Date().toISOString(),
       };
