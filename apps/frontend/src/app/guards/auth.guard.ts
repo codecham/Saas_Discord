@@ -1,8 +1,7 @@
 // guards/auth.guard.ts
 import { CanActivateFn, Router } from '@angular/router';
 import { inject } from '@angular/core';
-
-import { AuthFacadeService } from '../services/auth/auth-facade.service';
+import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
 
 export const authGuard: CanActivateFn = (route, state) => {
   const authFacade = inject(AuthFacadeService);
@@ -17,6 +16,7 @@ export const authGuard: CanActivateFn = (route, state) => {
   sessionStorage.setItem('returnUrl', state.url);
   
   // Rediriger vers la page de connexion
-  router.navigate(['/login']);
-  return false;
+  // router.navigate(['/login']);
+  // return false;
+  return router.parseUrl('/login');
 };

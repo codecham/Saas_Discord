@@ -12,7 +12,7 @@ import { LoginDto } from '@my-project/shared-types';
   imports: [
     CommonModule,
     ReactiveFormsModule,
-    RouterLink
+    RouterLink,
   ],
   templateUrl: './login.component.html',
   styleUrl: './login.component.scss'
