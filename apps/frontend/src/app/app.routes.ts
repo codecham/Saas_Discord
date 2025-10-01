@@ -6,13 +6,14 @@ import { LoginComponent } from './pages/login/login.component';
 import { AuthCallbackComponent } from './pages/auth-callback/auth-callback.component';
 import { guestGuard } from './guards/guest.guard';
 import { EndpointTesterComponent } from './pages/endpoints-tester/endpoints-tester.component';
+import { testGuard } from './guards/test.guard';
 
 export const routes: Routes = [
-    { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
+    { path: '', redirectTo: '/login', pathMatch: 'full' },
     {
       path: 'login',
       component: LoginComponent,
-      canActivate: [guestGuard],
+      // canActivate: [guestGuard],
     },
     {
       path: 'auth/callback',
@@ -21,7 +22,7 @@ export const routes: Routes = [
     {
       path: 'dashboard',
       component: DashboardComponent,
-      canActivate: [authGuard],
+      canActivate: [testGuard],
     },
     {
       path: 'demo',
