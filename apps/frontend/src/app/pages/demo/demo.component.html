@@ -1,0 +1,107 @@
+<div class="demo-container">
+  <h1>Template Demo - Tests de fonctionnalité</h1>
+  <p>Cette page teste tous les composants du template pour vérifier que tout fonctionne correctement.</p>
+
+  <!-- Boutons d'action -->
+  <div class="actions">
+    <button (click)="runAllTests()" [disabled]="loading()" class="btn btn-primary">
+      @if (loading()) {
+        <span>Tests en cours...</span>
+      } @else {
+        <span>Lancer tous les tests</span>
+      }
+    </button>
+  </div>
+
+  <!-- Erreur globale -->
+  @if (error()) {
+    <div class="alert alert-error">
+      {{ error() }}
+    </div>
+  }
+
+  <!-- Tests individuels -->
+  <div class="tests-grid">
+    
+    <!-- Test Health Check -->
+    <div class="test-card">
+      <div class="test-header">
+        <h3>🏥 Health Check</h3>
+        <button (click)="testEndpoint('health')" [disabled]="loading()" class="btn btn-small">
+          Test
+        </button>
+      </div>
+      
+      @if (healthStatus()) {
+        <div class="test-result" [class.success]="healthStatus()?.status === 'ok'" [class.error]="healthStatus()?.status === 'error'">
+          <p><strong>Statut:</strong> {{ healthStatus()?.status }}</p>
+          <p><strong>Timestamp:</strong> {{ healthStatus()?.timestamp | date:'short' }}</p>
+          
+          <h4>Services:</h4>
+          <ul>
+            @for (service of healthStatus()?.services; track service.name) {
+              <li [class.success]="service.status === 'ok'" [class.error]="service.status === 'error'">
+                <strong>{{ service.name }}:</strong> {{ service.message }}
+                @if (service.responseTime) {
+                  <span class="response-time">({{ service.responseTime }}ms)</span>
+                }
+              </li>
+            }
+          </ul>
+        </div>
+      }
+    </div>
+
+    <!-- Test Database -->
+    <div class="test-card">
+      <div class="test-header">
+        <h3>🗄️ Base de données</h3>
+        <button (click)="testEndpoint('database')" [disabled]="loading()" class="btn btn-small">
+          Test
+        </button>
+      </div>
+      
+      @if (databaseInfo()) {
+        <div class="test-result" [class.success]="databaseInfo()?.connected" [class.error]="!databaseInfo()?.connected">
+          <p><strong>Connexion:</strong> {{ databaseInfo()?.connected ? 'OK' : 'Erreur' }}</p>
+          <p><strong>Utilisateurs:</strong> {{ databaseInfo()?.userCount }}</p>
+          <p><strong>Comptes:</strong> {{ databaseInfo()?.accountCount }}</p>
+        </div>
+      }
+    </div>
+
+    <!-- Test Types Partagés -->
+    <div class="test-card">
+      <div class="test-header">
+        <h3>🔗 Types Partagés</h3>
+        <button (click)="testEndpoint('shared-types')" [disabled]="loading()" class="btn btn-small">
+          Test
+        </button>
+      </div>
+      
+      @if (sharedTypesTest()) {
+        <div class="test-result success">
+          <p><strong>Message:</strong> {{ sharedTypesTest()?.message }}</p>
+          <p><strong>Frontend:</strong> {{ sharedTypesTest()?.frontend }}</p>
+          <p><strong>Backend:</strong> {{ sharedTypesTest()?.backend }}</p>
+          <p><strong>Types fonctionnent:</strong> {{ sharedTypesTest()?.typesWorking ? 'Oui' : 'Non' }}</p>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Données brutes pour debug -->
+  <details class="debug-section">
+    <summary>Données brutes (Debug)</summary>
+    <div class="debug-content">
+      <h4>Health Status:</h4>
+      <pre>{{ healthStatus() | json }}</pre>
+      
+      <h4>Database Info:</h4>
+      <pre>{{ databaseInfo() | json }}</pre>
+      
+      <h4>Shared Types Test:</h4>
+      <pre>{{ sharedTypesTest() | json }}</pre>
+    </div>
+  </details>
+</div>

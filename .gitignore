@@ -1,0 +1,321 @@
+# =============================================================================
+# FULLSTACK TEMPLATE - .GITIGNORE COMPLET
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# VARIABLES D'ENVIRONNEMENT ET SECRETS
+# ------------------------------------------------------------------------------
+.env
+.env.local
+.env.development
+.env.production
+.env.staging
+.env.test
+
+# Variables Docker
+infrastructure/docker/.env.dev
+infrastructure/docker/.env.prod
+
+# Clés et certificats
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# ------------------------------------------------------------------------------
+# NODE.JS ET NPM
+# ------------------------------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Fichiers de lock alternatifs
+yarn.lock
+pnpm-lock.yaml
+
+# Cache et logs
+.npm
+.eslintcache
+*.tsbuildinfo
+.cache/
+
+# ------------------------------------------------------------------------------
+# BUILDS ET DISTRIBUTIONS
+# ------------------------------------------------------------------------------
+dist/
+build/
+out/
+coverage/
+
+# Builds spécifiques Angular
+apps/frontend/dist/
+apps/frontend/.angular/
+
+# Builds spécifiques NestJS
+apps/backend/dist/
+
+# Builds des packages partagés
+packages/*/dist/
+packages/*/build/
+
+# ------------------------------------------------------------------------------
+# BACKEND NESTJS
+# ------------------------------------------------------------------------------
+apps/backend/dist/
+apps/backend/coverage/
+apps/backend/.nyc_output/
+
+# ------------------------------------------------------------------------------
+# FRONTEND ANGULAR
+# ------------------------------------------------------------------------------
+apps/frontend/dist/
+apps/frontend/tmp/
+apps/frontend/out-tsc/
+apps/frontend/bazel-out/
+apps/frontend/.angular/
+
+# Angular cache
+apps/frontend/.angular/cache/
+
+# ------------------------------------------------------------------------------
+# TYPESCRIPT
+# ------------------------------------------------------------------------------
+*.tsbuildinfo
+.tsbuildinfo
+
+# ------------------------------------------------------------------------------
+# TESTS
+# ------------------------------------------------------------------------------
+coverage/
+*.lcov
+.nyc_output/
+junit.xml
+
+# Test artifacts
+test-results/
+playwright-report/
+test-output/
+
+# ------------------------------------------------------------------------------
+# PRISMA
+# ------------------------------------------------------------------------------
+# Ne pas ignorer le schema.prisma et les migrations
+# Mais ignorer les fichiers temporaires
+apps/backend/prisma/dev.db
+apps/backend/prisma/dev.db-journal
+
+# ------------------------------------------------------------------------------
+# BASE DE DONNÉES LOCALE
+# ------------------------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+
+# Dumps de base de données
+*.sql.gz
+*.sql
+
+# ------------------------------------------------------------------------------
+# DOCKER
+# ------------------------------------------------------------------------------
+# Volumes Docker persistants (optionnel selon votre setup)
+# infrastructure/docker/volumes/
+
+# Fichiers Docker temporaires
+.dockerignore.tmp
+docker-compose.override.yml
+
+# ------------------------------------------------------------------------------
+# EDITEURS ET IDES
+# ------------------------------------------------------------------------------
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# IntelliJ / WebStorm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# ------------------------------------------------------------------------------
+# SYSTÈMES D'EXPLOITATION
+# ------------------------------------------------------------------------------
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ------------------------------------------------------------------------------
+# LOGS
+# ------------------------------------------------------------------------------
+logs/
+*.log
+
+# Logs spécifiques
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Logs runtime
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# ------------------------------------------------------------------------------
+# TEMPORARY ET CACHE
+# ------------------------------------------------------------------------------
+tmp/
+temp/
+.tmp/
+.cache/
+
+# ------------------------------------------------------------------------------
+# BACKUP ET ARCHIVE
+# ------------------------------------------------------------------------------
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+*.tar.gz
+*.zip
+
+# ------------------------------------------------------------------------------
+# DOCUMENTATION GÉNÉRÉE
+# ------------------------------------------------------------------------------
+docs/generated/
+typedoc-out/
+
+# ------------------------------------------------------------------------------
+# MONITORING ET PROFILING
+# ------------------------------------------------------------------------------
+.clinic/
+.0x/
+
+# ------------------------------------------------------------------------------
+# FICHIERS SPÉCIFIQUES AU PROJET
+# ------------------------------------------------------------------------------
+
+# Scripts temporaires
+scripts/temp/
+
+# Uploads de développement
+uploads/
+public/uploads/
+
+# ------------------------------------------------------------------------------
+# SÉCURITÉ ET TOKENS
+# ------------------------------------------------------------------------------
+# JWT secrets
+jwt-*.key
+
+# Tokens d'API
+api-keys.json
+tokens.json
+
+# ------------------------------------------------------------------------------
+# CONFIGURATION LOCALE DÉVELOPPEUR
+# ------------------------------------------------------------------------------
+.env.local.*
+local.config.js
+dev.config.js
+
+# Configuration d'éditeur personnalisée
+.editorconfig.local
+
+# ------------------------------------------------------------------------------
+# DEPENDENCIES ET MODULES OPTIONNELS
+# ------------------------------------------------------------------------------
+.optional/
+optional-modules/
+
+# ------------------------------------------------------------------------------
+# RAPPORTS ET ANALYTICS
+# ------------------------------------------------------------------------------
+reports/
+analytics/
+lighthouse-reports/
+
+# ------------------------------------------------------------------------------
+# ASSETS TEMPORAIRES
+# ------------------------------------------------------------------------------
+assets/temp/
+public/temp/
+
+# ------------------------------------------------------------------------------
+# CONFIGURATION YARN ZERO-INSTALLS (si utilisé)
+# ------------------------------------------------------------------------------
+# .yarn/cache
+# .yarn/unplugged
+# .yarn/build-state.yml
+# .yarn/install-state.gz
+.pnp.*
+
+# ------------------------------------------------------------------------------
+# CONFIGURATION RUSH (si utilisé)
+# ------------------------------------------------------------------------------
+common/temp/
+
+apps/backend/prisma/migrations/*/migration.sql.tmp
+apps/backend/prisma/dev.db*
+
+# ==============================================================================
+# INSTRUCTIONS POUR L'ÉQUIPE
+# ==============================================================================
+# 
+# Ce .gitignore couvre tous les cas d'usage du template fullstack.
+# 
+# IMPORTANT: 
+# - Les fichiers .env.example DOIVENT être commitées
+# - Les migrations Prisma DOIVENT être commitées
+# - Les seeds de développement PEUVENT être commitées
+# 
+# Pour ajouter des exclusions spécifiques à votre projet,
+# ajoutez-les à la fin de ce fichier.
+# ==============================================================================

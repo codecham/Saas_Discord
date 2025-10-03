@@ -1,0 +1,38 @@
+{
+  "name": "my-project-template",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:backend": "npm run start:dev --workspace=apps/backend",
+    "dev:frontend": "npm run start --workspace=apps/frontend",
+    "dev:all": "npm run db:up && concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "db:up": "cd infrastructure/docker && docker-compose --env-file .env.dev -f docker-compose.dev.yml up -d",
+    "db:down": "cd infrastructure/docker && docker-compose --env-file .env.dev -f docker-compose.dev.yml down",
+    "db:logs": "cd infrastructure/docker && docker-compose --env-file .env.dev -f docker-compose.dev.yml logs -f",
+    "db:reset": "npm run db:down && npm run db:up",
+    "build": "npm run build --workspaces",
+    "build-packages": "cd packages && npm run build",
+    "install:all": "npm install && npm install --workspaces",
+    "clean": "rm -rf node_modules && rm -rf apps/*/node_modules && rm -rf packages/*/node_modules",
+    "setup": "npm run setup:install && npm run setup:build && npm run setup:db && npm run setup:migrate",
+    "setup:install": "npm install && npm install --workspaces",
+    "setup:build": "npm run build --workspace=packages/shared-types",
+    "setup:db": "npm run db:up && sleep 10",
+    "setup:migrate": "npm run prisma:generate --workspace=apps/backend && npm run prisma:migrate --workspace=apps/backend -- dev --name init && npm run prisma:seed --workspace=apps/backend",
+    "test:template": "npm run test:backend && npm run test:frontend",
+    "test:backend": "curl -f http://localhost:3000/api/demo/health || echo 'Backend test failed'",
+    "test:frontend": "curl -f http://localhost:4200 || echo 'Frontend test failed'",
+    "clean:all": "bash scripts/clean-everything.sh",
+    "clean:soft": "rm -rf node_modules && rm -rf apps/*/node_modules && rm -rf packages/*/node_modules",
+    "clean:docker": "docker-compose -f infrastructure/docker/docker-compose.dev.yml down && docker volume prune -f",
+    "clean:builds": "rm -rf apps/*/dist && rm -rf packages/*/dist && rm -rf apps/frontend/.angular"
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0",
+    "typescript": "^5.9.2"
+  }
+}
