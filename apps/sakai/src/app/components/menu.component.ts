@@ -35,6 +35,12 @@ export class AppMenuComponent {
                 ]
             },
             {
+                label: 'Profile',
+                items: [
+                    { label: 'Profile', icon: 'pi pi-fw pi-user', routerLink: ['/profile'] },
+                ]
+            },
+            {
                 label: 'UI Components',
                 items: [
                     { label: 'Form Layout', icon: 'pi pi-fw pi-id-card', routerLink: ['/uikit/formlayout'] },
