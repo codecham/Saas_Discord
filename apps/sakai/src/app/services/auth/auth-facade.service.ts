@@ -234,7 +234,7 @@ export class AuthFacadeService {
    * Navigation après déconnexion
    */
   navigateAfterLogout(): void {
-    this.router.navigate(['login']);
+    this.router.navigate(['/auth/login']);
   }
 
   // ===== MÉTHODES PRIVÉES =====
