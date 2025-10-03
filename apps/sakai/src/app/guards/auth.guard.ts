@@ -11,7 +11,12 @@ export const authGuard: CanActivateFn = (route, state) => {
     return true;
   }
 
+  console.log('User not authenticated')
+  // Stocker l'URL pour redirection après connexion
   sessionStorage.setItem('returnUrl', state.url);
   
-  return router.parseUrl('login');
+  // Rediriger vers la page de connexion
+  // router.navigate(['/login']);
+  // return false;
+  return router.parseUrl('/auth/login');
 };

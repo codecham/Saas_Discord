@@ -12,7 +12,7 @@
       "@guards/*": ["src/app/guards/*"],
       "@utils/*": ["src/app/utils/*"],
       "@interceptor/*": ["src/app/interceptors/*"],
-      "@environment/*": ["src/app/environments/*"],
+      "@environment/*": ["src/environments/*"],
       "@interfaces/*": ["src/app/interfaces/*"],
       "@config/*": ["src/app/config/*"],
     },
