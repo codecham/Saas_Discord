@@ -57,6 +57,11 @@ export const appRoutes: Routes = [
                 loadComponent: () => import('./app/features/profile/profile.component')
                 .then(m => m.ProfileComponent)
             },
+            {
+                path: 'endpoint-tester',
+                loadComponent: () => import('./app/features//endpoints-tester/endpoints-tester.component')
+                .then(m => m.EndpointTesterComponent)
+            },
             { path: 'uikit', loadChildren: () => import('./app/features/uikit/uikit.routes') },
         ]
     },

@@ -20,20 +20,6 @@ export class AuthApiService {
   private readonly baseUrlDiscord = `${environment.apiUrl}/api/discord`;
   private http = inject(HttpClient);
 
-  // ===== AUTHENTIFICATION LOCALE =====
-  
-  login(credentials: LoginDto): Observable<AuthResponseDto> {
-    return this.http.post<AuthResponseDto>(`${this.baseUrl}/login`, credentials);
-  }
-
-  register(userData: RegisterDto): Observable<AuthResponseDto> {
-    return this.http.post<AuthResponseDto>(`${this.baseUrl}/register`, userData);
-  }
-
-  getDiscordUser(): Observable<DiscordUserDto> {
-    return this.http.get<DiscordUserDto>(`${this.baseUrlDiscord}/user`);
-  }
-
   // ===== GESTION DES TOKENS =====
   
   refreshToken(refreshTokenDto: RefreshTokenDto): Observable<AuthResponseDto> {
@@ -48,9 +34,6 @@ export class AuthApiService {
     return this.http.post<{ message: string }>(`${this.baseUrl}/logout-all`, {});
   }
 
-  getProfile(): Observable<UserDto> {
-    return this.http.get<UserDto>(`${this.baseUrl}/profile`);
-  }
 
   getAvailableProviders(): Observable<{ providers: string[] }> {
     return this.http.get<{ providers: string[] }>(`${this.baseUrl}/providers`);

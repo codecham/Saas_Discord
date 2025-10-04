@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
+import { UserFacadeService } from '@app/services/user/user-facade.service';
 
 @Component({
   selector: 'app-profile',
@@ -76,7 +77,7 @@ import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
           <div class="px-6 py-4 space-y-4">
             
             <!-- Email -->
-            <div class="flex items-center justify-between">
+            <!-- <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-gray-500">Email</span>
               <div class="flex items-center">
                 <span class="text-sm text-gray-900">{{ user()?.email }}</span>
@@ -90,18 +91,18 @@ import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
                   </svg>
                 }
               </div>
-            </div>
+            </div> -->
 
             <!-- Rôle -->
-            <div class="flex items-center justify-between">
+            <!-- <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-gray-500">Rôle</span>
               <span [class]="'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' + getRoleBadgeClass()">
                 {{ userRole() }}
               </span>
-            </div>
+            </div> -->
 
             <!-- Statut du compte -->
-            <div class="flex items-center justify-between">
+            <!-- <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-gray-500">Statut</span>
               @if (isActive()) {
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -112,17 +113,17 @@ import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
                   Inactif
                 </span>
               }
-            </div>
+            </div> -->
 
             <!-- Date de création -->
-            <div class="flex items-center justify-between">
+            <!-- <div class="flex items-center justify-between">
               <span class="text-sm font-medium text-gray-500">Membre depuis</span>
               <span class="text-sm text-gray-900">
                 {{ formatDate(user()?.createdAt!) }}
               </span>
             </div>
           </div>
-        </div>
+        </div> -->
 
         <!-- Actions rapides -->
         <div class="bg-white overflow-hidden shadow-sm rounded-lg">
@@ -227,16 +228,15 @@ import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
   styles: ``
 })
 export class ProfileComponent {
-    private readonly authFacade = inject(AuthFacadeService);
+  private readonly authFacade = inject(AuthFacadeService);
+  private readonly userFacade = inject(UserFacadeService);
   private readonly router = inject(Router);
 
   // ===== SIGNAUX DE LA FAÇADE =====
-  user = this.authFacade.user;
-  discordUser = this.authFacade.discordUser;
-  isLoading = this.authFacade.isLoading;
-  userRole = this.authFacade.userRole;
-  isEmailVerified = this.authFacade.isEmailVerified;
-  isActive = this.authFacade.isActive;
+  user = this.userFacade.user;
+  discordUser = this.userFacade.discordUser;
+  isLoading = this.userFacade.isLoading;
+  userRole = this.userFacade.user()?.role;
 
   // ===== MÉTHODES DE DÉCONNEXION =====
 
@@ -276,7 +276,7 @@ export class ProfileComponent {
   }
 
   getRoleBadgeClass(): string {
-    const role = this.userRole();
+    const role = this.userRole;
     switch (role) {
       case 'ADMIN':
         return 'bg-red-100 text-red-800';
