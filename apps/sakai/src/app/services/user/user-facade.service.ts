@@ -1,7 +1,8 @@
 import { computed, inject, Injectable } from '@angular/core';
 import { UserDataService } from './user-data.service';
 import { UserApiService } from './user-api.service';
-import { DiscordGuildMemberDTO, DiscordUserGuildDTO } from '@my-project/shared-types';
+import { ErrorHandlerService } from '../error-handler.service';
+import { UserDTO } from '@my-project/shared-types';
 import { firstValueFrom } from 'rxjs';
 
 @Injectable({
@@ -10,92 +11,87 @@ import { firstValueFrom } from 'rxjs';
 export class UserFacadeService {
   private readonly userData = inject(UserDataService);
   private readonly userApi = inject(UserApiService);
+  private readonly errorHandler = inject(ErrorHandlerService);
 
   readonly discordUser = this.userData.discordUser;
-  readonly userGuilds = this.userData.userGuilds;
   readonly isLoading = this.userData.isLoading;
-
+  readonly error = this.userData.error;
 
   readonly user = computed(() => this.discordUser() ?? null);
-  readonly guilds = computed(() => this.userGuilds() ?? null);
-  // readonly discordId = computed(() => this.discordUser()?.id ?? null);
-  // readonly username = computed(() => this.discordUser()?.username ?? null);
-  // readonly discriminator = computed(() => this.discordUser()?.discriminator ?? null);
-  // readonly globalname = computed(() => this.discordUser()?.globalname ?? null);
   
-  // readonly avatar = computed(() => {
-  //   const discord = this.discordUser();
-  //   if (!discord?.avatar) return '/assets/default-avatar.png';
-  //   return `https://cdn.discordapp.com/avatars/${discord.id}/${discord.avatar}.png?size=256`;
-  // });
+  // Computed pour l'affichage
+  readonly discordId = computed(() => this.user()?.discordId ?? null);
+  readonly username = computed(() => this.user()?.username ?? null);
+  readonly discriminator = computed(() => this.user()?.discriminator ?? null);
+  readonly globalName = computed(() => this.user()?.globalName ?? null);
+  readonly email = computed(() => this.user()?.email ?? null);
+  readonly role = computed(() => this.user()?.role ?? undefined);
+  readonly createdAt = computed(() => this.user()?.createdAt ?? null);
+  readonly lastLoginAt = computed(() => this.user()?.lastLoginAt ?? null);
   
-  // readonly bannerUrl = computed(() => {
-  //   const discord = this.discordUser();
-  //   if (!discord?.banner) return null;
-  //   return `https://cdn.discordapp.com/banners/${discord.id}/${discord.banner}.png?size=600`;
-  // });
+  readonly avatar = computed(() => {
+    const user = this.user();
+    if (!user?.avatar || !user.discordId) return '/assets/default-avatar.png';
+    return `https://cdn.discordapp.com/avatars/${user.discordId}/${user.avatar}.png?size=256`;
+  });
   
-  // readonly accentColor = computed(() => {
-  //   const discord = this.discordUser();
-  //   if (!discord?.accent_color) return null;
-  //   return `#${discord.accent_color.toString(16).padStart(6, '0')}`;
-  // });
-
-  // readonly initials = computed(() => {
-  //   const username = this.discordUser()?.username;
-  //   if (!username) return 'G';
-  //   return username.substring(0, 2).toUpperCase();
-  // });
-
-  // readonly locale = computed(() => this.discordUser()?.locale ?? 'en-US');
-
-  // readonly premiumType = computed(() => this.discordUser()?.premium_type ?? 0);
-  // readonly hasNitro = computed(() => this.premiumType() > 0);
-  // readonly mfaEnabled = computed(() => this.discordUser()?.mfa_enabled ?? false);
-  // readonly isVerified = computed(() => this.discordUser()?.verified ?? false);
-
-
-  // readonly premiumTypeName = computed(() => {
-  //   const type = this.premiumType();
-  //   switch (type) {
-  //     case 1: return 'Nitro Classic';
-  //     case 2: return 'Nitro';
-  //     case 3: return 'Nitro Basic';
-  //     default: return 'None';
-  //   }
-  // });
-
+  readonly displayName = computed(() => {
+    return this.globalName() || this.username() || 'User';
+  });
+  
+  readonly userTag = computed(() => {
+    const username = this.username();
+    const discriminator = this.discriminator();
+    if (!username) return '';
+    return discriminator && discriminator !== '0' 
+      ? `${username}#${discriminator}` 
+      : username;
+  });
 
   /**
    * Initialise le user service
    */
-  async initializeUserService() {
+  async initializeUserService(): Promise<void> {
     this.userData.setLoading(true);
+    this.userData.setError(null);
+    
     try {
-      const discordUser: DiscordGuildMemberDTO = await firstValueFrom(this.userApi.getDiscordUser());
+      const discordUser: UserDTO = await firstValueFrom(this.userApi.getDiscordUser());
       this.setDiscordUser(discordUser);
+      
+      console.log('[UserFacade] User loaded:', this.user());
+      
     } catch (error: any) {
-        this.clearUserData();
-        throw error;
+      const appError = this.errorHandler.handleError(error, 'Chargement du profil');
+      this.userData.setError(appError.message);
+      this.clearUserData();
+      throw error;
+      
     } finally {
-      const userGuild: DiscordUserGuildDTO[] = await firstValueFrom(this.userApi.getUserGuild());
-      this.setUserGuild(userGuild);
       this.userData.setLoading(false);
-      console.log(`User set: ${JSON.stringify(this.user())}`);
-      console .log(`Guild set: ${JSON.stringify(this.userGuilds())}`);
     }
   }
 
+  /**
+   * Rafraîchit les données utilisateur
+   */
+  async refreshUser(): Promise<void> {
+    console.log('[UserFacade] Refreshing user data...');
+    
+    try {
+      await this.initializeUserService();
+      this.errorHandler.showSuccess('Profil actualisé', 'Succès');
+    } catch (error) {
+      // L'erreur est déjà gérée dans initializeUserService
+      console.error('[UserFacade] Failed to refresh user');
+    }
+  }
 
   /**
    * Définit le profil Discord (appelé par AuthFacadeService après login)
    */
-  setDiscordUser(discordUser: DiscordGuildMemberDTO | null): void {
+  setDiscordUser(discordUser: UserDTO | null): void {
     this.userData.setDiscordUser(discordUser);
-  }
-
-  setUserGuild(guilds: DiscordUserGuildDTO[] | null): void {
-    this.userData.setUserGuild(guilds);
   }
 
   /**
@@ -105,27 +101,12 @@ export class UserFacadeService {
     this.userData.clearAll();
   }
 
-  // =========================================================================
-  // MÉTHODES UTILITAIRES
-  // =========================================================================
-
   /**
    * Obtient l'URL de l'avatar avec une taille personnalisée
    */
-  // getAvatarUrl(size: number = 256): string {
-  //   const discord = this.discordUser();
-  //   if (!discord?.avatar) return '/assets/default-avatar.png';
-  //   return `https://cdn.discordapp.com/avatars/${discord.id}/${discord.avatar}.png?size=${size}`;
-  // }
-
-  // /**
-  //  * Obtient l'URL de la bannière avec une taille personnalisée
-  //  */
-  // getBannerUrl(size: number = 600): string | null {
-  //   const discord = this.discordUser();
-  //   if (!discord?.banner) return null;
-  //   return `https://cdn.discordapp.com/banners/${discord.id}/${discord.banner}.png?size=${size}`;
-  // }
-
-  
+  getAvatarUrl(size: number = 256): string {
+    const user = this.user();
+    if (!user?.avatar || !user.discordId) return '/assets/default-avatar.png';
+    return `https://cdn.discordapp.com/avatars/${user.discordId}/${user.avatar}.png?size=${size}`;
+  }
 }

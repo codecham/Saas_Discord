@@ -5,6 +5,8 @@ import { AuthDataService } from './auth-data.service';
 import { AuthApiService } from './auth-api.service';
 import { TokenService } from './token.service';
 import { UserFacadeService } from '../user/user-facade.service';
+import { GuildFacadeService } from '../guild/guild-facade.service';
+import { ErrorHandlerService } from '../error-handler.service';
 import { RefreshTokenRequestDTO } from '@my-project/shared-types';
 import { environment } from 'src/environments/environment';
 
@@ -22,6 +24,7 @@ interface AuthTokens {
  * - Validation des tokens
  * - Synchronisation localStorage
  * - Délégation des données user au UserFacadeService
+ * - Délégation des données guild au GuildFacadeService
  */
 @Injectable({
   providedIn: 'root'
@@ -31,6 +34,8 @@ export class AuthFacadeService {
   private readonly authApi = inject(AuthApiService);
   private readonly tokenService = inject(TokenService);
   private readonly userFacade = inject(UserFacadeService);
+  private readonly guildFacade = inject(GuildFacadeService);
+  private readonly errorHandler = inject(ErrorHandlerService);
   private readonly router = inject(Router);
 
   readonly isAuthenticated = this.authData.isAuthenticated;
@@ -57,7 +62,7 @@ export class AuthFacadeService {
    * ÉTAPES :
    * 1. Vérifier si des tokens existent dans localStorage
    * 2. Vérifier s'ils sont valides (pas expirés)
-   * 3. Si valides : restaurer l'état auth + charger le user
+   * 3. Si valides : restaurer l'état auth + charger user + charger guilds
    * 4. Si invalides : nettoyer
    */
   private initializeAuth(): void {
@@ -67,6 +72,7 @@ export class AuthFacadeService {
     if (!tokens) {
       console.log('[Auth] No tokens found');
       this.userFacade.clearUserData();
+      this.guildFacade.clearAllGuildData();
       return;
     }
 
@@ -80,6 +86,7 @@ export class AuthFacadeService {
           console.log('[Auth] Refresh failed, cleaning up');
           this.tokenService.clearTokens();
           this.userFacade.clearUserData();
+          this.guildFacade.clearAllGuildData();
         }
       });
       return;
@@ -88,7 +95,26 @@ export class AuthFacadeService {
     // Tokens valides : restaurer l'état
     console.log('[Auth] Restoring auth state from tokens');
     this.authData.setTokens(tokens);
-    this.userFacade.initializeUserService();
+    
+    // Initialiser user et guilds
+    this.initializeUserAndGuilds();
+  }
+
+  /**
+   * Initialise les services User et Guild
+   */
+  private async initializeUserAndGuilds(): Promise<void> {
+    try {
+      // Charger les données utilisateur
+      await this.userFacade.initializeUserService();
+      
+      // Charger les guilds
+      await this.guildFacade.initializeGuildService();
+      
+    } catch (error) {
+      console.error('[Auth] Failed to initialize user/guilds:', error);
+      this.errorHandler.handleError(error, 'Initialisation', false);
+    }
   }
 
   /**
@@ -143,6 +169,15 @@ export class AuthFacadeService {
         this.handleLogout();
         throw new Error('Impossible de charger les données utilisateur');
       }
+
+      // Charger les guilds
+      try {
+        await this.guildFacade.initializeGuildService();
+      } catch (error) {
+        console.error('[Auth] Failed to load guilds:', error);
+        // On continue quand même, l'utilisateur pourra réessayer
+        this.errorHandler.handleError(error, 'Chargement des serveurs', false);
+      }
       
       this.authData.setError(null);
       
@@ -155,10 +190,11 @@ export class AuthFacadeService {
       // Nettoyer en cas d'erreur
       this.authData.clearAll();
       this.userFacade.clearUserData();
+      this.guildFacade.clearAllGuildData();
       this.tokenService.clearTokens();
 
-      const errorMessage = this.extractErrorMessage(error);
-      this.authData.setError(errorMessage);
+      const appError = this.errorHandler.handleError(error, 'Connexion');
+      this.authData.setError(appError.message);
       
       throw error;
 
@@ -249,6 +285,9 @@ export class AuthFacadeService {
     // Nettoyer user
     this.userFacade.clearUserData();
     
+    // Nettoyer guild
+    this.guildFacade.clearAllGuildData();
+    
     // Rediriger
     this.router.navigate(['/auth/login']);
   }
@@ -257,18 +296,17 @@ export class AuthFacadeService {
    * Navigation après login réussi
    */
   private navigateAfterLogin(): void {
-    const returnUrl = sessionStorage.getItem('returnUrl') || environment.redirectAuthPath;
+    const returnUrl = sessionStorage.getItem('returnUrl');
     sessionStorage.removeItem('returnUrl');
-    console.log('[Auth] Navigating to:', returnUrl);
-    this.router.navigate([returnUrl]);
-  }
-
-  /**
-   * Extraction du message d'erreur
-   */
-  private extractErrorMessage(error: any): string {
-    if (error?.error?.message) return error.error.message;
-    if (error?.message) return error.message;
-    return 'Une erreur inattendue est survenue';
+    
+    // Si une URL de retour existe et qu'elle n'est pas /auth/*, rediriger dessus
+    if (returnUrl && !returnUrl.startsWith('/auth')) {
+      console.log('[Auth] Navigating to return URL:', returnUrl);
+      this.router.navigate([returnUrl]);
+    } else {
+      // Sinon, rediriger vers la sélection de serveur
+      console.log('[Auth] Navigating to server list');
+      this.router.navigate(['/server-list']);
+    }
   }
 }

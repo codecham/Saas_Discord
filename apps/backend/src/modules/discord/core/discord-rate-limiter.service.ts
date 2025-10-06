@@ -1,4 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+// discord-rate-limiter.service.ts
+import { Injectable, Logger, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 import { RateLimitBucket } from '../common/interfaces/rate-limit-bucket.interface';
 
 @Injectable()
@@ -7,22 +10,52 @@ export class DiscordRateLimiterService {
   private readonly buckets = new Map<string, RateLimitBucket>();
   private globalRateLimit: RateLimitBucket | null = null;
 
+  // Configuration
+  private readonly USE_CACHE = true; // Active le cache Redis/mémoire
+  private readonly CACHE_PREFIX = 'ratelimit:';
+  private readonly GLOBAL_CACHE_KEY = 'ratelimit:global';
+
+  constructor(@Inject(CACHE_MANAGER) private readonly cacheManager: Cache) {}
+
   /**
    * Attend que le rate limit soit levé avant de faire une requête
    */
   async waitForRateLimit(key: string): Promise<void> {
-    // Vérifier le rate limit global
+    // Vérifier le rate limit global (d'abord en cache si activé)
+    if (this.USE_CACHE) {
+      const cachedGlobal = await this.cacheManager.get<RateLimitBucket>(
+        this.GLOBAL_CACHE_KEY,
+      );
+      if (cachedGlobal) {
+        this.globalRateLimit = cachedGlobal;
+      }
+    }
+
     if (this.globalRateLimit) {
       const waitTime = this.globalRateLimit.resetAt - Date.now();
       if (waitTime > 0) {
         this.logger.warn(`Global rate limit active. Waiting ${waitTime}ms`);
         await this.sleep(waitTime);
         this.globalRateLimit = null;
+        if (this.USE_CACHE) {
+          await this.cacheManager.del(this.GLOBAL_CACHE_KEY);
+        }
       }
     }
 
     // Vérifier le rate limit spécifique
-    const bucket = this.buckets.get(key);
+    let bucket = this.buckets.get(key);
+
+    // Si pas en mémoire locale, vérifier le cache
+    if (!bucket && this.USE_CACHE) {
+      bucket = await this.cacheManager.get<RateLimitBucket>(
+        this.CACHE_PREFIX + key,
+      );
+      if (bucket) {
+        this.buckets.set(key, bucket);
+      }
+    }
+
     if (!bucket) {
       return;
     }
@@ -30,6 +63,9 @@ export class DiscordRateLimiterService {
     // Si le bucket est expiré, le supprimer
     if (bucket.resetAt < Date.now()) {
       this.buckets.delete(key);
+      if (this.USE_CACHE) {
+        await this.cacheManager.del(this.CACHE_PREFIX + key);
+      }
       return;
     }
 
@@ -42,6 +78,9 @@ export class DiscordRateLimiterService {
         );
         await this.sleep(waitTime);
         this.buckets.delete(key);
+        if (this.USE_CACHE) {
+          await this.cacheManager.del(this.CACHE_PREFIX + key);
+        }
       }
     }
   }
@@ -49,7 +88,10 @@ export class DiscordRateLimiterService {
   /**
    * Met à jour les informations de rate limiting depuis les headers Discord
    */
-  updateBucket(key: string, headers: Record<string, string>): void {
+  async updateBucket(
+    key: string,
+    headers: Record<string, string>,
+  ): Promise<void> {
     const limit = this.parseHeader(headers['x-ratelimit-limit']);
     const remaining = this.parseHeader(headers['x-ratelimit-remaining']);
     const reset = this.parseHeader(headers['x-ratelimit-reset']);
@@ -67,6 +109,17 @@ export class DiscordRateLimiterService {
         resetAfter: retryAfter,
         global: true,
       };
+
+      // Sauvegarder en cache
+      if (this.USE_CACHE) {
+        const ttl = retryAfter * 1000;
+        await this.cacheManager.set(
+          this.GLOBAL_CACHE_KEY,
+          this.globalRateLimit,
+          ttl,
+        );
+      }
+
       this.logger.warn(`Global rate limit set. Reset in ${retryAfter}s`);
       return;
     }
@@ -88,6 +141,18 @@ export class DiscordRateLimiterService {
     const bucketKey = bucket || key;
     this.buckets.set(bucketKey, rateLimitBucket);
 
+    // Sauvegarder en cache avec TTL approprié
+    if (this.USE_CACHE) {
+      const ttl = rateLimitBucket.resetAt - Date.now();
+      if (ttl > 0) {
+        await this.cacheManager.set(
+          this.CACHE_PREFIX + bucketKey,
+          rateLimitBucket,
+          ttl,
+        );
+      }
+    }
+
     // Log uniquement si on commence à approcher de la limite
     if (remaining <= 5) {
       this.logger.debug(
@@ -99,14 +164,28 @@ export class DiscordRateLimiterService {
   /**
    * Vérifie si une clé a atteint son rate limit
    */
-  isRateLimited(key: string): boolean {
-    const bucket = this.buckets.get(key);
+  async isRateLimited(key: string): Promise<boolean> {
+    let bucket = this.buckets.get(key);
+
+    // Vérifier le cache si pas en mémoire locale
+    if (!bucket && this.USE_CACHE) {
+      bucket = await this.cacheManager.get<RateLimitBucket>(
+        this.CACHE_PREFIX + key,
+      );
+      if (bucket) {
+        this.buckets.set(key, bucket);
+      }
+    }
+
     if (!bucket) {
       return false;
     }
 
     if (bucket.resetAt < Date.now()) {
       this.buckets.delete(key);
+      if (this.USE_CACHE) {
+        await this.cacheManager.del(this.CACHE_PREFIX + key);
+      }
       return false;
     }
 
@@ -116,8 +195,16 @@ export class DiscordRateLimiterService {
   /**
    * Retourne le temps d'attente nécessaire avant la prochaine requête
    */
-  getWaitTime(key: string): number {
-    const bucket = this.buckets.get(key);
+  async getWaitTime(key: string): Promise<number> {
+    let bucket = this.buckets.get(key);
+
+    // Vérifier le cache si pas en mémoire locale
+    if (!bucket && this.USE_CACHE) {
+      bucket = await this.cacheManager.get<RateLimitBucket>(
+        this.CACHE_PREFIX + key,
+      );
+    }
+
     if (!bucket || bucket.remaining > 0) {
       return 0;
     }
@@ -129,8 +216,20 @@ export class DiscordRateLimiterService {
   /**
    * Récupère les informations d'un bucket
    */
-  getBucket(key: string): RateLimitBucket | null {
-    return this.buckets.get(key) || null;
+  async getBucket(key: string): Promise<RateLimitBucket | null> {
+    let bucket = this.buckets.get(key);
+
+    // Vérifier le cache si pas en mémoire locale
+    if (!bucket && this.USE_CACHE) {
+      bucket = await this.cacheManager.get<RateLimitBucket>(
+        this.CACHE_PREFIX + key,
+      );
+      if (bucket) {
+        this.buckets.set(key, bucket);
+      }
+    }
+
+    return bucket || null;
   }
 
   /**
@@ -150,6 +249,8 @@ export class DiscordRateLimiterService {
     if (cleaned > 0) {
       this.logger.debug(`Cleaned ${cleaned} expired rate limit buckets`);
     }
+
+    // Note: Le cache Redis/mémoire expire automatiquement grâce au TTL
   }
 
   /**
@@ -162,9 +263,16 @@ export class DiscordRateLimiterService {
   /**
    * Réinitialise tous les buckets (pour les tests)
    */
-  reset(): void {
+  async reset(): Promise<void> {
     this.buckets.clear();
     this.globalRateLimit = null;
+
+    // Nettoyer le cache si activé
+    if (this.USE_CACHE) {
+      // Note: cache-manager n'a pas de méthode "clear by pattern"
+      // On supprime juste le global, les autres expireront naturellement
+      await this.cacheManager.del(this.GLOBAL_CACHE_KEY);
+    }
   }
 
   /**

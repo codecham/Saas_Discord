@@ -27,17 +27,19 @@ export class AppMenuComponent {
                 ]
             },
             {
-                label: 'Server',
-                items: [
-                    { label: 'Members', icon: 'pi pi-fw pi-users', routerLink: ['/members'] },
-                    { label: 'Channels', icon: 'pi pi-fw pi-hashtag', routerLink: ['/channels'] },
-                    { label: 'Roles', icon: 'pi pi-fw pi-id-card', routerLink: ['/roles'] },
-                ]
-            },
-            {
                 label: 'Profile',
                 items: [
                     { label: 'Profile', icon: 'pi pi-fw pi-user', routerLink: ['/profile'] },
+                ]
+            },
+            {
+                label: 'Server',
+                items: [
+                    { label: 'Server List', icon: 'pi pi-fw pi-server', routerLink: ['/server-list']},
+                    { label: 'Server Fnfo', icon: 'pi pi-fw pi-info-circle', routerLink: ['/server-info']},
+                    { label: 'Members', icon: 'pi pi-fw pi-users', routerLink: ['/members'] },
+                    { label: 'Channels', icon: 'pi pi-fw pi-hashtag', routerLink: ['/channels'] },
+                    { label: 'Roles', icon: 'pi pi-fw pi-id-card', routerLink: ['/roles'] },
                 ]
             },
             {

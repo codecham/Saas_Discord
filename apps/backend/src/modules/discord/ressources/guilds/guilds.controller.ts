@@ -13,16 +13,20 @@ import {
   UseInterceptors,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { GuildsService } from './guilds.service';
 import { DiscordExceptionFilter } from '../../common/filters/discord-exception.filter';
 import { DiscordResponseInterceptor } from '../../common/interceptors/discord-response.interceptor';
+import { GuildAdminGuard } from '../../common/guards/guild-admin.guard';
+import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
 
 /**
  * Controller pour les endpoints liés aux guilds Discord
  */
 @Controller('discord/guilds')
 @UseFilters(DiscordExceptionFilter)
+@UseGuards(JwtAuthGuard)
 @UseInterceptors(DiscordResponseInterceptor)
 export class GuildsController {
   constructor(private readonly guildsService: GuildsService) {}
@@ -32,6 +36,7 @@ export class GuildsController {
    * Récupère les informations d'une guild
    */
   @Get(':guildId')
+  @UseGuards(GuildAdminGuard)
   async getGuild(@Param('guildId') guildId: string) {
     return this.guildsService.getGuild(guildId);
   }
@@ -41,6 +46,7 @@ export class GuildsController {
    * Récupère les informations d'une guild avec les métadonnées de rate limiting
    */
   @Get(':guildId/with-metadata')
+  @UseGuards(GuildAdminGuard)
   async getGuildWithMetadata(@Param('guildId') guildId: string) {
     return this.guildsService.getGuildWithMetadata(guildId);
   }
@@ -50,6 +56,7 @@ export class GuildsController {
    * Modifie les paramètres d'une guild
    */
   @Patch(':guildId')
+  @UseGuards(GuildAdminGuard)
   async modifyGuild(
     @Param('guildId') guildId: string,
     @Body() data: any, // Utiliser ModifyGuildDTO depuis /packages
@@ -62,6 +69,7 @@ export class GuildsController {
    * Récupère tous les channels d'une guild
    */
   @Get(':guildId/channels')
+  @UseGuards(GuildAdminGuard)
   async getGuildChannels(@Param('guildId') guildId: string) {
     return this.guildsService.getGuildChannels(guildId);
   }
@@ -72,6 +80,7 @@ export class GuildsController {
    */
   @Post(':guildId/channels')
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(GuildAdminGuard)
   async createGuildChannel(
     @Param('guildId') guildId: string,
     @Body() data: any, // Utiliser CreateChannelDTO depuis /packages
@@ -84,6 +93,7 @@ export class GuildsController {
    * Récupère les membres d'une guild
    */
   @Get(':guildId/members')
+  @UseGuards(GuildAdminGuard)
   async getGuildMembers(
     @Param('guildId') guildId: string,
     @Query('limit') limit?: number,
@@ -97,6 +107,7 @@ export class GuildsController {
    * Récupère un membre spécifique d'une guild
    */
   @Get(':guildId/members/:userId')
+  @UseGuards(GuildAdminGuard)
   async getGuildMember(
     @Param('guildId') guildId: string,
     @Param('userId') userId: string,
@@ -109,6 +120,7 @@ export class GuildsController {
    * Modifie un membre d'une guild
    */
   @Patch(':guildId/members/:userId')
+  @UseGuards(GuildAdminGuard)
   async modifyGuildMember(
     @Param('guildId') guildId: string,
     @Param('userId') userId: string,
@@ -122,6 +134,7 @@ export class GuildsController {
    * Bannit un membre d'une guild
    */
   @Put(':guildId/bans/:userId')
+  @UseGuards(GuildAdminGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async banGuildMember(
     @Param('guildId') guildId: string,
@@ -136,6 +149,7 @@ export class GuildsController {
    * Révoque le ban d'un membre
    */
   @Delete(':guildId/bans/:userId')
+  @UseGuards(GuildAdminGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async unbanGuildMember(
     @Param('guildId') guildId: string,
@@ -149,6 +163,7 @@ export class GuildsController {
    * Récupère tous les rôles d'une guild
    */
   @Get(':guildId/roles')
+  @UseGuards(GuildAdminGuard)
   async getGuildRoles(@Param('guildId') guildId: string) {
     return this.guildsService.getGuildRoles(guildId);
   }
@@ -158,6 +173,7 @@ export class GuildsController {
    * Crée un nouveau rôle dans une guild
    */
   @Post(':guildId/roles')
+  @UseGuards(GuildAdminGuard)
   @HttpCode(HttpStatus.CREATED)
   async createGuildRole(
     @Param('guildId') guildId: string,
@@ -171,6 +187,7 @@ export class GuildsController {
    * Modifie un rôle d'une guild
    */
   @Patch(':guildId/roles/:roleId')
+  @UseGuards(GuildAdminGuard)
   async modifyGuildRole(
     @Param('guildId') guildId: string,
     @Param('roleId') roleId: string,
@@ -184,6 +201,7 @@ export class GuildsController {
    * Supprime un rôle d'une guild
    */
   @Delete(':guildId/roles/:roleId')
+  @UseGuards(GuildAdminGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async deleteGuildRole(
     @Param('guildId') guildId: string,
