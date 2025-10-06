@@ -39,6 +39,15 @@ import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
         </div>
 
         <div class="layout-topbar-actions">
+            <div class="flex items-center gap-2">
+                @if (auth.isAuthenticated()) {
+                    <i class="pi pi-circle-fill text-green-500 text-xs"></i>
+                    <span class="text-sm text-surface-700 dark:text-surface-300">Connected</span>
+                } @else {
+                    <i class="pi pi-circle-fill text-red-500 text-xs"></i>
+                    <span class="text-sm text-surface-700 dark:text-surface-300">Disconnected</span>
+                }
+             </div>
             <div class="layout-config-menu">
                 <button type="button" class="layout-topbar-action" (click)="toggleDarkMode()">
                     <i [ngClass]="{ 'pi ': true, 'pi-moon': layoutService.isDarkTheme(), 'pi-sun': !layoutService.isDarkTheme() }"></i>
@@ -84,10 +93,18 @@ import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
 })
 export class AppTopbarComponent {
     items!: MenuItem[];
+    auth = inject(AuthFacadeService);
+    startTime: number;
 
-    constructor(public layoutService: LayoutService) {}
+    constructor(public layoutService: LayoutService) {
+        this.startTime = Date.now();
+    }
 
     toggleDarkMode() {
         this.layoutService.layoutConfig.update((state) => ({ ...state, darkTheme: !state.darkTheme }));
+    }
+
+    getTimeSecond(): number {
+        return Math.floor((Date.now() - this.startTime) / 1000);
     }
 }

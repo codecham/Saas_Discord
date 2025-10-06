@@ -1,42 +1,44 @@
-// services/auth/auth-facade.service.ts
 import { Injectable, inject, effect } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AuthDataService } from './auth-data.service';
 import { AuthApiService } from './auth-api.service';
 import { TokenService } from './token.service';
-import { 
-  LoginDto, 
-  RegisterDto, 
-  AuthResponseDto,
-  RefreshTokenDto, 
-} from '@my-project/shared-types';
-import { AuthTokens } from '@my-project/shared-types';
+import { UserFacadeService } from '../user/user-facade.service';
+import { RefreshTokenRequestDTO } from '@my-project/shared-types';
 import { environment } from 'src/environments/environment';
 
+interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+}
+
+/**
+ * Service Facade pour l'authentification Discord OAuth
+ * 
+ * Responsabilité : Orchestrer l'authentification
+ * - Discord OAuth (login/callback)
+ * - Logout/Refresh
+ * - Validation des tokens
+ * - Synchronisation localStorage
+ * - Délégation des données user au UserFacadeService
+ */
 @Injectable({
   providedIn: 'root'
 })
 export class AuthFacadeService {
-  // ===== INJECTION DES DÉPENDANCES =====
   private readonly authData = inject(AuthDataService);
   private readonly authApi = inject(AuthApiService);
   private readonly tokenService = inject(TokenService);
+  private readonly userFacade = inject(UserFacadeService);
   private readonly router = inject(Router);
 
-  // ===== SIGNAUX PUBLICS (EXPOSÉS AUX COMPOSANTS) =====
-  readonly user = this.authData.user;
-  readonly discordUser = this.authData.discordUser;
   readonly isAuthenticated = this.authData.isAuthenticated;
   readonly isLoading = this.authData.isLoading;
   readonly error = this.authData.error;
-  readonly userRole = this.authData.userRole;
-  readonly isEmailVerified = this.authData.isEmailVerified;
-  readonly isActive = this.authData.isActive;
-  readonly authState = this.authData.authState;
 
   constructor() {
-    // Effect pour synchroniser les tokens avec le localStorage
+    // Synchroniser les tokens avec localStorage
     effect(() => {
       const tokens = this.authData.getCurrentTokens();
       if (tokens) {
@@ -45,72 +47,143 @@ export class AuthFacadeService {
         this.tokenService.clearTokens();
       }
     });
-
-    // Initialisation SYNCHRONE au démarrage
-    this.restoreAuthState();
     
-    // Puis chargement du profil en arrière-plan
-    this.loadProfileSilently();
+    this.initializeAuth();
   }
 
-  // ===== MÉTHODES PUBLIQUES D'AUTHENTIFICATION =====
+  /**
+   * Initialise l'authentification au démarrage de l'application
+   * 
+   * ÉTAPES :
+   * 1. Vérifier si des tokens existent dans localStorage
+   * 2. Vérifier s'ils sont valides (pas expirés)
+   * 3. Si valides : restaurer l'état auth + charger le user
+   * 4. Si invalides : nettoyer
+   */
+  private initializeAuth(): void {
+    const tokens = this.tokenService.getTokens();
+
+    // Pas de tokens = pas authentifié
+    if (!tokens) {
+      console.log('[Auth] No tokens found');
+      this.userFacade.clearUserData();
+      return;
+    }
+
+    // Vérifier l'expiration
+    if (this.tokenService.isTokenExpired(tokens.accessToken)) {
+      console.log('[Auth] Access token expired, attempting refresh...');
+      
+      // Tenter un refresh au lieu de nettoyer directement
+      this.refreshToken().then(success => {
+        if (!success) {
+          console.log('[Auth] Refresh failed, cleaning up');
+          this.tokenService.clearTokens();
+          this.userFacade.clearUserData();
+        }
+      });
+      return;
+    }
+
+    // Tokens valides : restaurer l'état
+    console.log('[Auth] Restoring auth state from tokens');
+    this.authData.setTokens(tokens);
+    this.userFacade.initializeUserService();
+  }
 
   /**
-   * Connexion avec email/mot de passe
+   * Redirige vers Discord OAuth
+   * Le backend gère la redirection vers Discord
    */
-  async login(credentials: LoginDto): Promise<void> {
+  loginWithDiscord(): void {
+    console.log('[Auth] Redirecting to Discord OAuth...');
+    
+    // Sauvegarder l'URL de retour si nécessaire
+    const currentUrl = this.router.url;
+    if (currentUrl !== '/auth/login' && currentUrl !== '/') {
+      sessionStorage.setItem('returnUrl', currentUrl);
+    }
+    
+    // Redirection vers le backend qui redirige vers Discord
+    window.location.href = this.authApi.getDiscordAuthUrl();
+  }
+
+  /**
+   * Gère le retour du callback Discord OAuth
+   * 
+   * Le backend renvoie vers le frontend avec les tokens dans l'URL:
+   * /auth/callback?access_token=xxx&refresh_token=yyy
+   * 
+   * @param accessToken Token d'accès JWT de notre app
+   * @param refreshToken Token de rafraîchissement de notre app
+   */
+  async handleOAuthCallback(accessToken: string, refreshToken: string): Promise<void> {
+    console.log('[Auth] Handling OAuth callback...');
+    
     this.authData.setLoading(true);
     this.authData.setError(null);
 
     try {
-      const response = await firstValueFrom(this.authApi.login(credentials));
-      this.handleAuthSuccess(response);
+      // Valider les tokens
+      if (!accessToken || !refreshToken) {
+        throw new Error('Tokens manquants dans le callback OAuth');
+      }
+
+      const tokens: AuthTokens = { accessToken, refreshToken };
+      
+      // Sauvegarder immédiatement les tokens (pour l'intercepteur)
+      this.tokenService.setTokens(tokens);
+      this.authData.setTokens(tokens);
+
+      // Charger les données utilisateur
+      try {
+        await this.userFacade.initializeUserService();
+      } catch (error) {
+        console.error('[Auth] Failed to load user data:', error);
+        this.handleLogout();
+        throw new Error('Impossible de charger les données utilisateur');
+      }
+      
+      this.authData.setError(null);
+      
+      console.log('[Auth] OAuth callback handled successfully');
+      this.navigateAfterLogin();
+
     } catch (error: any) {
-      this.authData.setError(this.extractErrorMessage(error));
+      console.error('[Auth] OAuth callback failed:', error);
+      
+      // Nettoyer en cas d'erreur
+      this.authData.clearAll();
+      this.userFacade.clearUserData();
+      this.tokenService.clearTokens();
+
+      const errorMessage = this.extractErrorMessage(error);
+      this.authData.setError(errorMessage);
+      
+      throw error;
+
     } finally {
       this.authData.setLoading(false);
     }
   }
 
   /**
-   * Inscription avec email/mot de passe
-   */
-  async register(userData: RegisterDto): Promise<void> {
-    this.authData.setLoading(true);
-    this.authData.setError(null);
-
-    try {
-      const response = await firstValueFrom(this.authApi.register(userData));
-      this.handleAuthSuccess(response);
-    } catch (error: any) {
-      this.authData.setError(this.extractErrorMessage(error));
-    } finally {
-      this.authData.setLoading(false);
-    }
-  }
-
-  /**
-   * Déconnexion
+   * Déconnexion simple (cet appareil uniquement)
    */
   async logout(): Promise<void> {
     const refreshToken = this.tokenService.getRefreshToken();
     
-    if (!refreshToken) {
-      this.handleLogoutSuccess();
-      return;
+    // Tenter de notifier le serveur
+    if (refreshToken) {
+      try {
+        await firstValueFrom(this.authApi.logout(refreshToken));
+      } catch (error) {
+        console.warn('[Auth] Server logout failed:', error);
+        // On continue quand même avec le logout local
+      }
     }
-
-    this.authData.setLoading(true);
-
-    try {
-      await firstValueFrom(this.authApi.logout(refreshToken));
-    } catch (error) {
-      // Même en cas d'erreur côté serveur, on déconnecte localement
-      console.warn('Erreur lors de la déconnexion côté serveur:', error);
-    } finally {
-      this.handleLogoutSuccess();
-      this.authData.setLoading(false);
-    }
+    
+    this.handleLogout();
   }
 
   /**
@@ -122,286 +195,80 @@ export class AuthFacadeService {
     try {
       await firstValueFrom(this.authApi.logoutAll());
     } catch (error) {
-      console.warn('Erreur lors de la déconnexion générale:', error);
+      console.warn('[Auth] Server logout-all failed:', error);
+      // On continue quand même avec le logout local
     } finally {
-      this.handleLogoutSuccess();
+      this.handleLogout();
       this.authData.setLoading(false);
     }
   }
 
   /**
-   * Rafraîchissement du token
+   * Rafraîchissement du token JWT
    */
   async refreshToken(): Promise<boolean> {
     const refreshToken = this.tokenService.getRefreshToken();
     
     if (!refreshToken) {
-      this.handleLogoutSuccess();
+      this.handleLogout();
       return false;
     }
 
     try {
-      const refreshTokenDto: RefreshTokenDto = { refreshToken };
-      const response = await firstValueFrom(this.authApi.refreshToken(refreshTokenDto));
-      this.handleAuthSuccess(response);
+      const dto: RefreshTokenRequestDTO = { refresh_token: refreshToken };
+      const response = await firstValueFrom(this.authApi.refreshToken(dto));
+      
+      // Sauvegarder les nouveaux tokens
+      const tokens: AuthTokens = {
+        accessToken: response.access_token,
+        refreshToken: response.refresh_token,
+      };
+      
+      this.authData.setTokens(tokens);
+      
+      console.log('[Auth] Token refreshed successfully');
       return true;
+
     } catch (error) {
-      console.warn('Échec du rafraîchissement du token:', error);
-      this.handleLogoutSuccess();
+      console.error('[Auth] Token refresh failed:', error);
+      this.handleLogout();
       return false;
     }
   }
 
   /**
-   * Récupération du profil utilisateur
+   * Gère la déconnexion (nettoyage complet)
    */
-  async loadProfile(): Promise<void> {
-    if (!this.authData.isAuthenticated()) {
-      return;
-    }
-
-    this.authData.setLoading(true);
-
-    try {
-      const user = await firstValueFrom(this.authApi.getProfile());
-      this.authData.setUser(user);
-    } catch (error) {
-      console.error('Erreur lors du chargement du profil:', error);
-      // Si le profil ne peut pas être chargé, on déconnecte
-      this.handleLogoutSuccess();
-    } finally {
-      this.authData.setLoading(false);
-    }
-  }
-
-  // ===== MÉTHODES OAUTH =====
-
-  /**
-   * Redirection vers Google OAuth
-   */
-  loginWithGoogle(): void {
-    window.location.href = this.authApi.getGoogleAuthUrl();
+  private handleLogout(): void {
+    console.log('[Auth] Cleaning up auth state');
+    
+    // Nettoyer auth
+    this.authData.clearAll();
+    this.tokenService.clearTokens();
+    
+    // Nettoyer user
+    this.userFacade.clearUserData();
+    
+    // Rediriger
+    this.router.navigate(['/auth/login']);
   }
 
   /**
-   * Redirection vers Discord OAuth
+   * Navigation après login réussi
    */
-  loginWithDiscord(): void {
-    window.location.href = this.authApi.getDiscordAuthUrl();
-  }
-
-  /**
-   * Récupération des providers disponibles
-   */
-  async getAvailableProviders(): Promise<string[]> {
-    try {
-      const response = await firstValueFrom(this.authApi.getAvailableProviders());
-      return response.providers;
-    } catch (error) {
-      console.warn('Erreur lors de la récupération des providers:', error);
-      return ['local'];
-    }
-  }
-
-  // ===== MÉTHODES UTILITAIRES PUBLIQUES =====
-
-  /**
-   * Vérification si l'utilisateur a un rôle spécifique
-   */
-  hasRole(role: string): boolean {
-    return this.authData.userRole() === role;
-  }
-
-  /**
-   * Vérification si l'utilisateur a l'un des rôles spécifiés
-   */
-  hasAnyRole(roles: string[]): boolean {
-    const userRole = this.authData.userRole();
-    return userRole ? roles.includes(userRole) : false;
-  }
-
-  /**
-   * Navigation après connexion réussie
-   */
-  navigateAfterLogin(): void {
-    const returnUrl = sessionStorage.getItem('returnUrl') || `${environment.redirectAuthPath}`;
+  private navigateAfterLogin(): void {
+    const returnUrl = sessionStorage.getItem('returnUrl') || environment.redirectAuthPath;
     sessionStorage.removeItem('returnUrl');
-    console.log(`return url = ${returnUrl}`);
+    console.log('[Auth] Navigating to:', returnUrl);
     this.router.navigate([returnUrl]);
   }
 
   /**
-   * Navigation après déconnexion
-   */
-  navigateAfterLogout(): void {
-    this.router.navigate(['/auth/login']);
-  }
-
-  // ===== MÉTHODES PRIVÉES =====
-
-  /**
-   * Gestion du succès d'authentification
-   */
-  private handleAuthSuccess(response: AuthResponseDto): void {
-    const tokens: AuthTokens = {
-      accessToken: response.accessToken,
-      refreshToken: response.refreshToken
-    };
-
-    this.authData.setUser(response.user);
-    this.authData.setTokens(tokens);
-    this.authData.setError(null);
-
-    // Navigation automatique après connexion
-    console.log(`Navigate after login from handle auth success`);
-    this.navigateAfterLogin();
-  }
-
-  // Gestion du callback OAuth (depuis l'URL)
-  /**
-   * Traitement du callback OAuth
-   */
-  /**
-   * Traitement du callback OAuth avec tokens directs
-   * (version simplifiée où le backend renvoie directement les tokens)
-   */
-  /**
-   * Traitement du callback OAuth avec tokens directs
-   * (version simplifiée où le backend renvoie directement les tokens)
-   */
-  async handleOAuthCallback(accessToken: string, refreshToken: string): Promise<void> {
-    this.authData.setLoading(true);
-    this.authData.setError(null);
-
-    try {
-      // Valider que les tokens sont présents
-      if (!accessToken || !refreshToken) {
-        throw new Error('Tokens manquants dans le callback OAuth');
-      }
-
-      // Créer l'objet tokens
-      const tokens: AuthTokens = {
-        accessToken,
-        refreshToken
-      };
-
-      // IMPORTANT: Sauvegarder immédiatement dans localStorage
-      // pour que l'intercepteur puisse les utiliser tout de suite
-      this.tokenService.setTokens(tokens);
-      
-      // Puis restaurer dans l'état
-      this.authData.setTokens(tokens);
-
-      // Maintenant on peut charger le profil car l'intercepteur a accès aux tokens
-      const user = await firstValueFrom(this.authApi.getProfile());
-      
-      // Mettre à jour l'utilisateur dans l'état
-      this.authData.setUser(user);
-      this.authData.setError(null);
-
-      // Navigation après succès
-      this.navigateAfterLogin();
-
-    } catch (error: any) {
-      // En cas d'erreur, nettoyer l'état ET le localStorage
-      this.authData.clearAll();
-      this.tokenService.clearTokens();
-
-      // Gestion de l'erreur
-      const errorMessage = this.extractErrorMessage(error);
-      this.authData.setError(errorMessage);
-
-      console.error('OAuth Callback Error:', {
-        accessToken: accessToken ? 'present' : 'missing',
-        refreshToken: refreshToken ? 'present' : 'missing',
-        error: error
-      });
-
-      // Pas de redirection automatique, laisser le composant gérer l'affichage d'erreur
-      throw error; // Re-lancer pour que le composant puisse l'afficher
-
-    } finally {
-      this.authData.setLoading(false);
-    }
-  }
-
-  /**
-   * Extraction du message d'erreur depuis l'erreur HTTP
+   * Extraction du message d'erreur
    */
   private extractErrorMessage(error: any): string {
-    if (error?.error?.message) {
-      return error.error.message;
-    }
-    if (error?.message) {
-      return error.message;
-    }
+    if (error?.error?.message) return error.error.message;
+    if (error?.message) return error.message;
     return 'Une erreur inattendue est survenue';
   }
-
-  /**
-   * Gestion de la déconnexion réussie
-   */
-  private handleLogoutSuccess(): void {
-    this.authData.clearAll();
-    this.tokenService.clearTokens();
-    this.navigateAfterLogout();
-  }
-
-  /**
-   * Restaure l'état d'authentification depuis localStorage de manière SYNCHRONE
-   * Cette méthode DOIT être rapide et synchrone
-   */
-  private restoreAuthState(): void {
-    const tokens = this.tokenService.getTokens();
-    
-    // Pas de tokens = pas connecté
-    if (!tokens) {
-      return;
-    }
-
-    // Token expiré = nettoyer et pas connecté
-    if (this.tokenService.isTokenExpired()) {
-      this.tokenService.clearTokens();
-      return;
-    }
-
-    // On a des tokens valides : restaurer l'état immédiatement
-    this.authData.setTokens(tokens);
-    
-    // Créer un utilisateur minimal depuis le JWT (pour que isAuthenticated = true)
-    const userInfo = this.tokenService.getUserInfoFromToken();
-    if (userInfo) {
-      const minimalUser = {
-        id: userInfo.userId,
-        email: userInfo.email,
-        role: userInfo.role,
-        name: '', // On le récupérera avec le profil complet
-        isActive: true,
-        emailVerified: true,
-        createdAt: new Date()
-      };
-      this.authData.setUser(minimalUser as any);
-    }
-  }
-
-  /**
-   * Charge le profil complet en arrière-plan (sans bloquer)
-   */
-  private async loadProfileSilently(): Promise<void> {
-    if (!this.authData.isAuthenticated()) {
-      return;
-    }
-
-    try {
-      const user = await firstValueFrom(this.authApi.getProfile());
-      const discordUser = await firstValueFrom(this.authApi.getDiscordUser());
-      this.authData.setUser(user);
-      this.authData.setDiscordUser(discordUser);
-    } catch (error) {
-    // En cas d'erreur, on garde l'utilisateur minimal du JWT
-    // L'utilisateur reste connecté mais avec des infos limitées
-      console.warn('Impossible de charger le profil complet:', error);
-    }
-  }
 }
-

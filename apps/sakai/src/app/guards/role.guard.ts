@@ -22,9 +22,9 @@ export const roleGuard: CanActivateFn = (route) => {
   }
 
   // Vérifier si l'utilisateur a l'un des rôles autorisés
-  if (authFacade.hasAnyRole(allowedRoles)) {
-    return true;
-  }
+  // if (authFacade.hasAnyRole(allowedRoles)) {
+  //   return true;
+  // }
 
   // Utilisateur n'a pas le bon rôle
   router.navigate(['/unauthorized']);
