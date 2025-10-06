@@ -1,6 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
-import type { TestDto } from '@my-project/shared-types';
 import { PrismaService } from './modules/prisma/prisma.service';
 
 @Controller()
@@ -11,7 +10,7 @@ export class AppController {
   ) {}
 
   @Get()
-  async getHello(): Promise<TestDto> {
+  async getHello(): Promise<any> {
     const userCount: number = await this.prisma.user.count();
     // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
     const refreshTokenCount: number = await this.prisma.refreshToken.count();

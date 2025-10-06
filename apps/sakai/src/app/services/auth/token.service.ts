@@ -1,7 +1,10 @@
-// services/auth/token.service.ts
 import { Injectable } from '@angular/core';
-import { AuthTokens } from '@my-project/shared-types';
-import { JwtPayload } from '@my-project/shared-types';
+import { JwtPayloadDTO } from '@my-project/shared-types';
+
+interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+}
 
 @Injectable({
   providedIn: 'root'
@@ -43,27 +46,31 @@ export class TokenService {
     localStorage.removeItem(this.REFRESH_TOKEN_KEY);
   }
 
-  // ===== VÉRIFICATIONS AVEC TES TYPES JWT =====
+  // ===== VÉRIFICATIONS AVEC LE NOUVEAU JwtPayloadDTO =====
   
   hasTokens(): boolean {
     return this.getAccessToken() !== null && this.getRefreshToken() !== null;
   }
 
-  // Méthode pour décoder le payload JWT avec ton interface
-  decodeToken(token?: string): JwtPayload | null {
+  /**
+   * Décode le payload JWT avec l'interface JwtPayloadDTO
+   */
+  decodeToken(token?: string): JwtPayloadDTO | null {
     const accessToken = token || this.getAccessToken();
     if (!accessToken) return null;
 
     try {
       const payload = JSON.parse(atob(accessToken.split('.')[1]));
-      return payload as JwtPayload;
+      return payload as JwtPayloadDTO;
     } catch (error) {
       console.error('Erreur lors du décodage du token:', error);
       return null;
     }
   }
 
-  // Vérifie si le token est expiré
+  /**
+   * Vérifie si le token est expiré
+   */
   isTokenExpired(token?: string): boolean {
     const payload = this.decodeToken(token);
     if (!payload || !payload.exp) return true;
@@ -72,19 +79,30 @@ export class TokenService {
     return payload.exp < currentTime;
   }
 
-  // Récupère les infos utilisateur depuis le token
-  getUserInfoFromToken(): { userId: string; email: string; role: string } | null {
+  /**
+   * Récupère les infos utilisateur depuis le token
+   * Utilise le nouveau format : sub (userId), discordId, username, role
+   */
+  getUserInfoFromToken(): { 
+    userId: string; 
+    discordId: string;
+    username: string;
+    role: string;
+  } | null {
     const payload = this.decodeToken();
     if (!payload) return null;
 
     return {
       userId: payload.sub,
-      email: payload.email,
-      role: payload.role
+      discordId: payload.discordId,
+      username: payload.username,
+      role: payload.role,
     };
   }
 
-  // Calcule le temps restant avant expiration (en secondes)
+  /**
+   * Calcule le temps restant avant expiration (en secondes)
+   */
   getTimeToExpiry(token?: string): number {
     const payload = this.decodeToken(token);
     if (!payload || !payload.exp) return 0;

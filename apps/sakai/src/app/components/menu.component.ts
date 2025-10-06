@@ -41,6 +41,12 @@ export class AppMenuComponent {
                 ]
             },
             {
+                label: 'Development',
+                items: [
+                    { label: 'Endpoints tester', icon: 'pi pi-fw pi-wave-pulse', routerLink: ['/endpoint-tester'] },
+                ]
+            },
+            {
                 label: 'UI Components',
                 items: [
                     { label: 'Form Layout', icon: 'pi pi-fw pi-id-card', routerLink: ['/uikit/formlayout'] },

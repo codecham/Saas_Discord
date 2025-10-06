@@ -1,67 +1,70 @@
-// services/auth/auth-api.service.ts
 import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from 'src/environments/environment';
 import { 
-  AuthResponseDto,
-  LoginDto,
-  RegisterDto,
-  RefreshTokenDto,
-  UserDto,
-  DiscordUserDto,
-} from '@my-project/shared-types'; // Ajuste le chemin
+  RefreshTokenRequestDTO,
+  RefreshTokenResponseDTO,
+  UserDTO,
+  AuthStatusDTO,
+} from '@my-project/shared-types';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthApiService {
-  private readonly baseUrl = `${environment.apiUrl}/api/auth`; // Ajuste selon ton config
-  private readonly baseUrlDiscord = `${environment.apiUrl}/api/discord`;
-  private http = inject(HttpClient);
+  private readonly baseUrl = `${environment.apiUrl}/api/auth`;
+  private readonly http = inject(HttpClient);
 
-  // ===== AUTHENTIFICATION LOCALE =====
+  // ===== DISCORD OAUTH =====
   
-  login(credentials: LoginDto): Observable<AuthResponseDto> {
-    return this.http.post<AuthResponseDto>(`${this.baseUrl}/login`, credentials);
-  }
-
-  register(userData: RegisterDto): Observable<AuthResponseDto> {
-    return this.http.post<AuthResponseDto>(`${this.baseUrl}/register`, userData);
-  }
-
-  getDiscordUser(): Observable<DiscordUserDto> {
-    return this.http.get<DiscordUserDto>(`${this.baseUrlDiscord}/user`);
+  /**
+   * Redirige vers Discord OAuth
+   * Le backend gère la redirection
+   */
+  getDiscordAuthUrl(): string {
+    return `${this.baseUrl}/discord`;
   }
 
   // ===== GESTION DES TOKENS =====
   
-  refreshToken(refreshTokenDto: RefreshTokenDto): Observable<AuthResponseDto> {
-    return this.http.post<AuthResponseDto>(`${this.baseUrl}/refresh`, refreshTokenDto);
+  /**
+   * Refresh le token JWT
+   */
+  refreshToken(dto: RefreshTokenRequestDTO): Observable<RefreshTokenResponseDTO> {
+    return this.http.post<RefreshTokenResponseDTO>(`${this.baseUrl}/refresh`, dto);
   }
 
-  logout(refreshToken: string): Observable<void> {
-    return this.http.post<void>(`${this.baseUrl}/logout`, { refreshToken });
+  /**
+   * Déconnexion (supprime le refresh token côté serveur)
+   */
+  logout(refreshToken?: string): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/logout`, { 
+      refresh_token: refreshToken 
+    });
   }
 
-  logoutAll(): Observable<{ message: string }> {
-    return this.http.post<{ message: string }>(`${this.baseUrl}/logout-all`, {});
+  /**
+   * Déconnexion de tous les appareils
+   */
+  logoutAll(): Observable<void> {
+    return this.http.post<void>(`${this.baseUrl}/logout-all`, {});
   }
 
-  getProfile(): Observable<UserDto> {
-    return this.http.get<UserDto>(`${this.baseUrl}/profile`);
+  // ===== RÉCUPÉRATION UTILISATEUR =====
+  
+  /**
+   * Récupère l'utilisateur actuel
+   * Nécessite un JWT valide
+   */
+  getCurrentUser(): Observable<UserDTO> {
+    return this.http.get<UserDTO>(`${this.baseUrl}/me`);
   }
 
-  getAvailableProviders(): Observable<{ providers: string[] }> {
-    return this.http.get<{ providers: string[] }>(`${this.baseUrl}/providers`);
+  /**
+   * Vérifie le statut d'authentification
+   */
+  getStatus(): Observable<AuthStatusDTO> {
+    return this.http.get<AuthStatusDTO>(`${this.baseUrl}/status`);
   }
-
-  // OAuth URLs
-  getGoogleAuthUrl(): string {
-    return `${this.baseUrl}/google`;
-  }
-
-  getDiscordAuthUrl(): string {
-    return `${this.baseUrl}/discord`;
-  }  
 }

@@ -56,8 +56,8 @@ export class AuthCallbackComponent implements OnInit {
   async ngOnInit() {
     try {
       const params = this.route.snapshot.queryParams;
-      const token = params['token'];
-      const refreshToken = params['refresh'];
+      const token = params['access_token'];
+      const refreshToken = params['refresh_token'];
 
       if (!token || !refreshToken) {
         throw new Error('Missing tokens in callback URL');

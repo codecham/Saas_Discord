@@ -11,49 +11,35 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  avatar    String?
+  id            String   @id @default(cuid())
   
-  // Authentification locale
-  password  String?
-  emailVerified DateTime?
+  // Identité Discord
+  discordId     String   @unique  // ID Discord (source de vérité)
+  username      String              // Username Discord
+  discriminator String?             // Discriminator (#0000) - peut être null maintenant
+  globalName    String?             // Display name Discord
+  avatar        String?             // Avatar hash Discord
+  email         String?             // Email Discord (peut être null)
   
-  // Métadonnées
+  // Tokens Discord (chiffrés)
+  accessToken       String         // Token d'accès chiffré
+  refreshToken      String         // Token de refresh chiffré
+  tokenExpiresAt    DateTime       // Expiration du token
+  tokenScope        String         // Scopes accordés (ex: "identify guilds email")
+  
+  // Métadonnées app
   isActive  Boolean  @default(true)
   role      Role     @default(USER)
   
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  lastLoginAt DateTime @default(now())
   
   // Relations
-  accounts      Account[]
-  refreshTokens RefreshToken[]
+  refreshTokens RefreshToken[]  // Tes JWT refresh tokens
   
   @@map("users")
-}
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String  // "oauth", "email"
-  provider          String  // "google", "discord", "github"
-  providerAccountId String
-  
-  // Tokens OAuth
-  accessToken       String?
-  refreshToken      String?
-  idToken           String?
-  expiresAt         Int?
-  tokenType         String?
-  scope             String?
-  
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  @@unique([provider, providerAccountId])
-  @@map("accounts")
 }
 
 model RefreshToken {

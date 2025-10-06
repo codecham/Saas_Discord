@@ -13,6 +13,7 @@ export interface DiscordUserDto {
   id: string;
   username: string;
   discriminator: string;
+  globalname?: string;
   avatar: string | null;
   bot?: boolean;
   system?: boolean;
@@ -23,8 +24,37 @@ export interface DiscordUserDto {
   verified?: boolean;
   email?: string | null;
   flags?: number;
+  public_flag?: number;
   premium_type?: number;
   public_flags?: number;
+}
+
+export interface AvatarDecorationData {
+  asset: string;
+  sku_id?: string | null;
+}
+
+
+export interface GuildUserDTO {
+  id: string;
+  username: string;
+  discriminator: string | null;
+  global_name?: string | null;
+  avatar?: string | null;
+  avatar_decoration_data: AvatarDecorationData | null;
+  bot: boolean;
+  flags?: number | null;
+  premium_type?: number | null;
+  
+}
+
+export interface GuildMemberDTO {
+  user: GuildUserDTO;
+  nick?: string | null;
+  roles: string[];
+  joined_at: string;
+  deaf: boolean;
+  mute: boolean;
 }
 
 export interface DiscordGuildDto {
@@ -33,10 +63,17 @@ export interface DiscordGuildDto {
   icon: string | null;
   iconUrl: string | null;
   owner: boolean;
+  banner: string;
   permissions: string;
   hasAdminRights: boolean;
   memberCount?: number;
   features?: string[];
+}
+
+export interface DiscordUserGuildListAvaible {
+  neverAdded: DiscordGuildDto[];
+  inactive: DiscordGuildDto[];
+  active: DiscordGuildDto[];
 }
 
 export interface DiscordApiErrorDto {

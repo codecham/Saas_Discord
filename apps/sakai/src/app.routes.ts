@@ -12,13 +12,11 @@ export const appRoutes: Routes = [
             {
                 path: 'login',
                 component: LoginComponent,
-                title: 'Login' // Titre de la page (apparaît dans l'onglet)
             },
             {
                 path: 'callback',
                 loadComponent: () => import('./app/features/auth/auth-callback/auth-callback.component')
                     .then(m => m.AuthCallbackComponent),
-                title: 'Authenticating...'
             },
             {
                 path: '',
@@ -56,6 +54,11 @@ export const appRoutes: Routes = [
                 path: 'profile',
                 loadComponent: () => import('./app/features/profile/profile.component')
                 .then(m => m.ProfileComponent)
+            },
+            {
+                path: 'endpoint-tester',
+                loadComponent: () => import('./app/features//endpoints-tester/endpoints-tester.component')
+                .then(m => m.EndpointTesterComponent)
             },
             { path: 'uikit', loadChildren: () => import('./app/features/uikit/uikit.routes') },
         ]

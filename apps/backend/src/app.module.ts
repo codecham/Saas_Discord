@@ -4,14 +4,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaService } from './modules/prisma/prisma.service';
 import { PrismaModule } from './modules/prisma/prisma.module';
-import { DemoService } from './modules/demo/demo.service';
-import { DemoController } from './modules/demo/demo.controller';
-import { DemoModule } from './modules/demo/demo.module';
-import { UsersService } from './modules/users/users.service';
-import { UsersModule } from './modules/users/users.module';
-import { AuthModule } from './modules/auth/auth.module';
-import { DiscordModule } from './modules/discord/discord.module';
+import { DiscordModuleV1 } from './modules/discordV1/discord.module';
 import { GatewayModule } from './modules/gateway/gateway.module';
+import { DiscordModule } from './modules/discord/discord.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -20,13 +16,12 @@ import { GatewayModule } from './modules/gateway/gateway.module';
       isGlobal: true,
     }),
     PrismaModule,
-    DemoModule,
-    UsersModule,
-    AuthModule.forRoot(),
-    DiscordModule,
+    AuthModule,
+    DiscordModuleV1,
     GatewayModule,
+    DiscordModule,
   ],
-  controllers: [AppController, DemoController],
-  providers: [AppService, PrismaService, DemoService, UsersService],
+  controllers: [AppController],
+  providers: [AppService, PrismaService],
 })
 export class AppModule {}
