@@ -196,9 +196,9 @@ export class DiscordApiService implements OnModuleInit {
       ),
     );
 
-    // Mettre à jour le rate limiter avec les headers de réponse
+    // Mettre à jour le rate limiter avec les headers de réponse (async)
     if (response.headers) {
-      this.rateLimiter.updateBucket(
+      await this.rateLimiter.updateBucket(
         rateLimitKey,
         response.headers as Record<string, string>,
       );
@@ -240,8 +240,8 @@ export class DiscordApiService implements OnModuleInit {
         `Rate limited on ${endpoint}. Retry after ${retryAfter}ms (Global: ${global})`,
       );
 
-      // Mettre à jour le rate limiter
-      this.rateLimiter.updateBucket(
+      // Mettre à jour le rate limiter (fire and forget car on est dans un error handler)
+      void this.rateLimiter.updateBucket(
         rateLimitKey,
         headers as Record<string, string>,
       );
@@ -330,9 +330,9 @@ export class DiscordApiService implements OnModuleInit {
       ),
     );
 
-    // Mettre à jour le rate limiter
+    // Mettre à jour le rate limiter (async)
     if (response.headers) {
-      this.rateLimiter.updateBucket(
+      await this.rateLimiter.updateBucket(
         rateLimitKey,
         response.headers as Record<string, string>,
       );
@@ -340,7 +340,7 @@ export class DiscordApiService implements OnModuleInit {
 
     return {
       data: response.data,
-      rateLimit: this.rateLimiter.getBucket(rateLimitKey) || undefined,
+      rateLimit: (await this.rateLimiter.getBucket(rateLimitKey)) || undefined,
       headers: response.headers as Record<string, string>,
       status: response.status,
     };
@@ -349,21 +349,21 @@ export class DiscordApiService implements OnModuleInit {
   /**
    * Vérifie si un endpoint est actuellement rate limité
    */
-  isRateLimited(endpoint: string): boolean {
+  async isRateLimited(endpoint: string): Promise<boolean> {
     return this.rateLimiter.isRateLimited(endpoint);
   }
 
   /**
    * Retourne le temps d'attente avant de pouvoir faire une requête
    */
-  getWaitTime(endpoint: string): number {
+  async getWaitTime(endpoint: string): Promise<number> {
     return this.rateLimiter.getWaitTime(endpoint);
   }
 
   /**
    * Récupère les informations de rate limiting pour un endpoint
    */
-  getRateLimitInfo(endpoint: string) {
+  async getRateLimitInfo(endpoint: string) {
     return this.rateLimiter.getBucket(endpoint);
   }
 }

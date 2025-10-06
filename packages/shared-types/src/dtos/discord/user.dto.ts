@@ -70,6 +70,30 @@ export interface DiscordConnectionDTO {
   visibility: number;
 }
 
+export interface UserGuildsCategorizedDTO {
+  active: GuildWithBotStatusDTO[];
+  inactive: GuildWithBotStatusDTO[];
+  notAdded: GuildWithBotStatusDTO[];
+}
+
+export interface GuildWithBotStatusDTO {
+  // Données Discord
+  id: string;
+  name: string;
+  icon: string | null;
+  owner: boolean;
+  permissions: string;
+  features: string[];
+  
+  // Données de notre DB (optionnel si guild pas en DB)
+  dbId?: string;
+  ownerDiscordId?: string;
+  botAddedAt?: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 /**
  * Helper pour générer l'URL de l'avatar
  */

@@ -4,6 +4,8 @@ import { ConfigModule } from '@nestjs/config';
 import { DiscordApiService } from './discord-api.service';
 import { DiscordRateLimiterService } from './discord-rate-limiter.service';
 import discordConfig from '../config/discord.config';
+import { GuildsDbService } from '../common/services/guild-db.service';
+import { PrismaService } from 'src/modules/prisma/prisma.service';
 
 /**
  * Module global pour les services core de Discord
@@ -18,7 +20,17 @@ import discordConfig from '../config/discord.config';
     }),
     ConfigModule.forFeature(discordConfig),
   ],
-  providers: [DiscordApiService, DiscordRateLimiterService],
-  exports: [DiscordApiService, DiscordRateLimiterService],
+  providers: [
+    DiscordApiService,
+    DiscordRateLimiterService,
+    GuildsDbService,
+    PrismaService,
+  ],
+  exports: [
+    DiscordApiService,
+    DiscordRateLimiterService,
+    GuildsDbService,
+    PrismaService,
+  ],
 })
 export class DiscordCoreModule {}

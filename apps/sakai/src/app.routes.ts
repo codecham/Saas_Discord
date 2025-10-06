@@ -3,11 +3,12 @@ import { AppLayoutComponent } from '@/layout/layout.component';
 import { LoginComponent } from '@app/features/auth/login/login.component';
 import { guestGuard } from '@app/guards/guest.guard';
 import { authGuard } from '@app/guards/auth.guard';
+import { guildGuard } from '@app/guards/guild.guard';
 
 export const appRoutes: Routes = [
     {
         path: 'auth',
-        canActivate: [guestGuard], // Empêche les utilisateurs connectés d'accéder
+        canActivate: [guestGuard],
         children: [
             {
                 path: 'login',
@@ -30,38 +31,64 @@ export const appRoutes: Routes = [
         component: AppLayoutComponent,
         canActivate: [authGuard],
         children: [
+            // Page de sélection de serveur (pas de guildGuard)
+            {
+                path: 'server-list',
+                loadComponent: () => import('./app/features/server-list/server-list.component')
+                    .then(m => m.ServerListComponent)
+            },
+            // Routes protégées par guildGuard (nécessitent une guild sélectionnée)
             {
                 path: 'dashboard',
+                canActivate: [guildGuard],
                 loadComponent: () => import('./app/features/dashboard/dashboard.component')
-                .then(m => m.DemoDashboardComponent)
+                    .then(m => m.DemoDashboardComponent)
+            },
+            {
+                path: 'server-info',
+                canActivate: [guildGuard],
+                loadComponent: () => import('./app/features/server-info/server-info.component')
+                    .then(m => m.ServerInfoComponent)
             },
             {
                 path: 'members',
+                canActivate: [guildGuard],
                 loadComponent: () => import('./app/features/members/members.component')
-                .then(m => m.MembersComponent)
+                    .then(m => m.MembersComponent)
             },
             {
                 path: 'channels',
+                canActivate: [guildGuard],
                 loadComponent: () => import('./app/features/channels/channels.component')
-                .then(m => m.ChannelsComponent)
+                    .then(m => m.ChannelsComponent)
             },
             {
                 path: 'roles',
+                canActivate: [guildGuard],
                 loadComponent: () => import('./app/features/roles/roles.component')
-                .then(m => m.RolesComponent)
+                    .then(m => m.RolesComponent)
             },
             {
                 path: 'profile',
                 loadComponent: () => import('./app/features/profile/profile.component')
-                .then(m => m.ProfileComponent)
+                    .then(m => m.ProfileComponent)
             },
             {
                 path: 'endpoint-tester',
-                loadComponent: () => import('./app/features//endpoints-tester/endpoints-tester.component')
-                .then(m => m.EndpointTesterComponent)
+                canActivate: [guildGuard],
+                loadComponent: () => import('./app/features/endpoints-tester/endpoints-tester.component')
+                    .then(m => m.EndpointTesterComponent)
             },
-            { path: 'uikit', loadChildren: () => import('./app/features/uikit/uikit.routes') },
+            { 
+                path: 'uikit', 
+                loadChildren: () => import('./app/features/uikit/uikit.routes') 
+            },
+            // Redirection par défaut
+            {
+                path: '',
+                redirectTo: 'server-list',
+                pathMatch: 'full'
+            }
         ]
     },
 ];
-

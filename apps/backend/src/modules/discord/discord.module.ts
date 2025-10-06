@@ -6,6 +6,9 @@ import { DiscordUsersModule } from './ressources/users/users.module';
 import { DiscordMembersModule } from './ressources/members/members.module';
 import { DiscordRolesModule } from './ressources/roles/roles.module';
 import { BansController } from './ressources/ban/ban.controller';
+import { PrismaService } from '../prisma/prisma.service';
+import { GuildAdminGuard } from './common/guards/guild-admin.guard';
+import { AuthModule } from '../auth/auth.module';
 
 /**
  * Module principal Discord
@@ -19,6 +22,7 @@ import { BansController } from './ressources/ban/ban.controller';
     DiscordUsersModule,
     DiscordMembersModule,
     DiscordRolesModule,
+    AuthModule,
   ],
   controllers: [BansController], // BansController utilise MembersService
   exports: [
@@ -28,6 +32,8 @@ import { BansController } from './ressources/ban/ban.controller';
     DiscordUsersModule,
     DiscordMembersModule,
     DiscordRolesModule,
+    GuildAdminGuard,
   ],
+  providers: [PrismaService, GuildAdminGuard],
 })
 export class DiscordModule {}

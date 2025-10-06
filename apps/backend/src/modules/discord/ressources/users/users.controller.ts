@@ -32,6 +32,16 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   /**
+   * GET /discord/users/@me/guilds/categorized
+   * Récupère les guilds admin de l'utilisateur catégorisées par présence du bot
+   * IMPORTANT: Cette route doit être AVANT @me/guilds pour éviter les conflits
+   */
+  @Get('@me/guilds/categorized')
+  async getCurrentUserGuildsCategorized(@CurrentUser('id') userId: string) {
+    return this.usersService.getCurrentUserGuildsCategorized(userId);
+  }
+
+  /**
    * GET /discord/users/@me/guilds/:guildId
    * Récupère les informations d'une guild spécifique pour l'utilisateur connecté
    * IMPORTANT: Cette route doit être AVANT @me/guilds pour éviter les conflits

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Injectable } from '@nestjs/common';
 import { DiscordApiService } from '../../core/discord-api.service';
 import { DiscordTokenService } from '../../../auth/services/discord-token.service';
@@ -6,7 +7,10 @@ import {
   DiscordUserDTO,
   DiscordConnectionDTO,
   DiscordUserGuildDTO,
+  GuildWithBotStatusDTO,
+  UserGuildsCategorizedDTO,
 } from '@my-project/shared-types';
+import { GuildsDbService } from '../../common/services/guild-db.service';
 
 /**
  * Service pour gérer les utilisateurs Discord
@@ -16,6 +20,7 @@ export class UsersService {
   constructor(
     private readonly discordApi: DiscordApiService,
     private readonly discordToken: DiscordTokenService,
+    private readonly guildsDb: GuildsDbService,
   ) {}
 
   /**
@@ -175,5 +180,94 @@ export class UsersService {
         rateLimitKey: `user:${userId}`,
       },
     );
+  }
+
+  /**
+   * Récupère les guilds de l'utilisateur catégorisées par présence du bot
+   * Filtre uniquement les guilds où l'utilisateur a les droits admin
+   */
+  async getCurrentUserGuildsCategorized(
+    userId: string,
+  ): Promise<UserGuildsCategorizedDTO> {
+    // 1. Récupérer toutes les guilds de l'utilisateur depuis Discord
+    const userToken = await this.discordToken.getDiscordAccessToken(userId);
+
+    const allGuilds = await this.discordApi.get<DiscordUserGuildDTO[]>(
+      DISCORD_ENDPOINTS.CURRENT_USER_GUILDS(),
+      {
+        params: { limit: 200 }, // Maximum autorisé par Discord
+        rateLimitKey: `user:${userId}:guilds`,
+        customToken: userToken,
+        useAuth: true,
+      },
+    );
+
+    // 2. Filtrer uniquement les guilds où l'utilisateur a les droits admin
+    // Permission ADMINISTRATOR = 0x8 (bit 3)
+    const ADMINISTRATOR_PERMISSION = 0x8;
+    const adminGuilds = allGuilds.filter((guild) => {
+      const permissions = BigInt(guild.permissions);
+      return (permissions & BigInt(ADMINISTRATOR_PERMISSION)) !== BigInt(0);
+    });
+
+    if (adminGuilds.length === 0) {
+      return {
+        active: [],
+        inactive: [],
+        notAdded: [],
+      };
+    }
+
+    // 3. Récupérer les guilds de notre DB
+    const guildIds = adminGuilds.map((g) => g.id);
+    const dbGuilds = await this.guildsDb.findManyByDiscordIds(guildIds);
+
+    // Créer une Map pour accès rapide
+    const dbGuildsMap = new Map(
+      dbGuilds.map((guild) => [guild.guildId, guild]),
+    );
+
+    // 4. Catégoriser les guilds
+    const active: GuildWithBotStatusDTO[] = [];
+    const inactive: GuildWithBotStatusDTO[] = [];
+    const notAdded: GuildWithBotStatusDTO[] = [];
+
+    for (const discordGuild of adminGuilds) {
+      const dbGuild = dbGuildsMap.get(discordGuild.id);
+
+      const guildDto: GuildWithBotStatusDTO = {
+        id: discordGuild.id,
+        name: discordGuild.name,
+        icon: discordGuild.icon,
+        owner: discordGuild.owner,
+        permissions: discordGuild.permissions,
+        features: discordGuild.features,
+      };
+
+      if (dbGuild) {
+        // Guild existe en DB → ajouter les données
+        guildDto.dbId = dbGuild.id;
+        guildDto.ownerDiscordId = dbGuild.ownerDiscordId;
+        guildDto.botAddedAt = dbGuild.botAddedAt.toISOString();
+        guildDto.isActive = dbGuild.isActive;
+        guildDto.createdAt = dbGuild.createdAt.toISOString();
+        guildDto.updatedAt = dbGuild.updatedAt.toISOString();
+
+        if (dbGuild.isActive) {
+          active.push(guildDto);
+        } else {
+          inactive.push(guildDto);
+        }
+      } else {
+        // Guild n'existe pas en DB
+        notAdded.push(guildDto);
+      }
+    }
+
+    return {
+      active,
+      inactive,
+      notAdded,
+    };
   }
 }
