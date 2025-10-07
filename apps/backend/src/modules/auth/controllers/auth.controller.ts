@@ -21,6 +21,8 @@ import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { CurrentUser } from '../decorators/current-user.decorator';
 import * as sharedTypes from '@my-project/shared-types';
 import { OAuthSessionService } from '../services/oauth-session.service';
+// 🔒 AJOUT: Imports pour le rate limiting
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 
 /**
  * Interface pour la requête d'échange de session
@@ -74,8 +76,10 @@ export class AuthController {
   /**
    * GET /api/auth/discord/callback
    * Callback Discord OAuth
+   * 🔒 AJOUT: Rate limit modéré pour éviter les attaques sur le callback
    */
   @Get('discord/callback')
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 req/min
   async discordCallback(
     @Query('code') code: string,
     @Query('state') state: string,
@@ -128,9 +132,11 @@ export class AuthController {
   /**
    * POST /api/auth/exchange-session
    * 🔒 MODIFIÉ: Échange un sessionId contre les tokens JWT + cookie httpOnly
+   * 🔒 AJOUT: Rate limit strict: 10 req/min pour éviter les tentatives de deviner sessionId
    */
   @Post('exchange-session')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 req/min
   async exchangeSession(
     @Body() body: ExchangeSessionDTO,
     @Res() res: express.Response,
@@ -170,9 +176,11 @@ export class AuthController {
   /**
    * POST /api/auth/refresh
    * 🔒 MODIFIÉ: Refresh les tokens JWT via cookie httpOnly
+   * 🔒 AJOUT: Rate limit TRÈS strict: 5 req/min pour éviter les tentatives de vol de tokens
    */
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 req/min - TRÈS STRICT
   async refresh(@Req() req: express.Request, @Res() res: express.Response) {
     // 🔒 NOUVEAU: Lire le refresh token depuis le cookie
     const refreshToken = req.cookies['refresh_token'];
@@ -213,10 +221,12 @@ export class AuthController {
   /**
    * POST /api/auth/logout
    * 🔒 MODIFIÉ: Déconnexion avec suppression du cookie
+   * 🔒 AJOUT: Rate limit modéré: 20 req/min
    */
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 req/min
   async logout(
     @CurrentUser('id') userId: string,
     @Req() req: express.Request,
@@ -240,10 +250,12 @@ export class AuthController {
   /**
    * POST /api/auth/logout-all
    * 🔒 MODIFIÉ: Déconnexion de tous les appareils avec suppression du cookie
+   * 🔒 AJOUT: Rate limit modéré: 20 req/min
    */
   @Post('logout-all')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @Throttle({ default: { limit: 20, ttl: 60000 } }) // 20 req/min
   async logoutAll(
     @CurrentUser('id') userId: string,
     @Res() res: express.Response,
@@ -297,8 +309,10 @@ export class AuthController {
   /**
    * GET /api/auth/health
    * Health check pour Redis et les sessions
+   * 🔒 AJOUT: Pas de rate limit sur health check
    */
   @Get('health')
+  @SkipThrottle() // Pas de limite sur health check
   async healthCheck() {
     const redisHealth = await this.oauthSessionService.healthCheck();
 

@@ -10,6 +10,8 @@ import { DiscordModule } from './modules/discord/discord.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { RedisModule } from './modules/redis/redis.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -21,6 +23,14 @@ import { RedisModule } from './modules/redis/redis.module';
       isGlobal: true,
       ttl: 300, // 5 minutes par défaut
     }),
+    // 🔒 AJOUT: Configuration du rate limiting global
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60000, // 60 secondes
+        limit: 100, // 100 requêtes par défaut
+      },
+    ]),
     PrismaModule,
     AuthModule,
     DiscordModuleV1,
@@ -29,6 +39,14 @@ import { RedisModule } from './modules/redis/redis.module';
     RedisModule,
   ],
   controllers: [AppController],
-  providers: [AppService, PrismaService],
+  providers: [
+    AppService,
+    PrismaService,
+    // 🔒 AJOUT: Guard global pour le rate limiting
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
