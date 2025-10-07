@@ -7,6 +7,8 @@ import {
   RefreshTokenResponseDTO,
   UserDTO,
   AuthStatusDTO,
+  ExchangeSessionRequestDTO,
+  ExchangeSessionResponseDTO,
 } from '@my-project/shared-types';
 
 @Injectable({
@@ -24,6 +26,17 @@ export class AuthApiService {
    */
   getDiscordAuthUrl(): string {
     return `${this.baseUrl}/discord`;
+  }
+
+  /**
+   * 🔒 NOUVEAU: Échange un sessionId contre les tokens JWT
+   * Appelé après le callback OAuth
+   */
+  exchangeSession(dto: ExchangeSessionRequestDTO): Observable<ExchangeSessionResponseDTO> {
+    return this.http.post<ExchangeSessionResponseDTO>(
+      `${this.baseUrl}/exchange-session`,
+      dto
+    );
   }
 
   // ===== GESTION DES TOKENS =====
@@ -66,5 +79,12 @@ export class AuthApiService {
    */
   getStatus(): Observable<AuthStatusDTO> {
     return this.http.get<AuthStatusDTO>(`${this.baseUrl}/status`);
+  }
+
+  /**
+   * 🔒 NOUVEAU: Health check du service auth
+   */
+  getHealthCheck(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/health`);
   }
 }

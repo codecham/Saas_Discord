@@ -3,29 +3,32 @@ import {
   Controller,
   Get,
   Post,
-  Query,
   Body,
+  Query,
   Res,
-  UseGuards,
   HttpCode,
   HttpStatus,
+  UseGuards,
   Logger,
 } from '@nestjs/common';
-import type { Response, Request } from 'express';
+import express from 'express';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../services/auth.service';
 import { DiscordOAuthService } from '../services/discord-oauth.service';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import {
-  RefreshTokenResponseDTO,
-  UserDTO,
-  AuthStatusDTO,
-} from '@my-project/shared-types';
-import type { RefreshTokenRequestDTO } from '@my-project/shared-types';
 import { CurrentUser } from '../decorators/current-user.decorator';
+import * as sharedTypes from '@my-project/shared-types';
+import { OAuthSessionService } from '../services/oauth-session.service';
 
 /**
- * Controller pour l'authentification Discord OAuth
+ * Interface pour la requête d'échange de session
+ */
+interface ExchangeSessionDTO {
+  sessionId: string;
+}
+
+/**
+ * Contrôleur d'authentification
  */
 @Controller('api/auth')
 export class AuthController {
@@ -34,6 +37,7 @@ export class AuthController {
 
   constructor(
     private readonly authService: AuthService,
+    private readonly oauthSessionService: OAuthSessionService,
     private readonly discordOAuth: DiscordOAuthService,
     private readonly configService: ConfigService,
   ) {
@@ -45,45 +49,66 @@ export class AuthController {
    * Redirige vers Discord OAuth
    */
   @Get('discord')
-  discordLogin(@Res() res: Response) {
-    const authUrl = this.discordOAuth.getAuthorizationUrl();
-    this.logger.log('Redirecting to Discord OAuth');
-    return res.redirect(authUrl);
+  async discordAuth(@Res() res: express.Response) {
+    // 🔒 MODIFIÉ: getAuthorizationUrl() est maintenant async et génère un state
+    const discordAuthUrl = await this.discordOAuth.getAuthorizationUrl();
+    return res.redirect(discordAuthUrl);
   }
 
   /**
    * GET /api/auth/discord/callback
    * Callback Discord OAuth
+   *
+   * 🔒 SÉCURISÉ:
+   * - Valide le state CSRF
+   * - Ne retourne PLUS les tokens dans l'URL
+   * - Crée une session temporaire dans Redis
    */
   @Get('discord/callback')
   async discordCallback(
     @Query('code') code: string,
-    @Query('error') error: string,
-    @Res() res: Response,
+    @Query('state') state: string, // 👈 NOUVEAU
+    @Res() res: express.Response,
   ) {
-    // Gérer les erreurs OAuth
-    if (error) {
-      this.logger.error(`Discord OAuth error: ${error}`);
-      return res.redirect(`${this.frontendUrl}/auth/error?error=${error}`);
-    }
-
-    if (!code) {
-      this.logger.error('No code provided in Discord callback');
-      return res.redirect(`${this.frontendUrl}/auth/error?error=no_code`);
-    }
-
     try {
-      // Authentifier l'utilisateur
+      if (!code) {
+        this.logger.error('No code provided in Discord callback');
+        return res.redirect(
+          `${this.frontendUrl}/auth/error?error=missing_code`,
+        );
+      }
+
+      // 🔒 NOUVEAU: Valider le state CSRF
+      if (!state) {
+        this.logger.error('No state provided in Discord callback');
+        return res.redirect(
+          `${this.frontendUrl}/auth/error?error=missing_state`,
+        );
+      }
+
+      try {
+        await this.oauthSessionService.validateState(state);
+      } catch (error) {
+        this.logger.error('State validation failed', error);
+        return res.redirect(
+          `${this.frontendUrl}/auth/error?error=invalid_state`,
+        );
+      }
+
+      // Échanger le code Discord contre nos tokens JWT
       const authResponse = await this.authService.handleDiscordCallback(code);
 
-      // Rediriger vers le frontend avec les tokens
-      const params = new URLSearchParams({
-        access_token: authResponse.accessToken,
-        refresh_token: authResponse.refreshToken,
-      });
+      // 🔒 Créer une session temporaire dans Redis
+      const sessionId = await this.oauthSessionService.createSession(
+        authResponse.accessToken,
+        authResponse.refreshToken,
+        authResponse.user.id,
+      );
 
+      // Rediriger avec SEULEMENT le sessionId (pas les tokens)
+      this.logger.log(`Redirecting to frontend with sessionId: ${sessionId}`);
       return res.redirect(
-        `${this.frontendUrl}/auth/callback?${params.toString()}`,
+        `${this.frontendUrl}/auth/callback?session=${sessionId}`,
       );
     } catch (error) {
       this.logger.error('Error in Discord callback', error);
@@ -94,14 +119,45 @@ export class AuthController {
   }
 
   /**
+   * POST /api/auth/exchange-session
+   * 🔒 NOUVEAU: Échange un sessionId contre les tokens JWT
+   *
+   * La session est détruite après utilisation (one-time use)
+   *
+   * @param body { sessionId: string }
+   * @returns { access_token, refresh_token, user }
+   */
+  @Post('exchange-session')
+  @HttpCode(HttpStatus.OK)
+  async exchangeSession(@Body() body: ExchangeSessionDTO) {
+    const { sessionId } = body;
+
+    if (!sessionId) {
+      throw new Error('Session ID is required');
+    }
+
+    // Échanger le sessionId contre les tokens
+    const session = await this.oauthSessionService.exchangeSession(sessionId);
+
+    // Récupérer les infos utilisateur
+    const user = await this.authService.getCurrentUser(session.userId);
+
+    return {
+      access_token: session.accessToken,
+      refresh_token: session.refreshToken,
+      user,
+    };
+  }
+
+  /**
    * POST /api/auth/refresh
    * Refresh les tokens JWT
    */
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
-    @Body() body: RefreshTokenRequestDTO,
-  ): Promise<RefreshTokenResponseDTO> {
+    @Body() body: sharedTypes.RefreshTokenRequestDTO,
+  ): Promise<sharedTypes.RefreshTokenResponseDTO> {
     if (!body.refresh_token) {
       throw new Error('Refresh token required');
     }
@@ -140,7 +196,9 @@ export class AuthController {
    */
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  async getCurrentUser(@CurrentUser('id') userId: string): Promise<UserDTO> {
+  async getCurrentUser(
+    @CurrentUser('id') userId: string,
+  ): Promise<sharedTypes.UserDTO> {
     return this.authService.getCurrentUser(userId);
   }
 
@@ -150,7 +208,9 @@ export class AuthController {
    */
   @Get('status')
   @UseGuards(JwtAuthGuard)
-  async getStatus(@CurrentUser() user: any): Promise<AuthStatusDTO> {
+  async getStatus(
+    @CurrentUser() user: any,
+  ): Promise<sharedTypes.AuthStatusDTO> {
     return {
       authenticated: true,
       user: {
@@ -158,6 +218,21 @@ export class AuthController {
         username: user.username,
         role: user.role,
       },
+    };
+  }
+
+  /**
+   * GET /api/auth/health
+   * 🔒 NOUVEAU: Health check pour Redis et les sessions
+   */
+  @Get('health')
+  async healthCheck() {
+    const redisHealth = await this.oauthSessionService.healthCheck();
+
+    return {
+      status: redisHealth.connected ? 'healthy' : 'unhealthy',
+      redis: redisHealth,
+      timestamp: new Date().toISOString(),
     };
   }
 }

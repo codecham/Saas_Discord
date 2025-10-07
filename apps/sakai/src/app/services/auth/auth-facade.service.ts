@@ -7,7 +7,10 @@ import { TokenService } from './token.service';
 import { UserFacadeService } from '../user/user-facade.service';
 import { GuildFacadeService } from '../guild/guild-facade.service';
 import { ErrorHandlerService } from '../error-handler.service';
-import { RefreshTokenRequestDTO } from '@my-project/shared-types';
+import { 
+  RefreshTokenRequestDTO,
+  ExchangeSessionRequestDTO,
+} from '@my-project/shared-types';
 import { environment } from 'src/environments/environment';
 
 interface AuthTokens {
@@ -58,104 +61,78 @@ export class AuthFacadeService {
 
   /**
    * Initialise l'authentification au démarrage de l'application
-   * 
-   * ÉTAPES :
-   * 1. Vérifier si des tokens existent dans localStorage
-   * 2. Vérifier s'ils sont valides (pas expirés)
-   * 3. Si valides : restaurer l'état auth + charger user + charger guilds
-   * 4. Si invalides : nettoyer
    */
-  private initializeAuth(): void {
+  private async initializeAuth(): Promise<void> {
     const tokens = this.tokenService.getTokens();
 
-    // Pas de tokens = pas authentifié
     if (!tokens) {
-      console.log('[Auth] No tokens found');
-      this.userFacade.clearUserData();
-      this.guildFacade.clearAllGuildData();
+      console.log('[Auth] No tokens found, user not authenticated');
       return;
     }
 
-    // Vérifier l'expiration
     if (this.tokenService.isTokenExpired(tokens.accessToken)) {
       console.log('[Auth] Access token expired, attempting refresh...');
+      const refreshed = await this.refreshToken();
       
-      // Tenter un refresh au lieu de nettoyer directement
-      this.refreshToken().then(success => {
-        if (!success) {
-          console.log('[Auth] Refresh failed, cleaning up');
-          this.tokenService.clearTokens();
-          this.userFacade.clearUserData();
-          this.guildFacade.clearAllGuildData();
-        }
-      });
-      return;
+      if (!refreshed) {
+        console.log('[Auth] Refresh failed, clearing auth state');
+        return;
+      }
     }
 
-    // Tokens valides : restaurer l'état
-    console.log('[Auth] Restoring auth state from tokens');
     this.authData.setTokens(tokens);
-    
-    // Initialiser user et guilds
-    this.initializeUserAndGuilds();
-  }
 
-  /**
-   * Initialise les services User et Guild
-   */
-  private async initializeUserAndGuilds(): Promise<void> {
     try {
-      // Charger les données utilisateur
       await this.userFacade.initializeUserService();
-      
-      // Charger les guilds
       await this.guildFacade.initializeGuildService();
-      
+      console.log('[Auth] Authentication restored successfully');
     } catch (error) {
-      console.error('[Auth] Failed to initialize user/guilds:', error);
-      this.errorHandler.handleError(error, 'Initialisation', false);
+      console.error('[Auth] Failed to restore auth state:', error);
+      this.handleLogout();
     }
   }
 
   /**
-   * Redirige vers Discord OAuth
-   * Le backend gère la redirection vers Discord
+   * Lance le processus de connexion Discord OAuth
    */
-  loginWithDiscord(): void {
-    console.log('[Auth] Redirecting to Discord OAuth...');
-    
-    // Sauvegarder l'URL de retour si nécessaire
+  login(): void {
     const currentUrl = this.router.url;
     if (currentUrl !== '/auth/login' && currentUrl !== '/') {
       sessionStorage.setItem('returnUrl', currentUrl);
     }
     
-    // Redirection vers le backend qui redirige vers Discord
     window.location.href = this.authApi.getDiscordAuthUrl();
   }
 
   /**
-   * Gère le retour du callback Discord OAuth
+   * 🔒 MODIFIÉ: Gère le retour du callback Discord OAuth avec sessionId
    * 
-   * Le backend renvoie vers le frontend avec les tokens dans l'URL:
-   * /auth/callback?access_token=xxx&refresh_token=yyy
+   * Le backend renvoie vers le frontend avec SEULEMENT le sessionId:
+   * /auth/callback?session=xxx
    * 
-   * @param accessToken Token d'accès JWT de notre app
-   * @param refreshToken Token de rafraîchissement de notre app
+   * @param sessionId Session ID temporaire à échanger contre les tokens
    */
-  async handleOAuthCallback(accessToken: string, refreshToken: string): Promise<void> {
-    console.log('[Auth] Handling OAuth callback...');
+  async handleOAuthCallback(sessionId: string): Promise<void> {
+    console.log('[Auth] Handling OAuth callback with sessionId...');
     
     this.authData.setLoading(true);
     this.authData.setError(null);
 
     try {
-      // Valider les tokens
-      if (!accessToken || !refreshToken) {
-        throw new Error('Tokens manquants dans le callback OAuth');
+      // Valider le sessionId
+      if (!sessionId) {
+        throw new Error('Session ID manquant dans le callback OAuth');
       }
 
-      const tokens: AuthTokens = { accessToken, refreshToken };
+      // 🔒 NOUVEAU: Échanger le sessionId contre les tokens via POST sécurisé
+      const dto: ExchangeSessionRequestDTO = { sessionId };
+      const response = await firstValueFrom(this.authApi.exchangeSession(dto));
+
+      // Extraire les tokens de la réponse
+      const tokens: AuthTokens = {
+        accessToken: response.access_token,
+        refreshToken: response.refresh_token,
+      };
       
       // Sauvegarder immédiatement les tokens (pour l'intercepteur)
       this.tokenService.setTokens(tokens);

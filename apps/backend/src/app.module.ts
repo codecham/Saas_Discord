@@ -9,6 +9,7 @@ import { GatewayModule } from './modules/gateway/gateway.module';
 import { DiscordModule } from './modules/discord/discord.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CacheModule } from '@nestjs/cache-manager';
+import { RedisModule } from './modules/redis/redis.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { CacheModule } from '@nestjs/cache-manager';
     DiscordModuleV1,
     GatewayModule,
     DiscordModule,
+    RedisModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

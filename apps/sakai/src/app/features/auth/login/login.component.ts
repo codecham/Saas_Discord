@@ -76,6 +76,6 @@ export class LoginComponent {
     private readonly authFacade = inject(AuthFacadeService);
     
     loginWithDiscord() {
-        this.authFacade.loginWithDiscord();
+        this.authFacade.login();
     }
 }

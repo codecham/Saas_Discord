@@ -11,6 +11,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtOptionalGuard } from './guards/jwt-optional.guard';
 import { PrismaModule } from '../prisma/prisma.module';
+import { RedisModule } from '../redis/redis.module';
+import { OAuthSessionService } from './services/oauth-session.service';
+import { OAuthStateService } from './services/oauth-state.service';
 
 /**
  * Module d'authentification Discord OAuth
@@ -18,6 +21,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 @Module({
   imports: [
     PrismaModule,
+    RedisModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -40,6 +44,8 @@ import { PrismaModule } from '../prisma/prisma.module';
     JwtStrategy,
     JwtAuthGuard,
     JwtOptionalGuard,
+    OAuthSessionService,
+    OAuthStateService,
   ],
   exports: [
     AuthService,

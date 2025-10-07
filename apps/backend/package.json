@@ -38,6 +38,7 @@
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
     "cache-manager": "^7.2.3",
+    "ioredis": "^5.8.1",
     "passport": "^0.7.0",
     "passport-discord": "^0.1.4",
     "passport-google-oauth20": "^2.0.0",

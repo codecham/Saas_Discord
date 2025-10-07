@@ -12,6 +12,22 @@ export interface LoginResponseDTO {
 }
 
 /**
+ * 🔒 NOUVEAU: Requête d'échange de session OAuth
+ */
+export interface ExchangeSessionRequestDTO {
+  sessionId: string;
+}
+
+/**
+ * 🔒 NOUVEAU: Réponse d'échange de session OAuth
+ */
+export interface ExchangeSessionResponseDTO {
+  access_token: string;
+  refresh_token: string;
+  user: UserDTO;
+}
+
+/**
  * Utilisateur de l'application
  */
 export interface UserDTO {
