@@ -1,1378 +1,1212 @@
-# Fullstack Template - Documentation Complète
+# 📚 Documentation - Application d'Administration/Modération Discord
 
-Un template de projet fullstack professionnel avec NestJS, Angular, PostgreSQL et Redis, conçu pour être cloné et utilisé immédiatement pour tout nouveau projet.
+> **Version:** 1.0.0  
+> **Dernière mise à jour:** Octobre 2025  
+> **Stack:** Angular 20 · NestJS · SapphireJS · PostgreSQL · Redis
 
-## 🎯 Objectif du Template
+---
 
-Ce template résout les problèmes récurrents lors du démarrage d'un nouveau projet :
-- Configuration initiale longue et répétitive
-- Connexion entre frontend et backend
-- Gestion des types partagés
-- Configuration de la base de données
-- Structure de projet maintenable
+## 📋 Table des Matières
 
-## 🚀 Quick Start (5 minutes)
+1. [Vue d'ensemble](#vue-densemble)
+2. [Architecture du Projet](#architecture-du-projet)
+3. [Technologies Utilisées](#technologies-utilisées)
+4. [Structure du Monorepo](#structure-du-monorepo)
+5. [Composants Détaillés](#composants-détaillés)
+6. [Installation et Configuration](#installation-et-configuration)
+7. [Développement](#développement)
+8. [Base de Données](#base-de-données)
+9. [Authentification & Sécurité](#authentification--sécurité)
+10. [Communication Inter-Services](#communication-inter-services)
+11. [Intégration Discord API](#intégration-discord-api)
+12. [Déploiement](#déploiement)
+13. [Maintenance et Monitoring](#maintenance-et-monitoring)
 
-```bash
-# 1. Cloner le projet
-git clone <votre-repo-url>
-cd fullstack-template
+---
 
-# 2. Configuration automatique complète
-npm run setup
+## 🎯 Vue d'ensemble
 
-# 3. Lancer tout en mode développement
-npm run dev:all
+### Objectif
 
-# 4. Tester que ça marche
-# Ouvrir http://localhost:4200 -> Page de demo
-# Tous les tests doivent être verts ✅
-```
+Application web complète permettant l'administration et la modération de serveurs Discord avec une interface moderne et intuitive.
 
-### Que fait `npm run setup` ?
-1. **Installe** toutes les dépendances (root + apps + packages)
-2. **Lance** PostgreSQL et Redis via Docker
-3. **Applique** les migrations de base de données
-4. **Insère** des données de test (3 utilisateurs)
+### Caractéristiques Principales
 
-## 🔧 Après clonage d'un projet existant
+- ✅ **Authentification Discord OAuth 2.0** - Connexion sécurisée via Discord
+- ✅ **Gestion Multi-Serveurs** - Administration de plusieurs serveurs Discord
+- ✅ **Communication Temps Réel** - Synchronisation bidirectionnelle entre le bot et le backend
+- ✅ **Architecture Scalable** - Supporte plusieurs instances de bot et backend
+- ✅ **Interface Moderne** - UI responsive basée sur PrimeNG et TailwindCSS
+- ✅ **Système d'Events** - Écoute et traitement d'événements Discord
+- ✅ **Batch Processing** - Envoi optimisé d'événements par paquets
+- ✅ **Persistance Locale** - Sauvegarde SQLite en cas de perte de connexion
 
-Si vous clonez ce template depuis un autre projet :
-```bash
-# Nettoyer les volumes Docker précédents
-docker volume prune -f
-
-# Setup complet
-npm run setup
-
-## 📊 Vérification que tout fonctionne
-
-Une fois lancé, vous devriez voir :
-
-### ✅ Frontend (http://localhost:4200)
-- Page de demo accessible
-- Tests "Health Check", "Base de données", "Types Partagés" tous verts
-- Aucune erreur dans la console du navigateur
-
-### ✅ Backend (http://localhost:3000)
-- API accessible
-- Endpoints de demo répondent :
-  - `GET /api/demo/health` 
-  - `GET /api/demo/database`
-  - `GET /api/demo/shared-types`
-
-### ✅ Base de données (http://localhost:8080)
-- Adminer accessible (serveur: postgres, user: devuser, password: devpassword)
-- Tables `users`, `accounts`, `_prisma_migrations` présentes
-- 3 utilisateurs de test créés
+---
 
 ## 🏗️ Architecture du Projet
 
-### Structure des dossiers
+Le projet suit une architecture **microservices** avec 4 composants principaux :
+
 ```
-fullstack-template/
-├── apps/                           # Applications principales
-│   ├── backend/                    # API NestJS
+┌─────────────────────────────────────────────────────────────┐
+│                         FRONTEND                             │
+│                    (Angular 20 + PrimeNG)                    │
+│                      Port: 4200                              │
+└──────────────────────┬──────────────────────────────────────┘
+                       │ HTTP/REST
+                       │ WebSocket (futur)
+                       ▼
+┌─────────────────────────────────────────────────────────────┐
+│                         BACKEND                              │
+│                      (NestJS + Prisma)                       │
+│              Auth · API · Business Logic                     │
+│                      Port: 3000                              │
+└──────┬──────────────────────────────┬───────────────────────┘
+       │ PostgreSQL                   │ Socket.io
+       │                              │
+       ▼                              ▼
+┌──────────────┐         ┌────────────────────────────────────┐
+│  PostgreSQL  │         │          GATEWAY                   │
+│   Database   │         │         (NestJS)                   │
+│              │         │   WebSocket Hub & Router           │
+│              │         │        Port: 3001                  │
+└──────────────┘         └──────────┬─────────────────────────┘
+       ▲                            │ Socket.io
+       │                            │
+       │                            ▼
+       │                 ┌────────────────────────────────────┐
+       │                 │           BOT                      │
+       │                 │        (SapphireJS)                │
+       └─────────────────┤  Event Listener · Commands         │
+                 SQLite  │  Batcher · Offline Backup          │
+                         └────────────────────────────────────┘
+```
+
+### Flux de Données
+
+#### 1. Authentification
+```
+Frontend → Backend (OAuth) → Discord API → Backend → PostgreSQL
+                           ↓
+                      JWT Tokens → Frontend
+```
+
+#### 2. Événements Discord
+```
+Discord → Bot → EventBatcher → Gateway → Backend → PostgreSQL
+                    ↓ (si déconnecté)
+                 SQLite
+```
+
+#### 3. Commandes vers Bot
+```
+Frontend → Backend → Gateway → Bot → Discord
+```
+
+---
+
+## 🛠️ Technologies Utilisées
+
+### Frontend (`apps/frontend`)
+| Technologie | Version | Usage |
+|------------|---------|-------|
+| **Angular** | 20 | Framework principal |
+| **PrimeNG** | 20 | Composants UI |
+| **TailwindCSS** | - | Styling utilitaire |
+| **Sakai Template** | - | Template de base |
+| **RxJS** | - | Gestion réactive |
+| **TypeScript** | 5+ | Typage fort |
+
+### Backend (`apps/backend`)
+| Technologie | Version | Usage |
+|------------|---------|-------|
+| **NestJS** | 10+ | Framework backend |
+| **Prisma** | 5+ | ORM PostgreSQL |
+| **Passport** | - | Auth Discord OAuth |
+| **JWT** | - | Gestion tokens |
+| **Socket.io Client** | 4+ | Communication Gateway |
+| **Redis** | 7+ | Cache & Sessions OAuth |
+| **bcrypt** | - | Hashing |
+| **crypto** | - | Encryption tokens |
+
+### Gateway (`apps/gateway`)
+| Technologie | Version | Usage |
+|------------|---------|-------|
+| **NestJS** | 10+ | Framework |
+| **Socket.io** | 4+ | WebSocket Server |
+
+### Bot (`apps/bot`)
+| Technologie | Version | Usage |
+|------------|---------|-------|
+| **SapphireJS** | 5+ | Framework Discord.js |
+| **Discord.js** | 14+ | Bibliothèque Discord |
+| **Socket.io Client** | 4+ | Communication Gateway |
+| **better-sqlite3** | - | Base locale événements |
+| **TypeScript** | 5+ | Typage fort |
+
+### Shared (`packages/shared-types`)
+| Technologie | Usage |
+|------------|-------|
+| **TypeScript** | DTOs partagés |
+
+### Base de Données
+| Technologie | Usage |
+|------------|-------|
+| **PostgreSQL** | Base principale (Users, Guilds, etc.) |
+| **Redis** | Sessions OAuth & Cache tokens |
+| **SQLite** | Backup local événements (Bot) |
+
+---
+
+## 📁 Structure du Monorepo
+
+```
+discord-admin-app/
+│
+├── apps/
+│   ├── frontend/                    # Application Angular
+│   │   ├── src/
+│   │   │   ├── app/
+│   │   │   │   ├── layout/         # Composants layout (header, menu, footer)
+│   │   │   │   ├── pages/          # Pages de l'application
+│   │   │   │   │   ├── dashboard/
+│   │   │   │   │   ├── auth/       # Login, callback
+│   │   │   │   │   └── guilds/     # Gestion serveurs
+│   │   │   │   ├── services/       # Services (Auth, API)
+│   │   │   │   ├── interceptors/   # HTTP interceptors
+│   │   │   │   ├── guards/         # Route guards
+│   │   │   │   └── models/         # Interfaces TypeScript
+│   │   │   └── assets/
+│   │   │       ├── layout/         # SCSS layout Sakai
+│   │   │       └── demo/           # Assets demo
+│   │   └── ...
+│   │
+│   ├── backend/                     # API NestJS
 │   │   ├── src/
 │   │   │   ├── modules/
-│   │   │   │   └── demo/          # Module de démonstration
-│   │   │   ├── prisma/            # Service Prisma
+│   │   │   │   ├── auth/           # Auth OAuth Discord
+│   │   │   │   │   ├── controllers/
+│   │   │   │   │   ├── services/
+│   │   │   │   │   │   ├── auth.service.ts
+│   │   │   │   │   │   ├── discord-oauth.service.ts
+│   │   │   │   │   │   ├── oauth-state.service.ts (Redis)
+│   │   │   │   │   │   ├── oauth-session.service.ts (Redis)
+│   │   │   │   │   │   ├── discord-token.service.ts
+│   │   │   │   │   │   └── encryption.service.ts
+│   │   │   │   │   ├── guards/
+│   │   │   │   │   │   ├── jwt-auth.guard.ts
+│   │   │   │   │   │   └── guild-admin.guard.ts
+│   │   │   │   │   └── strategies/
+│   │   │   │   ├── discord/        # Intégration Discord API
+│   │   │   │   │   ├── core/       # Services de base
+│   │   │   │   │   ├── common/     # Constants, exceptions
+│   │   │   │   │   ├── resources/  # Guilds, Channels, Members, etc.
+│   │   │   │   │   └── config/
+│   │   │   │   ├── gateway/        # Client Gateway
+│   │   │   │   │   ├── services/
+│   │   │   │   │   │   ├── gatewayClient.service.ts
+│   │   │   │   │   │   ├── bot-event-handler.service.ts
+│   │   │   │   │   │   └── bot-command-sender.service.ts
+│   │   │   │   │   └── controllers/
+│   │   │   │   ├── guilds/         # Gestion Guilds DB
+│   │   │   │   │   └── guilds-db.service.ts
+│   │   │   │   ├── prisma/         # Prisma ORM
+│   │   │   │   └── redis/          # Redis connexion
 │   │   │   └── main.ts
 │   │   ├── prisma/
-│   │   │   ├── schema.prisma      # Modèles de données
-│   │   │   └── seed.ts            # Données de test
-│   │   ├── .env.development       # Variables d'environnement dev
-│   │   ├── .env.production        # Variables d'environnement prod
-│   │   └── .env.example           # Template des variables
+│   │   │   └── schema.prisma       # Schéma base de données
+│   │   └── ...
 │   │
-│   └── frontend/                   # Application Angular
+│   ├── gateway/                     # Hub WebSocket
+│   │   ├── src/
+│   │   │   ├── bot/
+│   │   │   │   └── bot.gateway.ts  # WebSocket Gateway
+│   │   │   ├── services/
+│   │   │   │   └── bot-connection.service.ts
+│   │   │   └── main.ts
+│   │   └── ...
+│   │
+│   └── bot/                         # Bot Discord
 │       ├── src/
-│       │   ├── app/
-│       │   │   ├── pages/
-│       │   │   │   └── demo/      # Page de démonstration
-│       │   │   ├── services/      # Services Angular
-│       │   │   └── environments/  # Configuration par environnement
-│       │   └── styles.scss
-│       └── angular.json
+│       │   ├── commands/            # Commandes slash
+│       │   ├── listeners/           # Event listeners
+│       │   │   ├── ready.ts
+│       │   │   ├── guildCreate.ts
+│       │   │   ├── guildUpdate.ts
+│       │   │   ├── guildDelete.ts
+│       │   │   └── messageCreate.ts
+│       │   ├── services/
+│       │   │   ├── websocket.service.ts
+│       │   │   └── eventBatcher.service.ts
+│       │   ├── lib/
+│       │   │   ├── setup.ts
+│       │   │   └── constants.ts
+│       │   └── index.ts
+│       ├── data/
+│       │   └── events.db           # SQLite backup
+│       └── ...
 │
-├── packages/                       # Code partagé
-│   └── shared-types/              # Types TypeScript partagés
+├── packages/
+│   └── shared-types/                # DTOs partagés
 │       ├── src/
-│       │   ├── dtos/              # Objets de transfert de données
-│       │   ├── enums/             # Énumérations
-│       │   ├── constants/         # Constantes
-│       │   └── index.ts           # Point d'entrée
-│       ├── package.json
-│       └── tsconfig.json
+│       │   ├── auth/               # Auth DTOs
+│       │   ├── discord/            # Discord DTOs
+│       │   │   ├── guild.dto.ts
+│       │   │   ├── channel.dto.ts
+│       │   │   ├── member.dto.ts
+│       │   │   ├── message.dto.ts
+│       │   │   ├── role.dto.ts
+│       │   │   └── user.dto.ts
+│       │   ├── events/             # Event DTOs
+│       │   │   └── bot-event.dto.ts
+│       │   └── index.ts
+│       └── package.json
 │
-├── infrastructure/                 # Infrastructure et DevOps
-│   └── docker/
-│       ├── docker-compose.dev.yml # Services pour développement
-│       ├── .env.dev               # Variables Docker
-│       └── .env.example
-│
-├── docs/                          # Documentation projet
-├── scripts/                       # Scripts d'automatisation
-├── package.json                   # Configuration workspace
+├── docker-compose.yml
+├── package.json
 └── README.md
 ```
 
-### Flux de données
+---
+
+## 🔧 Composants Détaillés
+
+### 1️⃣ Frontend (Angular 20)
+
+#### Architecture Frontend
+
+**Pattern Facade**: Les services utilisent un pattern en 3 couches :
+- **Facade Service** : Interface publique pour les composants
+- **API Service** : Gestion des appels HTTP
+- **Data Service** : Gestion de l'état et du cache
+
+```typescript
+// Exemple: AuthFacadeService
+export class AuthFacadeService {
+  constructor(
+    private authApiService: AuthApiService,
+    private authDataService: AuthDataService
+  ) {}
+
+  login() { /* ... */ }
+  getCurrentUser() { return this.authDataService.currentUser$; }
+}
 ```
-Frontend (Angular) 
-    ↕ HTTP + Types partagés
-Backend (NestJS) 
-    ↕ Prisma ORM
-Base de données (PostgreSQL)
+
+#### Template Sakai
+
+Le frontend est basé sur le template **Sakai** de PrimeNG :
+- **Layout** : `apps/frontend/src/app/layout/`
+- **Composants démo** : Fichiers suffixés par `*demo.ts`
+- **Styles** : `src/assets/layout/`
+
+#### Guards et Interceptors
+
+- **AuthGuard** : Protège les routes authentifiées
+- **GuildGuard** : Vérifie les permissions sur une guild
+- **AuthInterceptor** : Ajoute le JWT aux requêtes HTTP
+
+#### Routes Principales
+
+```typescript
+{
+  path: '',
+  component: AppLayoutComponent,
+  children: [
+    { path: 'dashboard', component: DashboardComponent },
+    { path: 'guilds', component: GuildsComponent },
+    { path: 'guilds/:id', component: GuildDetailComponent }
+  ]
+},
+{
+  path: 'auth',
+  children: [
+    { path: 'login', component: LoginComponent },
+    { path: 'callback', component: CallbackComponent }
+  ]
+}
 ```
 
-## 🛠️ Technologies et Versions
+---
 
-### Frontend
-- **Angular 20** : Framework web moderne
-- **Standalone Components** : Architecture modulaire sans NgModules
-- **Signals** : Gestion d'état réactive native
-- **TypeScript Strict** : Typage fort
+### 2️⃣ Backend (NestJS)
 
-### Backend  
-- **NestJS 10+** : Framework Node.js inspiré d'Angular
-- **Prisma** : ORM moderne pour TypeScript
-- **Variables d'environnement** : Configuration par fichiers .env
+#### Responsabilités
 
-### Base de données
-- **PostgreSQL 16** : Base de données relationnelle
-- **Redis 7** : Cache et sessions (prêt à utiliser)
+- **Cerveau de l'application**
+- Authentification OAuth Discord
+- Gestion des tokens (JWT + Discord)
+- Appels à l'API Discord
+- Communication bidirectionnelle avec le Bot via Gateway
+- Gestion de la base PostgreSQL
 
-### DevOps et Outils
-- **Docker** : PostgreSQL + Redis pour développement
-- **npm workspaces** : Monorepo sans complexity supplémentaire
-- **dotenv-cli** : Gestion des environnements
+#### Modules Principaux
 
-## 🔧 Commandes Détaillées
+##### 📦 Module Auth
 
-### Développement quotidien
+**Services clés** :
+
+1. **AuthService** (`auth.service.ts`)
+   - Gère le flux OAuth complet
+   - Création/refresh des JWT
+   - CRUD utilisateurs
+
+2. **DiscordOAuthService** (`discord-oauth.service.ts`)
+   - Échange code OAuth contre tokens
+   - Refresh tokens Discord
+   - Récupération profil utilisateur
+
+3. **OAuthStateService** (`oauth-state.service.ts`)
+   - Protection CSRF via state tokens
+   - Stockage Redis (TTL: 10 min)
+   - One-time use validation
+
+4. **OAuthSessionService** (`oauth-session.service.ts`)
+   - Sessions temporaires OAuth
+   - Échange sécurisé sessionId → tokens
+   - TTL: 5 minutes
+
+5. **DiscordTokenService** (`discord-token.service.ts`)
+   - Cache tokens Discord en mémoire
+   - Refresh automatique si expirés
+   - Décryptage à la demande
+
+6. **EncryptionService** (`encryption.service.ts`)
+   - Chiffrement AES-256-GCM
+   - Protection tokens Discord en DB
+
+**Guards** :
+- `JwtAuthGuard` : Vérifie JWT valide
+- `GuildAdminGuard` : Vérifie droits ADMINISTRATOR sur guild
+
+##### 📦 Module Discord
+
+Intégration complète de l'API Discord avec rate limiting :
+
+**Structure** :
+```
+discord/
+├── core/
+│   ├── discord-api.service.ts        # Service HTTP principal
+│   └── discord-rate-limiter.service.ts # Gestion rate limits
+├── common/
+│   ├── constants/                     # Endpoints, error codes
+│   ├── exceptions/                    # Custom exceptions
+│   ├── filters/                       # Exception filters
+│   └── interceptors/                  # Response interceptors
+├── resources/
+│   ├── guilds/                        # Guilds endpoints
+│   ├── channels/                      # Channels endpoints
+│   ├── members/                       # Members endpoints
+│   ├── roles/                         # Roles endpoints
+│   ├── bans/                          # Bans endpoints
+│   └── users/                         # Users endpoints
+└── config/
+    └── discord.config.ts
+```
+
+**Rate Limiting** :
+- Par bucket (guild, channel, user)
+- Respect des limites Discord
+- Retry automatique avec backoff
+
+##### 📦 Module Gateway
+
+**Services** :
+
+1. **GatewayClientService** (`gatewayClient.service.ts`)
+   - Client Socket.io vers Gateway
+   - Enregistrement comme "backend"
+   - Envoi commandes vers bots
+   - Réception événements des bots
+
+2. **BotEventHandlerService** (`bot-event-handler.service.ts`)
+   - Traitement des événements reçus
+   - Mise à jour PostgreSQL
+   - Gestion des types :
+     - `GuildSync` : Synchronisation complète
+     - `GuildCreate` : Nouveau serveur
+     - `GuildUpdate` : Mise à jour serveur
+     - `GuildDelete` : Retrait serveur
+     - `MessageCreate` : Nouveau message
+
+3. **BotCommandSenderService** (`bot-command-sender.service.ts`)
+   - Envoi de commandes aux bots
+   - Ping, status, actions...
+
+##### 📦 Module Guilds DB
+
+**GuildsDbService** :
+- Requêtes PostgreSQL pour Guilds
+- Vérification permissions utilisateur
+- CRUD Guilds
+
+##### 📦 Module Prisma
+
+Service de connexion à PostgreSQL via Prisma ORM.
+
+##### 📦 Module Redis
+
+Service de connexion Redis pour :
+- Sessions OAuth
+- State tokens CSRF
+- Cache tokens Discord
+
+---
+
+### 3️⃣ Gateway (NestJS)
+
+#### Responsabilités
+
+- **Hub central de communication WebSocket**
+- Routage messages Backend ↔ Bots
+- Gestion connexions multiples
+- Support multi-instances
+
+#### Architecture
+
+```typescript
+@WebSocketGateway({
+  cors: { origin: '*' }  // À restreindre en prod
+})
+export class BotGateway {
+  @SubscribeMessage('register')
+  handleRegister() { /* ... */ }
+
+  @SubscribeMessage('to-backend')
+  handleBotToBackend() { /* ... */ }
+
+  @SubscribeMessage('to-bot')
+  handleBackendToBot() { /* ... */ }
+
+  @SubscribeMessage('broadcast-to-bots')
+  handleBroadcastToBots() { /* ... */ }
+}
+```
+
+#### BotConnectionService
+
+Gestion des connexions actives :
+```typescript
+interface ConnectedBot {
+  id: string;
+  name: string;
+  socket: Socket;
+  connectedAt: Date;
+  lastHeartbeat: Date;
+}
+```
+
+Méthodes :
+- `registerBot()`
+- `unregisterBot()`
+- `sendToBot()`
+- `broadcastToAllBots()`
+- `getAllBots()`
+
+#### Flux de Messages
+
+**Bot → Backend** :
+```
+Bot emit('to-backend', event)
+  → Gateway reçoit
+  → Gateway emit vers backendSocket
+  → Backend reçoit et traite
+```
+
+**Backend → Bot** :
+```
+Backend emit('to-bot', {botId, data})
+  → Gateway reçoit
+  → Gateway trouve bot socket
+  → Gateway emit vers bot
+  → Bot reçoit et exécute
+```
+
+---
+
+### 4️⃣ Bot (SapphireJS)
+
+#### Responsabilités
+
+- **Écouter les événements Discord**
+- Exécuter des commandes
+- Envoyer événements au Backend via Gateway
+- Batch processing des événements
+- Backup local si Gateway déconnectée
+
+#### Architecture SapphireJS
+
+**Framework** : Basé sur Discord.js avec structure organisée
+
+**Container** : Injection de dépendances globale
+```typescript
+this.container.client    // Client Discord.js
+this.container.logger    // Logger
+this.container.ws        // WebSocketService
+this.container.eventBatcher  // EventBatcher
+```
+
+#### Services Principaux
+
+##### WebSocketService (`websocket.service.ts`)
+
+Gère la connexion à la Gateway :
+
+```typescript
+export class WebSocketService {
+  private socket: Socket;
+  private eventBatcher: EventBatcher;
+
+  connect() {
+    this.socket = io(GATEWAY_URL);
+    
+    this.socket.on('connect', () => {
+      this.socket.emit('register', {
+        type: 'bot',
+        botId: process.env.BOT_ID,
+        botName: 'Discord Bot'
+      });
+    });
+
+    this.socket.on('from-backend', (data) => {
+      // Traiter commandes du backend
+    });
+  }
+
+  sendToBackend(events: BotEventDto[]) {
+    if (this.socket.connected) {
+      this.socket.emit('to-backend', events);
+    } else {
+      this.eventBatcher.saveOffline(events);
+    }
+  }
+}
+```
+
+##### EventBatcher (`eventBatcher.service.ts`)
+
+Optimise l'envoi d'événements :
+
+**Caractéristiques** :
+- Batch toutes les 5 secondes
+- Maximum 100 événements par batch
+- Sauvegarde SQLite si Gateway déconnectée
+- Restauration automatique à la reconnexion
+
+**Schema SQLite** :
+```sql
+CREATE TABLE events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL,
+  guildId TEXT,
+  userId TEXT,
+  channelId TEXT,
+  data TEXT,
+  timestamp INTEGER NOT NULL,
+  sent INTEGER DEFAULT 0
+);
+```
+
+**Méthodes** :
+```typescript
+addEvent(event: BotEventDto)
+flushBatch()
+saveOffline(events: BotEventDto[])
+restoreOfflineEvents()
+```
+
+#### Listeners Principaux
+
+##### ready.ts
+
+Démarrage du bot :
+- Affichage banner
+- Log des stores chargés
+- Initialisation EventBatcher
+- Envoi `GuildSync` avec toutes les guilds
+
+##### guildCreate.ts
+
+Nouveau serveur :
+```typescript
+run(guild: Guild) {
+  const event: BotEventDto = {
+    type: EventType.GuildCreate,
+    guildId: guild.id,
+    data: {
+      id: guild.id,
+      name: guild.name,
+      icon: guild.icon,
+      ownerId: guild.ownerId,
+      memberCount: guild.memberCount
+    },
+    timestamp: Date.now()
+  };
+  this.container.ws.sendToBackend([event]);
+}
+```
+
+##### guildUpdate.ts
+
+Mise à jour serveur :
+- Détecte changements (nom, icon, owner, memberCount)
+- Envoie `GuildUpdate` avec nouvelles données
+- Log des changements pour debug
+
+##### guildDelete.ts
+
+Retrait du serveur :
+- Envoie `GuildDelete`
+- Backend marque guild comme `isActive: false`
+
+##### messageCreate.ts
+
+Nouveau message :
+- Filtre : ignore bots, DMs, messages système
+- Envoie `MessageCreate` avec contenu message
+- Peut être étendu pour modération automatique
+
+#### Configuration Intents
+
+Tous les intents nécessaires sont activés :
+```typescript
+intents: [
+  GatewayIntentBits.Guilds,
+  GatewayIntentBits.GuildMembers,
+  GatewayIntentBits.GuildMessages,
+  GatewayIntentBits.MessageContent,
+  GatewayIntentBits.GuildBans,
+  // ... tous les autres
+]
+```
+
+---
+
+### 5️⃣ Shared Types (`packages/shared-types`)
+
+#### Objectif
+
+Centraliser les **DTOs** (Data Transfer Objects) partagés entre tous les services du monorepo.
+
+#### Structure
+
+```
+shared-types/src/
+├── auth/
+│   ├── user.dto.ts
+│   ├── jwt-payload.dto.ts
+│   └── auth-response.dto.ts
+├── discord/
+│   ├── guild.dto.ts
+│   ├── channel.dto.ts
+│   ├── member.dto.ts
+│   ├── message.dto.ts
+│   ├── role.dto.ts
+│   └── user.dto.ts
+├── events/
+│   └── bot-event.dto.ts
+└── index.ts
+```
+
+#### Exemples de DTOs
+
+**GuildDTO** :
+```typescript
+export interface GuildDTO {
+  id: string;
+  name: string;
+  icon: string | null;
+  ownerId: string;
+  memberCount?: number;
+  joined_at?: Date;
+}
+```
+
+**BotEventDto** :
+```typescript
+export enum EventType {
+  GuildSync = 'guild_sync',
+  GuildCreate = 'guild_create',
+  GuildUpdate = 'guild_update',
+  GuildDelete = 'guild_delete',
+  MessageCreate = 'message_create'
+}
+
+export interface BotEventDto {
+  type: EventType;
+  guildId: string;
+  userId?: string;
+  channelId?: string;
+  data: any;
+  timestamp: number;
+}
+```
+
+**UserDTO** :
+```typescript
+export interface UserDTO {
+  id: string;
+  discordId: string;
+  username: string;
+  discriminator: string | null;
+  globalName: string | null;
+  avatar: string | null;
+  email: string | null;
+  role: 'USER' | 'ADMIN' | 'MODERATOR';
+  createdAt: string;
+  lastLoginAt: string;
+}
+```
+
+---
+
+## ⚙️ Installation et Configuration
+
+### Prérequis
+
+- **Node.js** : v20+
+- **npm** ou **yarn**
+- **PostgreSQL** : 15+
+- **Redis** : 7+
+- **Discord Bot** : Application Discord créée
+
+### 1. Cloner le Repository
+
 ```bash
-# Tout lancer d'un coup (recommandé)
-npm run dev:all
-
-# Ou séparément
-npm run dev:backend          # NestJS sur port 3000
-npm run dev:frontend         # Angular sur port 4200
-
-# Base de données
-npm run db:up               # Démarrer PostgreSQL + Redis
-npm run db:down             # Arrêter les services
-npm run db:logs             # Voir les logs
-npm run db:reset            # Redémarrer proprement
+git clone <repo-url>
+cd discord-admin-app
+npm install
 ```
 
-### Base de données et Prisma
-```bash
-# Migrations (depuis apps/backend)
-npm run prisma:migrate      # Créer/appliquer migration
-npm run prisma:generate     # Générer client Prisma
-npm run prisma:studio       # Interface graphique
-npm run prisma:reset        # Reset complet + seeds
+### 2. Configuration Discord
 
-# Seeds de données
-npm run prisma:seed         # Insérer données de test
-```
+#### Créer une Application Discord
 
-### Compilation et build
-```bash
-# Types partagés (depuis packages/shared-types)
-npm run build               # Compiler les types TS -> JS
-npm run dev                 # Mode watch (recompile auto)
+1. Aller sur [Discord Developer Portal](https://discord.com/developers/applications)
+2. "New Application" → Nommer votre app
+3. Onglet "OAuth2" :
+   - **Redirect URLs** : `http://localhost:3000/api/auth/discord/callback`
+   - **Scopes** : `identify`, `guilds`, `email`
+4. Onglet "Bot" :
+   - Activer "Message Content Intent"
+   - Récupérer le Token
 
-# Applications
-npm run build:backend       # Build NestJS
-npm run build:frontend      # Build Angular
-npm run build               # Build tout
-```
+### 3. Variables d'Environnement
 
-### Maintenance
-```bash
-npm run clean               # Supprimer node_modules
-npm run clean:all           # DB + node_modules
-npm run install:all         # Réinstaller tout
-```
+#### Backend (`.env`)
 
-## 🔐 Gestion des Environnements
-
-### Structure des fichiers de configuration
-
-**Backend** (`apps/backend/`)
-- `.env.development` : Variables pour développement local
-- `.env.production` : Variables pour production
-- `.env.example` : Template avec toutes les variables nécessaires
-
-**Frontend** (`apps/frontend/src/environments/`)
-- `environment.ts` : Configuration développement
-- `environment.prod.ts` : Configuration production
-
-**Docker** (`infrastructure/docker/`)
-- `.env.dev` : Variables pour les conteneurs de développement
-- `.env.example` : Template pour Docker
-
-### Variables importantes
-
-**Backend (.env.development)**
 ```env
-# Base de données
-DATABASE_URL="postgresql://devuser:devpassword@localhost:5432/myproject_dev"
-REDIS_URL="redis://localhost:6379"
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/discord_admin?schema=public"
 
-# Serveur
-PORT=3000
-NODE_ENV=development
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
 
-# CORS et sécurité
+# Discord OAuth
+DISCORD_CLIENT_ID=your_client_id
+DISCORD_CLIENT_SECRET=your_client_secret
+DISCORD_CALLBACK_URL=http://localhost:3000/api/auth/discord/callback
+DISCORD_OAUTH_SCOPES=identify guilds email
+DISCORD_BOT_TOKEN=your_bot_token
+
+# JWT
+JWT_SECRET=your_jwt_secret_min_32_chars
+JWT_REFRESH_SECRET=your_refresh_secret_min_32_chars
+JWT_ACCESS_EXPIRATION=15m
+JWT_REFRESH_EXPIRATION=7d
+
+# Encryption (generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+ENCRYPTION_KEY=your_64_char_hex_encryption_key
+
+# Gateway
+GATEWAY_URL=http://localhost:3001
+
+# Frontend
 FRONTEND_URL=http://localhost:4200
-JWT_SECRET=dev-jwt-secret-change-in-production
+
+# Bot Command ID
+BOT_COMMAND_ID=0
 ```
 
-**Frontend (environment.ts)**
+#### Gateway (`.env`)
+
+```env
+PORT=3001
+```
+
+#### Bot (`.env`)
+
+```env
+DISCORD_TOKEN=your_bot_token
+GATEWAY_URL=http://localhost:3001
+BOT_ID=0
+NODE_ENV=development
+```
+
+#### Frontend (`environment.ts`)
+
 ```typescript
 export const environment = {
   production: false,
-  apiUrl: 'http://localhost:3000',
-  appName: 'My Project Template',
-  version: '1.0.0'
+  apiUrl: 'http://localhost:3000/api',
+  discordClientId: 'your_client_id'
 };
 ```
 
-## 🗃️ Base de Données
+### 4. Démarrer PostgreSQL et Redis
 
-### Modèles inclus
-
-Le template inclut des modèles User et Account optimisés pour l'authentification moderne :
-
-```prisma
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  avatar    String?
-  password  String?              // Auth locale optionnelle
-  isActive  Boolean  @default(true)
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  accounts  Account[]           // Connexions OAuth
-}
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  provider          String  // "google", "discord", etc.
-  providerAccountId String
-  type              String  // "oauth", "email"
-  accessToken       String?
-  refreshToken      String?
-  expiresAt         Int?
-  user User @relation(fields: [userId], references: [id])
-}
-
-enum Role {
-  USER
-  ADMIN
-  MODERATOR
-}
-```
-
-### Données de test incluses
-- **Admin User** (admin@example.com) - Rôle ADMIN
-- **Regular User** (user@example.com) - Rôle USER  
-- **OAuth User** (oauth@example.com) - Avec compte Google lié
-
-## 🔗 Types Partagés
-
-### Comment ça fonctionne
-
-1. **Définition** : Types créés dans `packages/shared-types/`
-2. **Compilation** : TypeScript → JavaScript + fichiers .d.ts
-3. **Import** : Backend et frontend importent depuis `@my-project/shared-types`
-4. **Synchronisation** : Un seul endroit pour définir les contrats d'API
-
-### Structure recommandée
-
-```typescript
-// packages/shared-types/src/dtos/user.dto.ts
-export interface CreateUserDto {
-  email: string;
-  name: string;
-  password?: string;
-}
-
-export interface UserResponseDto {
-  id: string;
-  email: string;
-  name: string;
-  role: string;
-  createdAt: Date;
-}
-
-// packages/shared-types/src/enums/user-role.enum.ts
-export enum UserRole {
-  USER = 'USER',
-  ADMIN = 'ADMIN',
-  MODERATOR = 'MODERATOR'
-}
-
-// packages/shared-types/src/constants/validation.constants.ts
-export const VALIDATION = {
-  PASSWORD_MIN_LENGTH: 8,
-  EMAIL_MAX_LENGTH: 255,
-  NAME_MAX_LENGTH: 100
-} as const;
-```
-
-### Utilisation dans le code
-
-**Backend (NestJS)**
-```typescript
-import { Controller, Post, Body } from '@nestjs/common';
-import type { CreateUserDto, UserResponseDto } from '@my-project/shared-types';
-
-@Controller('users')
-export class UsersController {
-  @Post()
-  async createUser(@Body() dto: CreateUserDto): Promise<UserResponseDto> {
-    // Auto-complétion et vérification de types garanties
-    return this.usersService.create(dto);
-  }
-}
-```
-
-**Frontend (Angular)**
-```typescript
-import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import type { CreateUserDto, UserResponseDto } from '@my-project/shared-types';
-
-@Injectable()
-export class UsersService {
-  createUser(userData: CreateUserDto): Observable<UserResponseDto> {
-    // Même types, même auto-complétion
-    return this.http.post<UserResponseDto>('/api/users', userData);
-  }
-}
-```
-
-## 🧪 Module de Démonstration
-
-Le template inclut un module `demo` complet pour tester toutes les fonctionnalités.
-
-### Endpoints de test inclus
-
-**GET /api/demo/health**
-- Teste la connexion à la base de données
-- Vérifie les temps de réponse
-- Statut général du système
-
-**GET /api/demo/database**  
-- Compte les utilisateurs et comptes
-- Vérifie la connectivité Prisma
-- Informations sur les migrations
-
-**GET /api/demo/shared-types**
-- Teste les types partagés entre front/back
-- Vérifie la compilation et les imports
-
-### Page de démonstration frontend
-
-Accessible sur `http://localhost:4200/demo` :
-- Tests automatiques au chargement
-- Interface graphique pour tester chaque endpoint
-- Affichage des résultats en temps réel
-- Section debug avec données brutes JSON
-
-## 🚀 Déploiement
-
-### Préparation pour la production
-
-1. **Variables d'environnement**
-   - Copier `.env.example` vers `.env.production`
-   - Configurer les vraies URLs et secrets
-
-2. **Base de données**
-   - Utiliser une base PostgreSQL de production
-   - Appliquer les migrations : `npm run prisma:migrate -- deploy`
-
-3. **Build des applications**
-   ```bash
-   npm run build
-   ```
-
-4. **Docker** (optionnel)
-   - Utiliser `docker-compose.prod.yml` pour l'orchestration complète
-
-## 🔧 Personnalisation
-
-### Adapter à votre projet
-
-1. **Renommer le projet**
-   - Changer `@my-project/shared-types` dans tous les package.json
-   - Mettre à jour les noms de conteneurs Docker
-
-2. **Ajouter des modèles de données**
-   - Modifier `apps/backend/prisma/schema.prisma`
-   - Créer migration : `npm run prisma:migrate`
-   - Mettre à jour les seeds si nécessaire
-
-3. **Ajouter des types partagés**
-   - Créer dans `packages/shared-types/src/`
-   - Exporter dans `index.ts`
-   - Compiler : `npm run build`
-
-4. **Supprimer le module demo**
-   - Une fois en confiance, supprimer `apps/backend/src/modules/demo/`
-   - Supprimer `apps/frontend/src/app/pages/demo/`
-   - Nettoyer les routes et imports
-
-## 🐛 Dépannage
-
-### Problèmes courants
-
-**"Cannot reach database server"**
-- Vérifier que Docker tourne : `docker ps`
-- Relancer la DB : `npm run db:reset`
-- Vérifier les variables dans `.env.development`
-
-**"Module not found: @my-project/shared-types"**
-- Compiler les types : `cd packages/shared-types && npm run build`
-- Réinstaller : `npm run install:all`
-
-**"Port already in use"**
-- Changer les ports dans les fichiers de configuration
-- Ou arrêter les processus : `lsof -ti:3000 | xargs kill`
-
-**Erreurs TypeScript avec Prisma**
-- Régénérer le client : `npm run prisma:generate`
-- Vérifier que DATABASE_URL est correct
-
-### Logs et debug
+**Option 1 : Docker Compose**
 
 ```bash
-# Logs des services Docker
-npm run db:logs
-
-# Logs du backend NestJS
-cd apps/backend && npm run start:dev
-
-# Tests manuels de l'API
-curl http://localhost:3000/api/demo/health
+docker-compose up -d postgres redis
 ```
 
-## 🎯 Bonnes Pratiques
+**Option 2 : Installation locale**
 
-### Structure de code
-- **Modules métier** : Organisez par domaine (users, products, etc.)
-- **Types partagés** : Préfixez par le nom du module (UserCreateDto vs CreateDto)
-- **Variables d'env** : Toujours des exemples dans .env.example
+PostgreSQL :
+```bash
+# macOS
+brew install postgresql@15
+brew services start postgresql@15
 
-### Sécurité
-- **Jamais** commiter les vrais .env de production
-- **Toujours** utiliser des secrets forts en production
-- **Valider** les entrées utilisateur avec des DTOs
-
-### Développement
-- **Migrations** : Nommez explicitement vos migrations
-- **Seeds** : Gardez des données de test cohérentes
-- **Tests** : Utilisez la page demo pour valider les changements
-
-## 📚 Ressources
-
-- [Documentation NestJS](https://docs.nestjs.com/)
-- [Documentation Angular](https://angular.io/docs)
-- [Documentation Prisma](https://www.prisma.io/docs)
-- [Documentation Docker](https://docs.docker.com/)
-
-# Système d'Authentification Complet
-
-Ce template inclut un système d'authentification moderne et modulaire avec support OAuth, conçu pour être réutilisable sur tous vos projets.
-
-## Architecture du Système
-
-### Backend (NestJS)
-
-**Structure modulaire par providers :**
-```
-apps/backend/src/modules/auth/
-├── config/
-│   └── oauth.config.ts           # Configuration centralisée OAuth
-├── controllers/
-│   ├── auth.controller.ts        # Endpoints auth locale
-│   └── oauth.controller.ts       # Endpoints OAuth
-├── services/
-│   ├── auth.service.ts           # Logique auth principale
-│   └── jwt.service.ts            # Gestion JWT et refresh tokens
-├── strategies/
-│   ├── local.strategy.ts         # Authentification email/password
-│   ├── jwt.strategy.ts           # Validation des tokens JWT
-│   ├── google.strategy.ts        # OAuth Google
-│   └── discord.strategy.ts       # OAuth Discord
-├── guards/
-│   ├── jwt-auth.guard.ts         # Protection des routes
-│   └── local-auth.guard.ts       # Guard pour login local
-├── interfaces/
-│   └── auth-request.interface.ts # Types pour les requêtes authentifiées
-└── auth.module.ts                # Module principal avec import conditionnel
+# Ubuntu
+sudo apt install postgresql-15
+sudo systemctl start postgresql
 ```
 
-### Frontend (Angular)
+Redis :
+```bash
+# macOS
+brew install redis
+brew services start redis
 
-**Pattern Facade avec séparation des responsabilités :**
-```
-apps/frontend/src/app/services/auth/
-├── auth-data.service.ts          # Gestion d'état avec signaux
-├── auth-api.service.ts           # Appels API HTTP
-└── auth-facade.service.ts        # Interface publique (facade)
-
-apps/frontend/src/app/guards/
-├── auth.guard.ts                 # Protection routes privées
-└── guest.guard.ts                # Redirection si déjà connecté
-
-apps/frontend/src/app/interceptors/
-└── auth.interceptor.ts           # Injection automatique tokens + refresh
-
-apps/frontend/src/app/pages/
-├── login/                        # Page de connexion
-├── dashboard/                    # Page protégée
-└── auth-callback/                # Callback OAuth
+# Ubuntu
+sudo apt install redis-server
+sudo systemctl start redis
 ```
 
-## Configuration des Providers
+### 5. Initialiser la Base de Données
 
-### Variables d'Environnement
-
-**Backend (`apps/backend/.env.development`) :**
-```env
-# Auth Providers Configuration
-AUTH_PROVIDERS=local,google,discord
-LOCAL_ENABLED=true
-
-# Google OAuth
-GOOGLE_ENABLED=false
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-# Discord OAuth  
-DISCORD_ENABLED=false
-DISCORD_CLIENT_ID=your-discord-client-id
-DISCORD_CLIENT_SECRET=your-discord-client-secret
-
-# Server URLs
-BACKEND_URL=http://localhost:3000
-FRONTEND_URL=http://localhost:4200
-
-# JWT Configuration
-JWT_SECRET=your-super-secret-jwt-key
-JWT_REFRESH_SECRET=your-refresh-secret-key
-JWT_EXPIRES_IN=15m
-JWT_REFRESH_EXPIRES_IN=7d
+```bash
+# Depuis apps/backend/
+npx prisma migrate dev --name init
+npx prisma generate
 ```
 
-### Activation/Désactivation des Providers
+### 6. Lancer l'Application
 
-Le système utilise des **feature flags** pour activer/désactiver les providers OAuth :
+**Option 1 : Mode Développement (recommandé)**
 
-1. **Lister les providers** dans `AUTH_PROVIDERS`
-2. **Activer individuellement** avec `PROVIDER_ENABLED=true`
-3. **Configurer les credentials** OAuth
+Ouvrir 4 terminaux différents :
 
-**Exemples :**
-```env
-# Seulement auth locale
-AUTH_PROVIDERS=local
-LOCAL_ENABLED=true
+```bash
+# Terminal 1 - Backend
+cd apps/backend
+npm run start:dev
 
-# Auth locale + Google
-AUTH_PROVIDERS=local,google
-LOCAL_ENABLED=true
-GOOGLE_ENABLED=true
+# Terminal 2 - Gateway
+cd apps/gateway
+npm run start:dev
 
-# Tous les providers
-AUTH_PROVIDERS=local,google,discord
-LOCAL_ENABLED=true
-GOOGLE_ENABLED=true
-DISCORD_ENABLED=true
+# Terminal 3 - Bot
+cd apps/bot
+npm run dev
+
+# Terminal 4 - Frontend
+cd apps/frontend
+npm start
 ```
 
-## API Endpoints
+**Option 2 : Script Global (si configuré)**
 
-### Authentification Locale
+```bash
+npm run dev:all
+```
 
-| Endpoint | Method | Description | Body |
-|----------|--------|-------------|------|
-| `/api/auth/register` | POST | Inscription | `{email, password, name}` |
-| `/api/auth/login` | POST | Connexion | `{email, password}` |
-| `/api/auth/refresh` | POST | Renouveler tokens | `{refreshToken}` |
-| `/api/auth/logout` | POST | Déconnexion | `{refreshToken}` |
-| `/api/auth/logout-all` | POST | Déconnexion tous appareils | Headers: `Authorization` |
-| `/api/auth/profile` | GET | Profil utilisateur | Headers: `Authorization` |
+### 7. Accéder à l'Application
 
-### OAuth
+- **Frontend** : http://localhost:4200
+- **Backend API** : http://localhost:3000
+- **Gateway** : http://localhost:3001
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/auth/providers` | GET | Liste des providers actifs |
-| `/api/auth/google` | GET | Redirection vers Google |
-| `/api/auth/google/callback` | GET | Callback Google |
-| `/api/auth/discord` | GET | Redirection vers Discord |
-| `/api/auth/discord/callback` | GET | Callback Discord |
+---
 
-### Réponses Type
+## 💻 Développement
 
-**Connexion réussie :**
-```json
-{
-  "user": {
-    "id": "clxxx...",
-    "email": "user@example.com",
-    "name": "John Doe",
-    "avatar": "https://...",
-    "role": "USER",
-    "isActive": true,
-    "emailVerified": true,
-    "createdAt": "2025-01-15T..."
-  },
-  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-  "refreshToken": "a1b2c3d4e5f6..."
+### Structure des Commandes
+
+```bash
+# Installation dépendances
+npm install
+
+# Linting
+npm run lint
+npm run lint:fix
+
+# Build
+npm run build
+
+# Tests
+npm run test
+npm run test:watch
+npm run test:cov
+
+# Prisma
+npx prisma studio          # UI base de données
+npx prisma migrate dev     # Créer migration
+npx prisma generate        # Générer client
+npx prisma db push         # Push sans migration
+```
+
+### Workflow de Développement
+
+#### Ajouter une Nouvelle Feature
+
+1. **Créer le DTO** dans `packages/shared-types`
+
+```typescript
+// packages/shared-types/src/discord/webhook.dto.ts
+export interface WebhookDTO {
+  id: string;
+  name: string;
+  channelId: string;
+  token?: string;
 }
 ```
 
-## Flow d'Authentification
+2. **Backend : Créer le Service**
 
-### 1. Authentification Locale
+```typescript
+// apps/backend/src/modules/discord/resources/webhooks/webhooks.service.ts
+@Injectable()
+export class WebhooksService {
+  constructor(private discordApi: DiscordApiService) {}
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant F as Frontend
-    participant B as Backend
-    participant DB as Database
-
-    U->>F: Login (email/password)
-    F->>B: POST /api/auth/login
-    B->>DB: Validate credentials
-    DB-->>B: User data
-    B->>B: Generate JWT + Refresh Token
-    B->>DB: Store refresh token
-    B-->>F: {user, accessToken, refreshToken}
-    F->>F: Store tokens in localStorage
-    F-->>U: Redirect to dashboard
+  async getChannelWebhooks(channelId: string) {
+    return this.discordApi.get(
+      `/channels/${channelId}/webhooks`,
+      { rateLimitKey: `channel:${channelId}:webhooks` }
+    );
+  }
+}
 ```
 
-### 2. OAuth (Google/Discord)
+3. **Backend : Créer le Controller**
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant F as Frontend
-    participant B as Backend
-    participant O as OAuth Provider
-    participant DB as Database
+```typescript
+// apps/backend/src/modules/discord/resources/webhooks/webhooks.controller.ts
+@Controller('discord/channels/:channelId/webhooks')
+@UseGuards(JwtAuthGuard, GuildAdminGuard)
+export class WebhooksController {
+  constructor(private webhooksService: WebhooksService) {}
 
-    U->>F: Click "Login with Google"
-    F->>B: GET /api/auth/google
-    B-->>O: Redirect to OAuth provider
-    O-->>U: OAuth consent screen
-    U->>O: Approve access
-    O->>B: GET /api/auth/google/callback
-    B->>O: Exchange code for profile
-    O-->>B: User profile data
-    B->>DB: findOrCreateOAuthUser()
-    DB-->>B: User data
-    B->>B: Generate JWT + Refresh Token
-    B-->>F: Redirect to /auth/callback?token=...
-    F->>F: Extract tokens from URL
-    F->>B: GET /api/auth/profile (with token)
-    B-->>F: User profile
-    F-->>U: Redirect to dashboard
+  @Get()
+  async getWebhooks(@Param('channelId') channelId: string) {
+    return this.webhooksService.getChannelWebhooks(channelId);
+  }
+}
 ```
 
-### 3. Gestion Automatique des Tokens
+4. **Frontend : Créer le Service API**
 
-L'**intercepteur HTTP** gère automatiquement :
+```typescript
+// apps/frontend/src/app/services/webhooks/webhooks-api.service.ts
+@Injectable()
+export class WebhooksApiService {
+  constructor(private http: HttpClient) {}
 
-- **Injection des tokens** : Ajoute `Authorization: Bearer <token>` à toutes les requêtes
-- **Refresh automatique** : Intercepte les erreurs 401 et renouvelle les tokens
-- **Déconnexion forcée** : Redirige vers login si le refresh échoue
+  getChannelWebhooks(channelId: string): Observable<WebhookDTO[]> {
+    return this.http.get<WebhookDTO[]>(
+      `${environment.apiUrl}/discord/channels/${channelId}/webhooks`
+    );
+  }
+}
+```
 
-## Sécurité
+5. **Frontend : Utiliser dans un Component**
 
-### Tokens JWT
+```typescript
+// apps/frontend/src/app/pages/webhooks/webhooks.component.ts
+export class WebhooksComponent implements OnInit {
+  webhooks: WebhookDTO[] = [];
 
-- **Access Token** : Durée courte (15min par défaut)
-- **Refresh Token** : Durée longue (7 jours par défaut) 
-- **Stockage** : localStorage avec fallback mémoire
-- **Révocation** : Possibilité de révoquer tous les tokens d'un utilisateur
+  constructor(private webhooksApi: WebhooksApiService) {}
 
-### Validation
+  ngOnInit() {
+    this.webhooksApi.getChannelWebhooks(this.channelId)
+      .subscribe(webhooks => this.webhooks = webhooks);
+  }
+}
+```
 
-- **Mots de passe** : Hashés avec bcryptjs (rounds: 12)
-- **Email** : Validation d'unicité
-- **OAuth** : Email automatiquement vérifié
-- **Guards** : Protection des routes sensibles
+#### Ajouter un Nouvel Événement Bot
 
-## Modèles de Données
+1. **Ajouter le type d'événement**
 
-### User
+```typescript
+// packages/shared-types/src/events/bot-event.dto.ts
+export enum EventType {
+  // ... existing
+  MemberJoin = 'member_join',
+  MemberLeave = 'member_leave'
+}
+```
+
+2. **Créer le Listener**
+
+```typescript
+// apps/bot/src/listeners/guildMemberAdd.ts
+import { ApplyOptions } from '@sapphire/decorators';
+import { Listener } from '@sapphire/framework';
+import { GuildMember } from 'discord.js';
+
+@ApplyOptions<Listener.Options>({
+  event: 'guildMemberAdd'
+})
+export class GuildMemberAddListener extends Listener {
+  public override run(member: GuildMember) {
+    const event: BotEventDto = {
+      type: EventType.MemberJoin,
+      guildId: member.guild.id,
+      userId: member.user.id,
+      data: {
+        username: member.user.username,
+        joinedAt: member.joinedAt
+      },
+      timestamp: Date.now()
+    };
+    
+    this.container.ws.sendToBackend([event]);
+  }
+}
+```
+
+3. **Traiter l'événement dans le Backend**
+
+```typescript
+// apps/backend/src/modules/gateway/services/bot-event-handler.service.ts
+async processEvent(event: BotEventDto) {
+  switch (event.type) {
+    // ... existing cases
+    case EventType.MemberJoin:
+      await this.handleMemberJoin(event.data);
+      break;
+  }
+}
+
+private async handleMemberJoin(data: any) {
+  // Logique métier
+  this.logger.log(`Member joined: ${data.username}`);
+}
+```
+
+### Bonnes Pratiques
+
+#### Code Style
+
+- **TypeScript** : Utiliser types stricts
+- **ESLint** : Respecter les règles configurées
+- **Prettier** : Format automatique
+- **Naming** :
+  - Services : `*.service.ts`
+  - Controllers : `*.controller.ts`
+  - DTOs : `*.dto.ts`
+  - Interfaces : `*.interface.ts`
+
+#### Architecture
+
+- **Séparation des responsabilités** : Un service = une responsabilité
+- **Injection de dépendances** : Utiliser les DI de NestJS/Angular
+- **DTOs partagés** : Toujours dans `packages/shared-types`
+- **Validation** : Utiliser `class-validator` côté backend
+- **Error handling** : Toujours gérer les erreurs
+
+#### Sécurité
+
+- **Jamais de secrets en dur** : Utiliser `.env`
+- **Validation input** : Toujours valider les données entrantes
+- **Guards** : Protéger les routes sensibles
+- **Rate limiting** : Respecter les limites Discord
+- **Encryption** : Chiffrer les tokens sensibles
+
+---
+
+## 🗄️ Base de Données
+
+### Schéma PostgreSQL
+
 ```prisma
+// apps/backend/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// User - Utilisateur de l'application
+// ============================================
 model User {
   id            String   @id @default(cuid())
-  email         String   @unique
-  name          String?
+  
+  // Identité Discord
+  discordId     String   @unique
+  username      String
+  discriminator String?
+  globalName    String?
   avatar        String?
-  password      String?              // Auth locale optionnelle
-  emailVerified DateTime?
+  email         String?
+  
+  // Tokens Discord (chiffrés AES-256-GCM)
+  accessToken       String
+  refreshToken      String
+  tokenExpiresAt    DateTime
+  tokenScope        String
+  
+  // Métadonnées
   isActive      Boolean  @default(true)
   role          Role     @default(USER)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  lastLoginAt   DateTime @default(now())
   
-  accounts      Account[]            // Comptes OAuth liés
+  // Relations
   refreshTokens RefreshToken[]
-}
-```
-
-### Account (OAuth)
-```prisma
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  provider          String  // "google", "discord"
-  providerAccountId String
-  type              String  // "oauth"
-  accessToken       String?
-  refreshToken      String?
-  idToken           String?
-  expiresAt         Int?
   
-  user User @relation(fields: [userId], references: [id])
-  @@unique([provider, providerAccountId])
+  @@map("users")
 }
-```
 
-## Utilisation dans les Composants
-
-### Injection de la Facade
-
-```typescript
-@Component({...})
-export class MyComponent {
-  private authFacade = inject(AuthFacadeService);
+// ============================================
+// RefreshToken - JWT Refresh Tokens
+// ============================================
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique  // Hash SHA-256
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
   
-  // Signaux reactifs
-  isAuthenticated = this.authFacade.isAuthenticated;
-  currentUser = this.authFacade.user;
-  loading = this.authFacade.loading;
-  error = this.authFacade.error;
-}
-```
-
-### Méthodes Disponibles
-
-```typescript
-// Authentification
-await this.authFacade.login({email, password});
-await this.authFacade.register({email, password, name});
-await this.authFacade.logout();
-
-// OAuth
-this.authFacade.redirectToGoogle();
-this.authFacade.redirectToDiscord();
-
-// Gestion des providers
-const providers = await this.authFacade.getAvailableProviders();
-```
-
-### Protection des Routes
-
-```typescript
-// Routes publiques (redirection si connecté)
-{
-  path: 'login',
-  component: LoginComponent,
-  canActivate: [publicGuard]
-}
-
-// Routes protégées
-{
-  path: 'dashboard',
-  component: DashboardComponent,
-  canActivate: [authGuard]
-}
-```
-
-## Configuration OAuth
-
-### Google OAuth
-
-1. **Google Cloud Console** : https://console.cloud.google.com/
-2. **Créer un projet** et activer "Google Identity Services API"
-3. **Configurer l'écran de consentement** (nom app + emails)
-4. **Créer ID client OAuth 2.0** :
-   - Origines autorisées : `https://your-ngrok-url.com`
-   - URI de redirection : `https://your-ngrok-url.com/api/auth/google/callback`
-5. **Copier CLIENT_ID et CLIENT_SECRET** dans `.env.development`
-
-### Discord OAuth
-
-1. **Discord Developer Portal** : https://discord.com/developers/applications
-2. **Créer une application**
-3. **Section OAuth2** :
-   - Redirect URI : `https://your-ngrok-url.com/api/auth/discord/callback`
-   - Scopes : `identify` + `email`
-4. **Copier CLIENT_ID et CLIENT_SECRET** dans `.env.development`
-
-### Développement Local avec Ngrok
-
-Pour contourner les restrictions localhost des providers OAuth :
-
-```bash
-# Installer ngrok
-npm install -g ngrok
-
-# Exposer le backend
-ngrok http 3000
-
-# Utiliser l'URL HTTPS fournie dans la configuration OAuth
-```
-
-## Données de Test
-
-Le système inclut des utilisateurs de test (via seeds) :
-
-| Email | Password | Type | Description |
-|-------|----------|------|-------------|
-| `admin@example.com` | `password123` | Local + Admin | Compte administrateur |
-| `user@example.com` | `password123` | Local | Utilisateur standard |
-| `google@example.com` | - | OAuth Google | Compte lié à Google |
-| `discord@example.com` | - | OAuth Discord | Compte lié à Discord |
-
-## Extensibilité
-
-### Ajouter un Nouveau Provider OAuth
-
-1. **Installer la dépendance** : `npm install passport-newprovider`
-2. **Créer la stratégie** : `new-provider.strategy.ts`
-3. **Ajouter la configuration** dans `oauth.config.ts`
-4. **Étendre le controller** OAuth avec les endpoints
-5. **Configurer les variables** d'environnement
-
-### Pattern Répétable
-
-Le système suit un pattern cohérent facilement extensible :
-- Configuration centralisée avec feature flags
-- Strategies conditionnelles selon la config
-- Endpoints uniformes pour tous les providers
-- Gestion automatique des comptes utilisateurs
-
-Cette architecture permet d'ajouter facilement GitHub, LinkedIn, Apple, etc. en suivant le même pattern que Google et Discord.
-
-# Module Discord API - Documentation
-
-Cette section décrit l'intégration complète du module Discord API dans le template fullstack, permettant de créer des applications d'administration Discord.
-
-## Architecture du Module Discord
-
-### Structure Backend (NestJS)
-
-```
-apps/backend/src/modules/discord/
-├── controllers/
-│   └── discord.controller.ts     # Endpoints API Discord
-├── services/
-│   └── discord.service.ts        # Service principal Discord
-└── discord.module.ts             # Module NestJS
-```
-
-### Types Partagés
-
-```
-packages/shared-types/src/dtos/
-└── discord.dto.ts                # DTOs Discord avec nomenclature cohérente
-```
-
-### Frontend (Angular)
-
-```
-apps/frontend/src/app/
-├── services/
-│   └── endpoint-tester.service.ts   # Service de test des APIs
-├── pages/
-│   └── endpoint-tester/             # Page de test interactive
-├── config/
-│   └── test-endpoints.config.ts    # Configuration des endpoints
-└── types/
-    └── endpoint-tester.types.ts     # Types pour le testeur
-```
-
-## Configuration Discord
-
-### Variables d'Environnement
-
-**Backend (`.env.development`)** :
-```env
-# Discord OAuth (existant)
-DISCORD_ENABLED=true
-DISCORD_CLIENT_ID=your-discord-client-id
-DISCORD_CLIENT_SECRET=your-discord-client-secret
-
-# Discord Bot Token (nouveau)
-DISCORD_BOT_TOKEN=your-discord-bot-token
-```
-
-### Scopes Discord OAuth
-
-Modifiez les scopes dans `apps/backend/src/modules/auth/strategies/discord.strategy.ts` :
-
-```typescript
-scope: ['identify', 'email', 'guilds'], // Ajout du scope 'guilds'
-```
-
-**Scopes supportés** :
-- `identify` - Informations utilisateur de base
-- `email` - Adresse email
-- `guilds` - Liste des serveurs Discord
-- `guilds.join` - Ajouter l'utilisateur à un serveur
-- `guilds.members.read` - Lire les membres des serveurs
-
-## API Endpoints Discord
-
-### Endpoints de Diagnostic
-
-| Endpoint | Méthode | Auth | Description |
-|----------|---------|------|-------------|
-| `/api/discord/ping` | GET | Non | Test de connectivité Discord API |
-
-### Endpoints Utilisateur
-
-| Endpoint | Méthode | Auth | Description |
-|----------|---------|------|-------------|
-| `/api/discord/user` | GET | Oui | Profil Discord de l'utilisateur connecté |
-| `/api/discord/user/:userId` | GET | Bot | Informations d'un utilisateur par ID |
-
-### Endpoints Serveurs
-
-| Endpoint | Méthode | Auth | Description |
-|----------|---------|------|-------------|
-| `/api/discord/guilds` | GET | Oui | Tous les serveurs de l'utilisateur |
-| `/api/discord/guilds/admin` | GET | Oui | Serveurs avec droits admin seulement |
-
-### Endpoints Debug
-
-| Endpoint | Méthode | Auth | Description |
-|----------|---------|------|-------------|
-| `/api/discord/debug/user-info` | GET | Oui | Infos utilisateur app + comptes liés |
-
-## Gestion des Permissions Discord
-
-### Détection des Droits Admin
-
-Le système détecte automatiquement les droits d'administration sur les serveurs Discord :
-
-```typescript
-// Un utilisateur a des droits admin s'il est :
-- Propriétaire du serveur (owner: true)
-- A la permission ADMINISTRATOR (0x8)
-- A la permission MANAGE_GUILD (0x20)
-```
-
-### Structure des DTOs
-
-**Nomenclature cohérente** : Tous les DTOs suivent le pattern `NomDto`
-
-```typescript
-// Types de base
-DiscordUserDto        // Utilisateur Discord
-DiscordGuildDto       // Serveur Discord avec infos admin
-DiscordGatewayDto     // Gateway Discord
-
-// Types de diagnostic (gardés pour métadonnées)
-DiscordPingResultDto  // Résultat ping avec latence
-```
-
-## Service Discord
-
-### Méthodes Principales
-
-```typescript
-class DiscordService {
-  // Test de connectivité
-  async ping(): Promise
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  // Utilisateurs
-  async getAuthenticatedUser(token: string): Promise
-  async getUser(userId: string): Promise
-  
-  // Serveurs
-  async getUserGuilds(token: string): Promise
-  async getUserAdminGuilds(token: string): Promise
-  
-  // Utilitaires
-  formatUserAvatar(user: DiscordUserDto): string
-}
-```
-
-### Gestion d'Erreurs
-
-- **DTOs directs** pour les données métier
-- **Exceptions NestJS** pour les erreurs (pas de wrapper `{success, error}`)
-- **DTOs Result** seulement pour les endpoints de diagnostic avec métadonnées
-
-## Testeur d'Endpoints Intégré
-
-### Configuration des Tests
-
-Tous les endpoints sont configurés dans `test-endpoints.config.ts` :
-
-```typescript
-const TEST_ENDPOINTS: ApiEndpoint[] = [
-  {
-    id: 'discord-ping',
-    name: 'Discord API Ping',
-    method: 'GET',
-    url: '/api/discord/ping',
-    requiresAuth: false,
-    category: 'Discord - Diagnostic',
-    expectedResponse: 'DiscordPingResultDto'
-  },
-  // ... autres endpoints
-];
-```
-
-### Fonctionnalités
-
-- **Test unitaire** - Chaque endpoint individuellement
-- **Test par catégorie** - Tous les endpoints d'une catégorie
-- **Gestion automatique de l'auth** - Désactive les endpoints auth si non connecté
-- **Historique des résultats** - 50 derniers tests conservés
-- **Interface intuitive** - Groupage par catégorie, temps de réponse, statuts visuels
-
-### Accès
-
-```
-http://localhost:4200/endpoint-tester
-```
-
-## Intégration Dashboard
-
-### Profil Discord
-
-Le dashboard affiche automatiquement :
-- **Avatar Discord** (priorité sur l'avatar app)
-- **Nom d'utilisateur Discord** avec discriminator
-- **Statut de connexion** Discord dans les informations personnelles
-
-### Configuration AuthFacade
-
-```typescript
-// Le signal discordUser est automatiquement chargé lors de la connexion
-discordUser = signal(null);
-```
-
-## Installation et Configuration
-
-### 1. Ajouter le Module Discord
-
-```typescript
-// apps/backend/src/app.module.ts
-import { DiscordModule } from './modules/discord/discord.module';
-
-@Module({
-  imports: [
-    // ... autres modules
-    DiscordModule,
-  ],
-})
-export class AppModule {}
-```
-
-### 2. Compiler les Types Partagés
-
-```bash
-cd packages/shared-types
-npm run build
-```
-
-### 3. Ajouter les Routes Frontend
-
-```typescript
-// apps/frontend/src/app/app.routes.ts
-{
-  path: 'endpoint-tester',
-  component: EndpointTesterComponent,
-  title: 'API Endpoint Tester'
-}
-```
-
-### 4. Configurer les Scopes Discord
-
-1. **Modifier la stratégie Discord** pour inclure le scope `guilds`
-2. **Se reconnecter via Discord OAuth** pour obtenir les nouvelles permissions
-3. **Vérifier en base** que les tokens Discord sont sauvegardés
-
-## Configuration Bot Discord (Optionnel)
-
-Pour utiliser l'endpoint `/api/discord/user/:userId` :
-
-### 1. Créer un Bot Discord
-
-1. Aller sur https://discord.com/developers/applications
-2. Sélectionner votre application
-3. Aller dans "Bot" → "Add Bot"
-4. Copier le token
-
-### 2. Configurer le Token
-
-```env
-DISCORD_BOT_TOKEN=your-bot-token-here
-```
-
-### 3. Permissions Bot
-
-Le bot n'a besoin d'aucune permission spéciale pour les endpoints actuels.
-
-## Sécurité
-
-### Tokens
-
-- **User Tokens** : Utilisés pour les actions au nom de l'utilisateur (serveurs, profil)
-- **Bot Token** : Utilisé pour récupérer des informations publiques Discord
-- **Refresh automatique** : Géré par l'intercepteur Angular existant
-
-### Scopes Minimum
-
-Pour une app d'administration Discord de base :
-```typescript
-scope: ['identify', 'email', 'guilds']
-```
-
-### Variables Sensibles
-
-- `DISCORD_CLIENT_SECRET` et `DISCORD_BOT_TOKEN` ne doivent jamais être exposés côté client
-- Utiliser des variables d'environnement séparées pour production
-
-## Développement et Debug
-
-### Tests Rapides
-
-1. **Page testeur** - `http://localhost:4200/endpoint-tester`
-2. **Test ping** - Vérifier la connectivité Discord
-3. **Test auth** - Vérifier les tokens utilisateur
-4. **Test serveurs** - Lister les serveurs avec permissions
-
-### Logs Utiles
-
-```typescript
-// Debug token bot
-console.log('Bot token configured:', !!this.botToken);
-
-// Debug scopes utilisateur
-console.log('User accounts:', req.user.accounts);
-```
-
-### Erreurs Communes
-
-**"Discord bot token not configured"**
-- Vérifier `DISCORD_BOT_TOKEN` dans `.env.development`
-- Redémarrer le backend après modification
-
-**"No Discord account linked"**
-- Se reconnecter via Discord OAuth
-- Vérifier que les tokens sont sauvegardés en base
-
-**Scopes insuffisants**
-- Ajouter le scope `guilds` dans la stratégie Discord
-- Se reconnecter pour obtenir les nouvelles permissions
-
-## Extensibilité
-
-### Ajouter de Nouveaux Endpoints
-
-1. **Créer la méthode** dans `DiscordService`
-2. **Ajouter l'endpoint** dans `DiscordController`
-3. **Définir les types** dans `discord.dto.ts`
-4. **Configurer le test** dans `test-endpoints.config.ts`
-
-### Pattern Répétable
-
-```typescript
-// Service
-async getGuildMembers(guildId: string): Promise {
-  return this.makeDiscordRequest(
-    `/guilds/${guildId}/members`,
-    this.getBotHeaders()
-  );
+  @@map("refresh_tokens")
 }
 
-// Controller
-@Get('guild/:guildId/members')
-async getGuildMembers(@Param('guildId') guildId: string): Promise {
-  return await this.discordService.getGuildMembers(guildId);
-}
-
-// Test config
-{
-  id: 'discord-guild-members',
-  name: 'Membres du serveur',
-  url: '/api/discord/guild/123456789/members',
-  requiresAuth: false,
-  category: 'Discord - Serveurs'
-}
-```
-
-Ce module Discord fournit une base solide et extensible pour créer des applications d'administration Discord complètes.
-
-# Système Discord Bot - Documentation
-
-Cette section décrit l'architecture complète du système Discord Bot intégré au template, permettant la création d'applications d'administration et de modération Discord.
-
-## Architecture du Système
-
-### Structure des Applications
-
-```
-apps/
-├── backend/                    # API NestJS principal
-├── frontend/                   # Application Angular
-├── gateway/                    # Gateway NestJS WebSocket
-└── discord-bot/               # Bot Discord SapphireJS
-```
-
-### Flux de Communication
-
-```
-Discord ↔ Bot SapphireJS ↔ Gateway NestJS ↔ Backend Principal ↔ Base de données
-                                ↕
-                         Frontend Angular (WebSocket optionnel)
-```
-
-## Architecture Technique
-
-### Gateway NestJS (Port 3001)
-
-**Rôle** : Hub de communication WebSocket entre les bots Discord et le backend principal.
-
-```
-apps/gateway/
-├── src/
-│   ├── modules/bot-gateway/
-│   │   ├── bot.gateway.ts              # WebSocket Gateway principal
-│   │   ├── services/
-│   │   │   └── bot-connection.service.ts # Gestion des connexions bots
-│   │   └── bot-gateway.module.ts
-│   ├── app.module.ts
-│   └── main.ts
-├── .env.development
-└── package.json
-```
-
-**Fonctionnalités** :
-- Gestion des connexions WebSocket multiples
-- Routage des messages Bot ↔ Backend
-- Monitoring des bots connectés
-- Support multi-bots (extensible)
-
-### Bot Discord SapphireJS
-
-**Rôle** : Bot Discord qui capture les événements et les transmet à la Gateway.
-
-```
-apps/discord-bot/
-├── src/
-│   ├── services/
-│   │   ├── gateway-client.service.ts   # Connexion WebSocket à la Gateway
-│   │   └── event-storage.service.ts    # Stockage SQLite événements hors-ligne
-│   ├── listeners/                      # Listeners Discord (guildCreate, messageCreate...)
-│   ├── config/
-│   │   └── bot.config.ts              # Configuration centralisée
-│   └── index.ts
-├── .env
-└── data/events.sqlite                 # Base SQLite pour événements offline
-```
-
-**Fonctionnalités** :
-- Écoute des événements Discord temps réel
-- Transmission via WebSocket à la Gateway
-- Stockage local SQLite en cas de déconnexion
-- Reconnexion automatique avec envoi en batch
-
-### Backend Principal
-
-**Extensions pour Discord** :
-
-```
-apps/backend/src/modules/
-├── gateway/
-│   ├── controllers/gateway.controller.ts    # Endpoints test/contrôle
-│   └── services/gateway-client.service.ts   # Client WebSocket vers Gateway
-├── guild/
-│   ├── services/guild-sync.service.ts       # Synchronisation guilds Discord
-│   └── controllers/guild.controller.ts      # API gestion des serveurs
-└── discord/                                 # Module API Discord existant
-```
-
-## Configuration et Variables d'Environnement
-
-### Gateway (`apps/gateway/.env.development`)
-
-```env
-# Gateway Configuration
-GATEWAY_PORT=3001
-NODE_ENV=development
-
-# CORS et sécurité
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:4200
-
-# Connexion avec le backend principal
-BACKEND_URL=http://localhost:3000
-```
-
-### Bot Discord (`apps/discord-bot/.env`)
-
-```env
-# Discord Bot Configuration
-DISCORD_TOKEN=your-discord-bot-token-here
-BOT_ID=main-discord-bot
-BOT_NAME=Discord Bot Principal
-
-# Gateway Connection
-GATEWAY_URL=http://localhost:3001
-GATEWAY_RECONNECT_INTERVAL=5000
-
-# Stockage local
-SERVICE_NAME=discord-bot
-LOG_LEVEL=debug
-```
-
-### Backend (`apps/backend/.env.development`)
-
-```env
-# Gateway WebSocket (nouveau)
-GATEWAY_URL=http://localhost:3001
-
-# Variables Discord existantes
-DISCORD_ENABLED=true
-DISCORD_CLIENT_ID=your-discord-client-id
-DISCORD_CLIENT_SECRET=your-discord-client-secret
-DISCORD_BOT_TOKEN=your-discord-bot-token
-```
-
-## Modèles de Données
-
-### Guild (Serveurs Discord)
-
-```prisma
+// ============================================
+// Guild - Serveur Discord
+// ============================================
 model Guild {
-  id             String  @id @default(cuid())
-  discordGuildId String  @unique @map("discord_guild_id")
+  id             String   @id @default(cuid())
+  guildId        String   @unique @map("discord_guild_id")
   name           String
   icon           String?
-  ownerDiscordId String  @map("owner_discord_id")
+  ownerDiscordId String   @map("owner_discord_id")
   
   // Status
   botAddedAt DateTime @default(now()) @map("bot_added_at")
@@ -1381,142 +1215,1537 @@ model Guild {
   // Métadonnées
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
-
+  
   @@map("guilds")
 }
-```
 
-### Types Partagés
-
-```typescript
-// packages/shared-types/src/dtos/gateway.dto.ts
-export interface BotEventDto {
-  type: EventType;           // Type d'événement Discord
-  guildId: string;          // ID du serveur Discord
-  userId?: string;          // ID utilisateur (optionnel)
-  channelId?: string;       // ID channel (optionnel)
-  messageId?: string;       // ID message (optionnel)
-  roleId?: string;          // ID rôle (optionnel)
-  timestamp: Date;          // Horodatage
-  data?: any;              // Données supplémentaires
+// ============================================
+// Enums
+// ============================================
+enum Role {
+  USER
+  ADMIN
+  MODERATOR
 }
 ```
 
-## Démarrage et Développement
+### Migrations
 
-### Scripts NPM Mis à Jour
+#### Créer une Migration
 
-```json
-{
-  "scripts": {
-    "dev:backend": "npm run start:dev --workspace=apps/backend",
-    "dev:frontend": "npm run start --workspace=apps/frontend",
-    "dev:gateway": "cd apps/gateway && npm run start:dev",
-    "dev:bot": "cd apps/discord-bot && npm run dev",
-    "dev:all": "npm run db:up && concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:gateway\" \"npm run dev:bot\"",
-    
-    "build:gateway": "cd apps/gateway && npm run build",
-    "build:bot": "cd apps/discord-bot && npm run build"
+```bash
+npx prisma migrate dev --name add_guild_settings
+```
+
+#### Appliquer les Migrations
+
+```bash
+# Développement
+npx prisma migrate dev
+
+# Production
+npx prisma migrate deploy
+```
+
+#### Réinitialiser la Base
+
+```bash
+npx prisma migrate reset
+```
+
+### Redis
+
+#### Structure des Données
+
+**OAuth States** :
+```
+Key: oauth:state:{state}
+Value: {
+  "createdAt": 1234567890,
+  "used": false
+}
+TTL: 600 secondes
+```
+
+**OAuth Sessions** :
+```
+Key: oauth:session:{sessionId}
+Value: {
+  "accessToken": "...",
+  "refreshToken": "...",
+  "userId": "...",
+  "createdAt": 1234567890
+}
+TTL: 300 secondes
+```
+
+**Discord Token Cache** (en mémoire dans le service, pas Redis actuellement)
+
+#### Commandes Utiles
+
+```bash
+# Connexion Redis CLI
+redis-cli
+
+# Lister toutes les clés
+KEYS *
+
+# Voir une clé
+GET oauth:state:abc123
+
+# Voir TTL
+TTL oauth:state:abc123
+
+# Supprimer une clé
+DEL oauth:state:abc123
+
+# Flush toutes les données
+FLUSHDB
+```
+
+### SQLite (Bot)
+
+Base locale pour backup événements :
+
+**Schema** :
+```sql
+CREATE TABLE events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL,
+  guildId TEXT,
+  userId TEXT,
+  channelId TEXT,
+  data TEXT,
+  timestamp INTEGER NOT NULL,
+  sent INTEGER DEFAULT 0
+);
+
+CREATE INDEX idx_sent ON events(sent);
+CREATE INDEX idx_timestamp ON events(timestamp);
+```
+
+**Fichier** : `apps/bot/data/events.db`
+
+---
+
+## 🔐 Authentification & Sécurité
+
+### Flux OAuth Discord
+
+```
+1. User clique "Login with Discord"
+   ↓
+2. Frontend → Backend GET /api/auth/discord/login
+   ↓
+3. Backend génère state (Redis)
+   ↓
+4. Backend redirige vers Discord OAuth
+   ↓
+5. User autorise sur Discord
+   ↓
+6. Discord → Backend GET /api/auth/discord/callback?code=xxx&state=yyy
+   ↓
+7. Backend valide state (Redis)
+   ↓
+8. Backend échange code contre tokens Discord
+   ↓
+9. Backend récupère profil Discord
+   ↓
+10. Backend crée/update User (PostgreSQL)
+    ↓
+11. Backend chiffre tokens Discord
+    ↓
+12. Backend génère JWT (access + refresh)
+    ↓
+13. Backend crée session temporaire (Redis)
+    ↓
+14. Backend redirige → Frontend /callback?session=xxx
+    ↓
+15. Frontend échange session contre JWT (POST /api/auth/exchange-session)
+    ↓
+16. Frontend stocke JWT (localStorage)
+    ↓
+17. ✅ User authentifié
+```
+
+### Sécurité Implémentée
+
+#### ✅ Protection CSRF
+
+**OAuthStateService** :
+- State token aléatoire (64 hex)
+- Stocké dans Redis (TTL 10 min)
+- One-time use
+- Validation stricte
+
+#### ✅ Tokens Jamais dans l'URL
+
+Session temporaire pour éviter :
+- Logs serveur
+- Historique navigateur
+- Referer headers
+
+#### ✅ Chiffrement Tokens Discord
+
+**AES-256-GCM** :
+- Clé 256-bit
+- IV unique par token
+- Auth tag pour intégrité
+- Stockage format : `iv:authTag:encrypted`
+
+#### ✅ JWT Sécurisés
+
+**Access Token** :
+- Durée courte (15 min)
+- Payload minimal
+- Signature HMAC SHA-256
+
+**Refresh Token** :
+- Hash SHA-256 en DB
+- Rotation automatique
+- Durée 7 jours
+- Révocation possible
+
+#### ✅ Guards & Permissions
+
+**JwtAuthGuard** :
+- Vérifie signature JWT
+- Vérifie expiration
+- Charge user en request
+
+**GuildAdminGuard** :
+- Vérifie permission ADMINISTRATOR
+- Appelle API Discord avec token user
+- Cache résultat
+
+### Variables Sensibles
+
+**CRITICAL** :
+```env
+ENCRYPTION_KEY=...        # 64 hex chars
+JWT_SECRET=...            # Min 32 chars
+JWT_REFRESH_SECRET=...    # Min 32 chars
+DISCORD_CLIENT_SECRET=... # Depuis Discord Portal
+DISCORD_BOT_TOKEN=...     # Depuis Discord Portal
+```
+
+**Génération** :
+```bash
+# Encryption key
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+# JWT secrets
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+```
+
+---
+
+## 🔄 Communication Inter-Services
+
+### Architecture WebSocket
+
+```
+┌──────────┐              ┌──────────┐              ┌──────────┐
+│  Backend │◄────────────►│  Gateway │◄────────────►│   Bot    │
+└──────────┘   Socket.io  └──────────┘   Socket.io  └──────────┘
+     │                          │                         │
+     │ register                 │                         │ register
+     │ type: 'backend'          │                         │ type: 'bot'
+     │──────────────────────────►                         │
+     │                          │◄────────────────────────│
+     │                          │                         │
+     │ to-bot                   │                         │
+     │ {botId, data}            │ from-backend            │
+     │──────────────────────────►─────────────────────────►
+     │                          │                         │
+     │                          │ to-backend              │
+     │ to-backend               │ [events]                │
+     │◄─────────────────────────◄─────────────────────────│
+     │ [events]                 │                         │
+```
+
+### Events Socket.io
+
+#### Gateway Events
+
+| Event | Direction | Payload | Description |
+|-------|-----------|---------|-------------|
+| `register` | Bot/Backend → Gateway | `{type, botId?, name?}` | Enregistrement |
+| `registered` | Gateway → Bot/Backend | `{success, botId?}` | Confirmation |
+| `to-backend` | Bot → Gateway → Backend | `BotEventDto[]` | Événements |
+| `to-bot` | Backend → Gateway → Bot | `{botId, data}` | Commande |
+| `broadcast-to-bots` | Backend → Gateway → Bots | `data` | Broadcast |
+| `from-backend` | Gateway → Bot | `data` | Commande reçue |
+| `backend-ack` | Gateway → Bot | `{received, timestamp}` | Accusé réception |
+
+#### Exemple : Ping Bot
+
+**Backend** :
+```typescript
+// Controller
+@Get('ping')
+async pingBot() {
+  const botId = process.env.BOT_COMMAND_ID;
+  const sent = this.gatewayClient.sendToBot(botId, {
+    type: 'ping',
+    message: 'Ping depuis le backend',
+    timestamp: new Date().toISOString()
+  });
+  
+  return { success: sent };
+}
+
+// Service
+sendToBot(botId: string, data: any) {
+  this.socket.emit('to-bot', { botId, data });
+}
+```
+
+**Gateway** :
+```typescript
+@SubscribeMessage('to-bot')
+handleBackendToBot(
+  @MessageBody() data: { botId: string; data: any }
+) {
+  const sent = this.botConnectionService.sendToBot(
+    data.botId,
+    'from-backend',
+    data.data
+  );
+}
+```
+
+**Bot** :
+```typescript
+// WebSocketService
+this.socket.on('from-backend', (data) => {
+  if (data.type === 'ping') {
+    this.logger.info('Ping received from backend!');
+    // Répondre avec pong...
+  }
+});
+```
+
+### Event Batching
+
+Le bot utilise un système de **batch** pour optimiser :
+
+**Configuration** :
+```typescript
+const BATCH_INTERVAL = 5000;  // 5 secondes
+const MAX_BATCH_SIZE = 100;   // 100 événements max
+```
+
+**Fonctionnement** :
+1. Événement Discord → `addEvent()`
+2. Stockage en mémoire dans tableau
+3. Toutes les 5s OU si 100 événements → `flushBatch()`
+4. Si Gateway connectée → `emit('to-backend')`
+5. Sinon → Sauvegarde SQLite
+
+**Restauration** :
+```typescript
+// Au reconnect
+restoreOfflineEvents() {
+  const events = db.prepare('SELECT * FROM events WHERE sent = 0').all();
+  if (events.length > 0) {
+    this.sendBatch(events);
+    db.prepare('UPDATE events SET sent = 1 WHERE sent = 0').run();
   }
 }
 ```
 
-### Démarrage du Système Complet
+---
 
-```bash
-# 1. Setup initial (base de données, migrations)
-npm run setup
+## 🌐 Intégration Discord API
 
-# 2. Démarrer tous les services
-npm run dev:all
+### Architecture Discord Module
 
-# Ou démarrage séquentiel pour debug :
-npm run dev:gateway    # Port 3001
-npm run dev:backend    # Port 3000  
-npm run dev:frontend   # Port 4200
-npm run dev:bot        # Se connecte à la Gateway
+Le module Discord dans le backend fournit une abstraction complète de l'API Discord :
+
+**Composants clés** :
+- `DiscordApiService` : Client HTTP principal
+- `DiscordRateLimiterService` : Gestion rate limits
+- Resources : Guilds, Channels, Members, Roles, Bans, Users
+
+### Rate Limiting
+
+#### Discord Limits
+
+- **Global** : 50 requêtes/seconde
+- **Per Route** : Varie selon endpoint
+- **Buckets** : Regroupement par ressource
+
+#### Implémentation
+
+```typescript
+// discord-rate-limiter.service.ts
+interface RateLimitBucket {
+  limit: number;
+  remaining: number;
+  reset: number;
+  queue: Array<() => void>;
+}
+
+async checkRateLimit(key: string): Promise<void> {
+  const bucket = this.buckets.get(key) || this.createBucket();
+  
+  if (bucket.remaining === 0) {
+    const waitTime = bucket.reset - Date.now();
+    if (waitTime > 0) {
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+  
+  bucket.remaining--;
+}
 ```
 
-### Ordre de Démarrage Recommandé
-
-1. **Base de données** (PostgreSQL + Redis via Docker)
-2. **Gateway** - Hub de communication
-3. **Backend** - Se connecte à la Gateway
-4. **Bot Discord** - Se connecte à la Gateway
-5. **Frontend** - Interface utilisateur
-
-## API Endpoints Discord
-
-### Gestion des Serveurs
-
-| Endpoint | Méthode | Description |
-|----------|---------|-------------|
-| `GET /api/guilds` | GET | Liste des serveurs où le bot est présent |
-| `GET /api/guilds/stats` | GET | Statistiques des serveurs |
-| `POST /api/guilds/sync` | POST | Force la synchronisation des serveurs |
-
-### Test de la Gateway
-
-| Endpoint | Méthode | Description |
-|----------|---------|-------------|
-| `GET /api/gateway/ping` | GET | Test communication Backend → Gateway → Bot |
-| `GET /api/gateway/status` | GET | Statut de connexion Gateway |
-| `POST /api/gateway/send-to-bot/:botId` | POST | Envoyer message à un bot spécifique |
-| `POST /api/gateway/broadcast` | POST | Diffuser message à tous les bots |
-
-## Fonctionnalités Clés
-
-### Gestion des Événements Discord
-
-- **Temps réel** : Transmission immédiate des événements Discord
-- **Offline resilience** : Stockage SQLite local en cas de déconnexion
-- **Batch processing** : Envoi par batch lors de la reconnexion
-- **Configuration flexible** : Événements activés/désactivés via config
-
-### Synchronisation des Serveurs
-
-- **Sync automatique** : Lors des événements `guildCreate`/`guildDelete`
-- **Sync complète** : Au démarrage du bot
-- **Gestion des états** : Serveurs actifs/inactifs selon présence du bot
-- **API de contrôle** : Endpoints pour forcer la synchronisation
-
-### Communication Multi-Services
-
-- **WebSocket bidirectionnel** : Communication temps réel
-- **Support multi-bots** : Architecture extensible pour plusieurs bots
-- **Monitoring** : Suivi des connexions et heartbeat
-- **Commandes à distance** : Envoi de commandes aux bots depuis le backend
-
-## Tests et Debug
-
-### Test de Connectivité
-
-```bash
-# Test ping complet Backend → Gateway → Bot
-curl http://localhost:3000/api/gateway/ping
-
-# Test statut Gateway
-curl http://localhost:3000/api/gateway/status
-
-# Test liste des serveurs
-curl http://localhost:3000/api/guilds
+**Usage** :
+```typescript
+return this.discordApi.get(endpoint, {
+  rateLimitKey: `guild:${guildId}:channels`
+});
 ```
 
-### Logs et Monitoring
+### Endpoints Principaux
 
-- **Gateway** : Logs des connexions WebSocket et routage des messages
-- **Bot** : Logs des événements Discord et connexion Gateway
-- **Backend** : Logs de traitement des événements et synchronisation
-- **Stockage** : SQLite pour persistance des événements offline
+#### Guilds
 
-## Architecture Extensible
+```typescript
+// GET /discord/guilds/:guildId
+getGuild(guildId: string)
 
-Le système est conçu pour supporter :
+// GET /discord/guilds/:guildId/channels
+getGuildChannels(guildId: string)
 
-- **Multiple bots Discord** sur différents serveurs
-- **Événements personnalisés** via la configuration
-- **Intégrations tierces** via l'API Gateway
-- **Scaling horizontal** avec load balancing des bots
+// GET /discord/guilds/:guildId/members
+listGuildMembers(guildId: string, limit: number)
 
-Cette architecture fournit une base robuste pour créer des applications Discord complètes avec administration, modération et monétisation des serveurs Discord.
+// GET /discord/guilds/:guildId/roles
+getGuildRoles(guildId: string)
+```
 
+#### Channels
+
+```typescript
+// GET /discord/channels/:channelId
+getChannel(channelId: string)
+
+// POST /discord/channels/:channelId/messages
+createMessage(channelId: string, content: CreateMessageDTO)
+
+// GET /discord/channels/:channelId/messages
+getChannelMessages(channelId: string, limit: number)
+
+// DELETE /discord/channels/:channelId/messages/:messageId
+deleteMessage(channelId: string, messageId: string)
+```
+
+#### Members
+
+```typescript
+// GET /discord/guilds/:guildId/members/:userId
+getGuildMember(guildId: string, userId: string)
+
+// PATCH /discord/guilds/:guildId/members/:userId
+modifyGuildMember(guildId: string, userId: string, data: ModifyGuildMemberDTO)
+
+// PUT /discord/guilds/:guildId/members/:userId/roles/:roleId
+addGuildMemberRole(guildId: string, userId: string, roleId: string)
+
+// DELETE /discord/guilds/:guildId/members/:userId/roles/:roleId
+removeGuildMemberRole(guildId: string, userId: string, roleId: string)
+
+// PATCH /discord/guilds/:guildId/members/:userId/timeout
+timeoutMember(guildId: string, userId: string, until: string)
+```
+
+#### Bans
+
+```typescript
+// GET /discord/guilds/:guildId/bans
+getGuildBans(guildId: string)
+
+// PUT /discord/guilds/:guildId/bans/:userId
+createGuildBan(guildId: string, userId: string, reason?: string)
+
+// DELETE /discord/guilds/:guildId/bans/:userId
+removeGuildBan(guildId: string, userId: string, reason?: string)
+```
+
+### Error Handling
+
+```typescript
+// discord-api.exception.ts
+export class DiscordApiException extends HttpException {
+  constructor(
+    public readonly discordCode: number,
+    public readonly discordMessage: string,
+    statusCode: number
+  ) {
+    super({
+      statusCode,
+      message: discordMessage,
+      discordCode
+    }, statusCode);
+  }
+}
+
+// discord-exception.filter.ts
+@Catch(DiscordApiException)
+export class DiscordExceptionFilter implements ExceptionFilter {
+  catch(exception: DiscordApiException, host: ArgumentsHost) {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse();
+    
+    response.status(exception.getStatus()).json({
+      error: 'Discord API Error',
+      message: exception.discordMessage,
+      code: exception.discordCode
+    });
+  }
+}
+```
+
+---
+
+## 🚀 Déploiement
+
+### Environnements
+
+#### Développement
+
+```bash
+# Docker Compose local
+docker-compose up -d
+
+# Services individuels
+npm run dev:backend
+npm run dev:gateway
+npm run dev:bot
+npm run dev:frontend
+```
+
+#### Production
+
+### Option 1 : Docker
+
+**Dockerfile Backend** :
+```dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY apps/backend/dist ./dist
+COPY apps/backend/prisma ./prisma
+
+RUN npx prisma generate
+
+EXPOSE 3000
+
+CMD ["node", "dist/main.js"]
+```
+
+**docker-compose.prod.yml** :
+```yaml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: discord_admin
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://admin:${DB_PASSWORD}@postgres:5432/discord_admin
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
+  bot:
+    build:
+      context: .
+      dockerfile: apps/bot/Dockerfile
+    environment:
+      GATEWAY_URL: http://gateway:3001
+    depends_on:
+      - gateway
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    ports:
+      - "80:80"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+```
+
+### Option 2 : VPS / Serveur Dédié
+
+**Setup Ubuntu 22.04** :
+
+```bash
+# 1. Installer Node.js
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# 2. Installer PostgreSQL
+sudo apt install postgresql postgresql-contrib
+
+# 3. Installer Redis
+sudo apt install redis-server
+
+# 4. Installer PM2
+sudo npm install -g pm2
+
+# 5. Cloner le repo
+git clone <repo-url>
+cd discord-admin-app
+npm install
+npm run build
+
+# 6. Configurer .env production
+
+# 7. Lancer avec PM2
+pm2 start ecosystem.config.js
+pm2 save
+pm2 startup
+```
+
+**ecosystem.config.js** :
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: 'backend',
+      script: 'apps/backend/dist/main.js',
+      instances: 2,
+      exec_mode: 'cluster',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3000
+      }
+    },
+    {
+      name: 'gateway',
+      script: 'apps/gateway/dist/main.js',
+      env: {
+        NODE_ENV: 'production',
+        PORT: 3001
+      }
+    },
+    {
+      name: 'bot',
+      script: 'apps/bot/dist/index.js',
+      env: {
+        NODE_ENV: 'production'
+      }
+    }
+  ]
+};
+```
+
+### Option 3 : Cloud (AWS/GCP/Azure)
+
+**Architecture recommandée** :
+- **Frontend** : S3 + CloudFront (AWS) ou Cloud Storage + CDN (GCP)
+- **Backend** : ECS/Kubernetes ou App Engine
+- **Gateway** : ECS/Kubernetes avec Load Balancer
+- **Bot** : ECS/Kubernetes
+- **PostgreSQL** : RDS (AWS) ou Cloud SQL (GCP)
+- **Redis** : ElastiCache (AWS) ou Memorystore (GCP)
+
+### Nginx Configuration
+
+```nginx
+# /etc/nginx/sites-available/discord-admin
+
+# Frontend
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    root /var/www/discord-admin/frontend;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API Backend
+    location /api/ {
+        proxy_pass http://localhost:3000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # WebSocket Gateway
+    location /socket.io/ {
+        proxy_pass http://localhost:3001/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+}
+
+# SSL avec Let's Encrypt
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com;
+
+    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+
+    # ... même config que ci-dessus
+}
+```
+
+### Checklist Déploiement
+
+- [ ] Variables d'environnement configurées
+- [ ] Base de données migrée
+- [ ] Redis configuré et sécurisé
+- [ ] Discord Bot invité sur serveurs
+- [ ] SSL/TLS activé
+- [ ] Firewall configuré
+- [ ] Logs configurés
+- [ ] Monitoring activé
+- [ ] Backups automatiques configurés
+- [ ] CORS configuré correctement
+- [ ] Rate limiting activé
+- [ ] Secrets rotations planifiées
+
+---
+
+## 📊 Maintenance et Monitoring
+
+### Logs
+
+#### Backend (NestJS)
+
+```typescript
+// Logger personnalisé
+import { Logger } from '@nestjs/common';
+
+const logger = new Logger('ServiceName');
+logger.log('Info message');
+logger.warn('Warning message');
+logger.error('Error message', trace);
+logger.debug('Debug message');
+```
+
+#### Bot (Sapphire)
+
+```typescript
+this.container.logger.info('Message');
+this.container.logger.warn('Warning');
+this.container.logger.error('Error');
+this.container.logger.debug('Debug');
+```
+
+### Monitoring Recommandé
+
+#### Application Performance
+
+**Sentry** :
+```bash
+npm install @sentry/node @sentry/integrations
+```
+
+```typescript
+// main.ts
+import * as Sentry from '@sentry/node';
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+  tracesSampleRate: 0.1
+});
+```
+
+#### Infrastructure
+
+- **PM2 Monitoring** : `pm2 monit`
+- **PostgreSQL** : pg_stat_statements
+- **Redis** : redis-cli INFO
+- **Disk/CPU/RAM** : htop, netdata
+
+### Backups
+
+#### PostgreSQL
+
+**Backup automatique quotidien** :
+```bash
+#!/bin/bash
+# /opt/scripts/backup-postgres.sh
+
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="/var/backups/postgresql"
+DB_NAME="discord_admin"
+
+pg_dump -U admin $DB_NAME | gzip > $BACKUP_DIR/backup_$DATE.sql.gz
+
+# Garder seulement les 30 derniers jours
+find $BACKUP_DIR -name "backup_*.sql.gz" -mtime +30 -delete
+```
+
+**Cron** :
+```bash
+# crontab -e
+0 2 * * * /opt/scripts/backup-postgres.sh
+```
+
+#### Redis
+
+**Backup automatique** :
+```bash
+# redis.conf
+save 900 1      # Sauvegarde après 900s si 1 clé changée
+save 300 10     # Sauvegarde après 300s si 10 clés changées
+save 60 10000   # Sauvegarde après 60s si 10000 clés changées
+
+dir /var/lib/redis
+dbfilename dump.rdb
+```
+
+**Backup manuel** :
+```bash
+redis-cli SAVE
+cp /var/lib/redis/dump.rdb /var/backups/redis/dump_$(date +%Y%m%d).rdb
+```
+
+#### SQLite (Bot)
+
+**Backup automatique** :
+```bash
+#!/bin/bash
+# Copie du fichier events.db
+cp apps/bot/data/events.db apps/bot/data/events_backup_$(date +%Y%m%d).db
+
+# Garder 7 jours
+find apps/bot/data -name "events_backup_*.db" -mtime +7 -delete
+```
+
+### Maintenance Régulière
+
+#### Hebdomadaire
+
+- [ ] Vérifier les logs d'erreurs
+- [ ] Analyser les performances
+- [ ] Vérifier l'espace disque
+- [ ] Tester les backups
+- [ ] Vérifier les mises à jour de sécurité
+
+#### Mensuel
+
+- [ ] Rotation des secrets
+- [ ] Nettoyage base de données
+- [ ] Analyse des métriques
+- [ ] Revue des permissions Discord
+- [ ] Test de restauration backup
+
+#### Commandes Utiles
+
+**PostgreSQL** :
+```sql
+-- Taille de la base
+SELECT pg_size_pretty(pg_database_size('discord_admin'));
+
+-- Tables les plus volumineuses
+SELECT 
+  schemaname,
+  tablename,
+  pg_size_pretty(pg_total_relation_size(schemaname||'.'||tablename)) AS size
+FROM pg_tables
+ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC
+LIMIT 10;
+
+-- Connexions actives
+SELECT * FROM pg_stat_activity;
+
+-- Vacuum (maintenance)
+VACUUM ANALYZE;
+```
+
+**Redis** :
+```bash
+# Info mémoire
+redis-cli INFO memory
+
+# Nombre de clés
+redis-cli DBSIZE
+
+# Clés les plus utilisées
+redis-cli --bigkeys
+
+# Nettoyer les clés expirées
+redis-cli --scan --pattern "oauth:*" | xargs redis-cli DEL
+```
+
+**PM2** :
+```bash
+# Status
+pm2 status
+
+# Logs
+pm2 logs backend --lines 100
+
+# Monitoring
+pm2 monit
+
+# Redémarrer
+pm2 restart all
+
+# Recharger config
+pm2 reload ecosystem.config.js
+
+# Flush logs
+pm2 flush
+```
+
+---
+
+## 🔍 Troubleshooting
+
+### Problèmes Courants
+
+#### 1. Bot ne se connecte pas à la Gateway
+
+**Symptômes** :
+```
+[Bot] Gateway connection error
+```
+
+**Solutions** :
+1. Vérifier que la Gateway est démarrée : `pm2 status gateway`
+2. Vérifier `GATEWAY_URL` dans `.env` du bot
+3. Vérifier les logs Gateway : `pm2 logs gateway`
+4. Tester la connexion : `curl http://localhost:3001`
+
+#### 2. Erreur "Invalid or expired authentication session"
+
+**Symptômes** :
+```
+UnauthorizedException: Invalid or expired authentication session
+```
+
+**Causes** :
+- SessionId expiré (> 5 min)
+- Redis déconnecté
+- SessionId invalide
+
+**Solutions** :
+1. Vérifier Redis : `redis-cli PING` → doit retourner `PONG`
+2. Relancer le login OAuth
+3. Vérifier les logs : `pm2 logs backend | grep session`
+
+#### 3. Erreur "Failed to refresh Discord token"
+
+**Symptômes** :
+```
+Error: Failed to refresh Discord token
+```
+
+**Causes** :
+- Refresh token Discord révoqué
+- User a révoqué l'autorisation
+- Token corrompu en DB
+
+**Solutions** :
+1. User doit se reconnecter
+2. Vérifier encryption key : `.env` → `ENCRYPTION_KEY`
+3. Logs : `pm2 logs backend | grep refresh`
+
+#### 4. Rate Limit Discord
+
+**Symptômes** :
+```
+DiscordApiException: You are being rate limited
+```
+
+**Solutions** :
+1. Le système attend automatiquement
+2. Réduire le nombre de requêtes
+3. Vérifier rate limit keys dans les logs
+4. Augmenter les délais entre requêtes
+
+#### 5. Events Bot non reçus dans Backend
+
+**Symptômes** :
+- Events Discord non synchronisés
+- Base de données non à jour
+
+**Solutions** :
+1. Vérifier connexion Gateway : `pm2 logs bot | grep Gateway`
+2. Vérifier SQLite : `ls -lh apps/bot/data/events.db`
+3. Vérifier EventBatcher : `pm2 logs bot | grep batch`
+4. Restaurer events offline : redémarrer le bot
+
+#### 6. Frontend ne peut pas se connecter au Backend
+
+**Symptômes** :
+```
+CORS error / Network error
+```
+
+**Solutions** :
+1. Vérifier `FRONTEND_URL` dans Backend `.env`
+2. Vérifier CORS configuration :
+```typescript
+// main.ts
+app.enableCors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true
+});
+```
+3. Vérifier `apiUrl` dans `environment.ts`
+
+#### 7. Base de données migration failed
+
+**Symptômes** :
+```
+Error: P3009 - Migration failed
+```
+
+**Solutions** :
+```bash
+# Réinitialiser la base (DEV ONLY)
+npx prisma migrate reset
+
+# Forcer la migration
+npx prisma migrate deploy --force
+
+# Vérifier l'état
+npx prisma migrate status
+```
+
+#### 8. Mémoire élevée
+
+**Symptômes** :
+- PM2 affiche high memory
+- Application lente
+
+**Solutions** :
+1. Redémarrer services : `pm2 restart all`
+2. Analyser : `pm2 monit`
+3. Vérifier cache : peut-être trop de tokens en cache
+4. Augmenter RAM ou optimiser
+
+### Debug Mode
+
+#### Backend
+
+```bash
+# Mode verbose
+DEBUG=* npm run start:dev
+
+# Logs Prisma
+DATABASE_URL="postgresql://...?connection_limit=1" npm run start:dev
+```
+
+#### Bot
+
+```typescript
+// src/index.ts
+const client = new SapphireClient({
+  logger: {
+    level: LogLevel.Debug  // Trace, Debug, Info, Warn, Error
+  }
+});
+```
+
+#### Frontend
+
+```typescript
+// environment.ts
+export const environment = {
+  production: false,
+  apiUrl: 'http://localhost:3000/api',
+  debug: true  // Active console.log
+};
+```
+
+---
+
+## 📚 Ressources et Références
+
+### Documentation Officielle
+
+#### Frameworks
+- [NestJS Documentation](https://docs.nestjs.com/)
+- [Angular Documentation](https://angular.io/docs)
+- [SapphireJS Documentation](https://www.sapphirejs.dev/)
+- [Discord.js Guide](https://discordjs.guide/)
+- [Prisma Documentation](https://www.prisma.io/docs)
+
+#### UI/UX
+- [PrimeNG Components](https://primeng.org/)
+- [TailwindCSS Documentation](https://tailwindcss.com/docs)
+- [Sakai Template Demo](https://sakai.primeng.org/)
+
+#### APIs
+- [Discord API Documentation](https://discord.com/developers/docs)
+- [Discord OAuth2](https://discord.com/developers/docs/topics/oauth2)
+- [Discord Rate Limits](https://discord.com/developers/docs/topics/rate-limits)
+
+### Outils de Développement
+
+#### Testing
+- [Jest](https://jestjs.io/)
+- [Supertest](https://github.com/visionmedia/supertest)
+- [Karma](https://karma-runner.github.io/)
+- [Jasmine](https://jasmine.github.io/)
+
+#### Monitoring
+- [Sentry](https://sentry.io/)
+- [PM2](https://pm2.keymetrics.io/)
+- [Grafana](https://grafana.com/)
+- [Prometheus](https://prometheus.io/)
+
+#### Database
+- [Prisma Studio](https://www.prisma.io/studio)
+- [pgAdmin](https://www.pgadmin.org/)
+- [Redis Commander](https://www.npmjs.com/package/redis-commander)
+
+### Standards et Best Practices
+
+#### Sécurité
+- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
+- [OWASP API Security](https://owasp.org/www-project-api-security/)
+- [OAuth 2.0 Security Best Practices](https://tools.ietf.org/html/draft-ietf-oauth-security-topics)
+- [JWT Best Practices](https://tools.ietf.org/html/rfc8725)
+
+#### Code Style
+- [TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html)
+- [Angular Style Guide](https://angular.io/guide/styleguide)
+- [NestJS Best Practices](https://docs.nestjs.com/techniques/performance)
+
+---
+
+## 🗺️ Roadmap
+
+### Phase 1 - MVP ✅ (Actuel)
+
+- [x] Authentification Discord OAuth
+- [x] Gestion utilisateurs
+- [x] Communication Backend ↔ Gateway ↔ Bot
+- [x] Sync guilds automatique
+- [x] Event batching
+- [x] Backup SQLite événements
+- [x] Interface frontend basique
+- [x] Intégration API Discord (Guilds, Channels, Members)
+
+### Phase 2 - Fonctionnalités Core 🚧 (En cours)
+
+- [ ] Dashboard avec statistiques
+- [ ] Gestion complète des membres
+  - [ ] Kick, ban, timeout
+  - [ ] Attribution de rôles
+  - [ ] Historique des actions
+- [ ] Gestion des channels
+  - [ ] Création, modification, suppression
+  - [ ] Permissions
+- [ ] Système de modération
+  - [ ] Logs d'audit
+  - [ ] Filtres de messages
+  - [ ] Auto-modération
+- [ ] Notifications en temps réel (WebSocket Frontend)
+
+### Phase 3 - Fonctionnalités Avancées 📋 (Planifié)
+
+- [ ] Système de tickets
+- [ ] Commandes custom bot
+- [ ] Auto-roles
+- [ ] Welcome/Goodbye messages
+- [ ] Levels & XP system
+- [ ] Système de warns
+- [ ] Backup/Restore serveur
+- [ ] Analytics avancés
+- [ ] Multi-langue
+
+### Phase 4 - Optimisation & Scale 🔮 (Futur)
+
+- [ ] Cache Redis optimisé
+- [ ] Sharding bot Discord
+- [ ] Load balancing
+- [ ] CDN pour assets
+- [ ] API publique
+- [ ] Webhooks
+- [ ] Plugin system
+- [ ] Mobile app
+
+---
+
+## 🤝 Contributing
+
+### Comment Contribuer
+
+1. **Fork** le repository
+2. **Créer** une branche feature (`git checkout -b feature/AmazingFeature`)
+3. **Commit** les changements (`git commit -m 'Add AmazingFeature'`)
+4. **Push** vers la branche (`git push origin feature/AmazingFeature`)
+5. **Ouvrir** une Pull Request
+
+### Guidelines
+
+#### Code Style
+
+- Respecter ESLint/Prettier
+- Commenter le code complexe
+- Écrire des tests
+- Mettre à jour la documentation
+
+#### Commits
+
+Format : `type(scope): description`
+
+Types :
+- `feat`: Nouvelle fonctionnalité
+- `fix`: Correction de bug
+- `docs`: Documentation
+- `style`: Formatting
+- `refactor`: Refactoring
+- `test`: Tests
+- `chore`: Maintenance
+
+Exemples :
+```bash
+feat(auth): add OAuth Discord login
+fix(bot): resolve event batching issue
+docs(readme): update installation guide
+refactor(backend): improve rate limiting
+```
+
+#### Pull Requests
+
+- Titre clair et descriptif
+- Description détaillée des changements
+- Screenshots si UI
+- Tests passants
+- Documentation à jour
+
+---
+
+## 📝 License
+
+Ce projet est sous licence **MIT**.
+
+```
+MIT License
+
+Copyright (c) 2025
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+---
+
+## 👥 Auteurs et Remerciements
+
+### Équipe de Développement
+
+- **Développeur Principal** : [Votre Nom]
+
+### Technologies Utilisées
+
+Merci aux créateurs et mainteneurs de :
+- Angular Team
+- NestJS Team
+- Sapphire Framework Team
+- Discord.js Team
+- PrimeNG Team
+- Prisma Team
+- Et tous les contributeurs open-source
+
+---
+
+## 📞 Support et Contact
+
+### Questions et Support
+
+- **Issues** : [GitHub Issues](lien-vers-repo/issues)
+- **Discussions** : [GitHub Discussions](lien-vers-repo/discussions)
+- **Discord** : [Serveur Discord](lien-invite)
+
+### Signaler un Bug
+
+Utilisez le template GitHub Issue avec :
+- Description du problème
+- Étapes pour reproduire
+- Comportement attendu vs actuel
+- Screenshots si applicable
+- Environnement (OS, Node version, etc.)
+
+### Demander une Feature
+
+Ouvrez une Discussion GitHub avec :
+- Description de la feature
+- Use case / pourquoi c'est utile
+- Proposition d'implémentation (optionnel)
+
+---
+
+## 📊 Statistiques du Projet
+
+### Métriques Techniques
+
+- **Lignes de code** : ~15,000+
+- **Fichiers** : ~150+
+- **Modules** : 4 applications + 1 package
+- **Technologies** : 10+ frameworks/bibliothèques
+- **Endpoints API** : 30+
+- **Event Types** : 5+
+
+### Performance Cible
+
+- **Temps de réponse API** : < 200ms (95e percentile)
+- **Temps de chargement Frontend** : < 2s
+- **Événements traités/s** : 100+
+- **Uptime** : > 99.5%
+
+---
+
+## 🎓 Glossaire
+
+### Termes Techniques
+
+**Bot** : Application Discord automatisée qui écoute les événements et exécute des commandes.
+
+**DTO (Data Transfer Object)** : Objet utilisé pour transférer des données entre couches/services.
+
+**Gateway** : Hub central de communication WebSocket entre Backend et Bot.
+
+**Guild** : Terme Discord pour "serveur".
+
+**Intent** : Permission Discord pour recevoir certains types d'événements.
+
+**JWT (JSON Web Token)** : Standard de token pour l'authentification.
+
+**OAuth 2.0** : Protocole d'autorisation utilisé par Discord.
+
+**ORM (Object-Relational Mapping)** : Prisma, pour mapper objets ↔ base de données.
+
+**Rate Limiting** : Limitation du nombre de requêtes API par période.
+
+**Sharding** : Division du bot en plusieurs instances pour gérer plus de serveurs.
+
+**WebSocket** : Protocole de communication bidirectionnelle en temps réel.
+
+### Acronymes
+
+- **API** : Application Programming Interface
+- **CORS** : Cross-Origin Resource Sharing
+- **CRUD** : Create, Read, Update, Delete
+- **DI** : Dependency Injection
+- **HTTP** : HyperText Transfer Protocol
+- **REST** : Representational State Transfer
+- **SQL** : Structured Query Language
+- **SSL/TLS** : Secure Sockets Layer / Transport Layer Security
+- **TTL** : Time To Live
+- **UI/UX** : User Interface / User Experience
+- **VPS** : Virtual Private Server
+
+---
+
+## 🔄 Changelog
+
+### Version 1.0.0 (Octobre 2025)
+
+**Initial Release**
+
+#### ✨ Features
+- Authentification Discord OAuth 2.0 complète
+- Système de gestion des tokens sécurisé
+- Architecture Gateway pour communication Backend ↔ Bot
+- Event batching avec backup SQLite
+- Intégration API Discord (Guilds, Channels, Members, Roles, Bans)
+- Interface Frontend avec PrimeNG
+- Rate limiting Discord intelligent
+- Guards de permissions
+
+#### 🛠️ Infrastructure
+- Monorepo avec 4 applications
+- PostgreSQL + Redis + SQLite
+- Docker Compose pour développement
+- PM2 pour production
+- Prisma ORM
+
+#### 📚 Documentation
+- Guide d'installation complet
+- Documentation API
+- Architecture détaillée
+- Troubleshooting guide
+
+---
+
+## 🎯 Quick Reference
+
+### Commandes Essentielles
+
+```bash
+# Installation
+npm install
+
+# Développement
+npm run dev:backend
+npm run dev:gateway
+npm run dev:bot
+npm run dev:frontend
+
+# Build
+npm run build
+
+# Production
+pm2 start ecosystem.config.js
+
+# Database
+npx prisma migrate dev
+npx prisma studio
+npx prisma generate
+
+# Logs
+pm2 logs
+pm2 logs backend
+pm2 monit
+
+# Backup
+pg_dump discord_admin > backup.sql
+redis-cli SAVE
+```
+
+### Ports par Défaut
+
+| Service | Port | URL |
+|---------|------|-----|
+| Frontend | 4200 | http://localhost:4200 |
+| Backend | 3000 | http://localhost:3000 |
+| Gateway | 3001 | http://localhost:3001 |
+| PostgreSQL | 5432 | - |
+| Redis | 6379 | - |
+
+### Variables Critiques
+
+```env
+DATABASE_URL=postgresql://...
+DISCORD_CLIENT_ID=...
+DISCORD_CLIENT_SECRET=...
+DISCORD_BOT_TOKEN=...
+JWT_SECRET=...
+ENCRYPTION_KEY=...
+REDIS_HOST=...
+GATEWAY_URL=...
+```
+
+### Endpoints Principaux
+
+```
+POST   /api/auth/discord/login
+GET    /api/auth/discord/callback
+POST   /api/auth/exchange-session
+POST   /api/auth/refresh
+GET    /api/auth/me
+
+GET    /api/discord/guilds/:id
+GET    /api/discord/guilds/:id/channels
+GET    /api/discord/guilds/:id/members
+GET    /api/discord/guilds/:id/roles
+
+GET    /api/gateway/ping
+```
+
+---
+
+## ✅ Checklist Mise en Production
+
+### Avant Déploiement
+
+- [ ] Tous les tests passent
+- [ ] Variables d'environnement de production configurées
+- [ ] Secrets générés et sécurisés
+- [ ] Base de données migrée
+- [ ] Discord Bot créé et configuré
+- [ ] SSL/TLS configuré
+- [ ] CORS configuré correctement
+- [ ] Rate limiting activé
+- [ ] Logs configurés
+- [ ] Monitoring activé
+- [ ] Backups automatiques configurés
+
+### Après Déploiement
+
+- [ ] Tester authentification
+- [ ] Tester sync guilds
+- [ ] Tester événements bot
+- [ ] Vérifier les logs
+- [ ] Tester backup/restore
+- [ ] Vérifier monitoring
+- [ ] Tester performance
+- [ ] Documentation utilisateur disponible
+
+---
+
+**🎉 Félicitations ! Vous avez maintenant une documentation complète de votre application d'administration Discord !**
+
+Pour toute question ou suggestion d'amélioration de cette documentation, n'hésitez pas à ouvrir une issue sur GitHub.
+
+---
+
+**Dernière mise à jour :** Octobre 2025  
+**Version de la documentation :** 1.0.0  
+**Maintenu par :** L'équipe de développement
