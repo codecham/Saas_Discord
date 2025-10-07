@@ -19,10 +19,22 @@ services:
     image: redis:7-alpine
     container_name: ${REDIS_CONTAINER:-myproject-redis-dev}
     restart: unless-stopped
+    # 🔒 Configuration Redis sécurisée pour sessions OAuth
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy volatile-lru
+      --save ""
+      --appendonly no
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
   adminer:
     image: adminer:4-standalone

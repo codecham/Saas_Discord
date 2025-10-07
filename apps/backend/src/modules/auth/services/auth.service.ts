@@ -9,6 +9,7 @@ import {
   UserDTO,
   JwtPayloadDTO,
   RefreshTokenResponseDTO,
+  UserRole,
 } from '@my-project/shared-types';
 import * as crypto from 'crypto';
 
@@ -62,7 +63,7 @@ export class AuthService {
       globalName: user.globalName,
       avatar: user.avatar,
       email: user.email,
-      role: user.role,
+      role: user.role as UserRole,
     };
 
     return {
