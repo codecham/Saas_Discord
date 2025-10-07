@@ -1,8 +1,11 @@
 import { Injectable, signal, computed } from '@angular/core';
 
+/**
+ * 🔒 MODIFIÉ: Interface sans refreshToken
+ */
 interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
+  // refreshToken retiré - géré par cookie httpOnly
 }
 
 @Injectable({
@@ -12,10 +15,12 @@ export class AuthDataService {
   private readonly _isLoading = signal<boolean>(false);
   private readonly _error = signal<string | null>(null);
   private readonly _tokens = signal<AuthTokens | null>(null);
+  private readonly _isInitialized = signal<boolean>(false);
 
   readonly isLoading = this._isLoading.asReadonly();
   readonly error = this._error.asReadonly();
   readonly isAuthenticated = computed(() => this._tokens() !== null);
+  readonly isInitialized = this._isInitialized.asReadonly();
 
   getCurrentTokens(): AuthTokens | null {
     return this._tokens();
@@ -35,6 +40,10 @@ export class AuthDataService {
 
   setError(error: string | null): void {
     this._error.set(error);
+  }
+
+  setInitialized(initialized: boolean): void {
+    this._isInitialized.set(initialized);
   }
 
   clearAll(): void {

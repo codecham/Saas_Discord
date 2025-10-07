@@ -7,27 +7,20 @@ import { TokenService } from './token.service';
 import { UserFacadeService } from '../user/user-facade.service';
 import { GuildFacadeService } from '../guild/guild-facade.service';
 import { ErrorHandlerService } from '../error-handler.service';
-import { 
-  RefreshTokenRequestDTO,
-  ExchangeSessionRequestDTO,
-} from '@my-project/shared-types';
-import { environment } from 'src/environments/environment';
+import { ExchangeSessionRequestDTO } from '@my-project/shared-types';
 
+/**
+ * 🔒 MODIFIÉ: Interface sans refreshToken
+ */
 interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
+  // refreshToken retiré - géré par cookie httpOnly
 }
 
 /**
  * Service Facade pour l'authentification Discord OAuth
  * 
- * Responsabilité : Orchestrer l'authentification
- * - Discord OAuth (login/callback)
- * - Logout/Refresh
- * - Validation des tokens
- * - Synchronisation localStorage
- * - Délégation des données user au UserFacadeService
- * - Délégation des données guild au GuildFacadeService
+ * 🔒 MODIFIÉ: Adapté pour les refresh tokens en cookies httpOnly
  */
 @Injectable({
   providedIn: 'root'
@@ -44,6 +37,7 @@ export class AuthFacadeService {
   readonly isAuthenticated = this.authData.isAuthenticated;
   readonly isLoading = this.authData.isLoading;
   readonly error = this.authData.error;
+  readonly isInitialized = this.authData.isInitialized; 
 
   constructor() {
     // Synchroniser les tokens avec localStorage
@@ -62,11 +56,12 @@ export class AuthFacadeService {
   /**
    * Initialise l'authentification au démarrage de l'application
    */
-  private async initializeAuth(): Promise<void> {
+    private async initializeAuth(): Promise<void> {
     const tokens = this.tokenService.getTokens();
 
     if (!tokens) {
       console.log('[Auth] No tokens found, user not authenticated');
+      this.authData.setInitialized(true); // 🔒 AJOUT
       return;
     }
 
@@ -76,11 +71,17 @@ export class AuthFacadeService {
       
       if (!refreshed) {
         console.log('[Auth] Refresh failed, clearing auth state');
+        this.authData.setInitialized(true); // 🔒 AJOUT
         return;
       }
+      
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    this.authData.setTokens(tokens);
+    const currentTokens = this.tokenService.getTokens();
+    if (currentTokens) {
+      this.authData.setTokens(currentTokens);
+    }
 
     try {
       await this.userFacade.initializeUserService();
@@ -89,6 +90,8 @@ export class AuthFacadeService {
     } catch (error) {
       console.error('[Auth] Failed to restore auth state:', error);
       this.handleLogout();
+    } finally {
+      this.authData.setInitialized(true); // 🔒 AJOUT (dans finally pour toujours s'exécuter)
     }
   }
 
@@ -106,11 +109,6 @@ export class AuthFacadeService {
 
   /**
    * 🔒 MODIFIÉ: Gère le retour du callback Discord OAuth avec sessionId
-   * 
-   * Le backend renvoie vers le frontend avec SEULEMENT le sessionId:
-   * /auth/callback?session=xxx
-   * 
-   * @param sessionId Session ID temporaire à échanger contre les tokens
    */
   async handleOAuthCallback(sessionId: string): Promise<void> {
     console.log('[Auth] Handling OAuth callback with sessionId...');
@@ -119,24 +117,28 @@ export class AuthFacadeService {
     this.authData.setError(null);
 
     try {
-      // Valider le sessionId
       if (!sessionId) {
         throw new Error('Session ID manquant dans le callback OAuth');
       }
 
-      // 🔒 NOUVEAU: Échanger le sessionId contre les tokens via POST sécurisé
+      // 🔒 MODIFIÉ: Échanger le sessionId contre les tokens
+      // Le refresh token sera automatiquement stocké dans un cookie httpOnly
       const dto: ExchangeSessionRequestDTO = { sessionId };
       const response = await firstValueFrom(this.authApi.exchangeSession(dto));
 
-      // Extraire les tokens de la réponse
+      // 🔒 MODIFIÉ: Extraire UNIQUEMENT l'access token
+      // Le refresh token est maintenant dans un cookie httpOnly
       const tokens: AuthTokens = {
         accessToken: response.access_token,
-        refreshToken: response.refresh_token,
+        // refreshToken retiré - géré par cookie
       };
       
       // Sauvegarder immédiatement les tokens (pour l'intercepteur)
       this.tokenService.setTokens(tokens);
       this.authData.setTokens(tokens);
+
+      console.log('[Auth] OAuth callback successful, tokens saved');
+      console.log('[Auth] Refresh token stored in httpOnly cookie');
 
       // Charger les données utilisateur
       try {
@@ -181,32 +183,31 @@ export class AuthFacadeService {
   }
 
   /**
-   * Déconnexion simple (cet appareil uniquement)
+   * 🔒 MODIFIÉ: Déconnexion simple (cet appareil uniquement)
    */
   async logout(): Promise<void> {
-    const refreshToken = this.tokenService.getRefreshToken();
-    
-    // Tenter de notifier le serveur
-    if (refreshToken) {
-      try {
-        await firstValueFrom(this.authApi.logout(refreshToken));
-      } catch (error) {
-        console.warn('[Auth] Server logout failed:', error);
-        // On continue quand même avec le logout local
-      }
+    // 🔒 MODIFIÉ: Plus besoin d'envoyer le refresh token
+    // Il est automatiquement envoyé via le cookie httpOnly
+    try {
+      await firstValueFrom(this.authApi.logout());
+      console.log('[Auth] Server logout successful, cookie cleared by backend');
+    } catch (error) {
+      console.warn('[Auth] Server logout failed:', error);
+      // On continue quand même avec le logout local
+    } finally {
+      this.handleLogout();
     }
-    
-    this.handleLogout();
   }
 
   /**
-   * Déconnexion de tous les appareils
+   * 🔒 MODIFIÉ: Déconnexion de tous les appareils
    */
   async logoutAll(): Promise<void> {
     this.authData.setLoading(true);
 
     try {
       await firstValueFrom(this.authApi.logoutAll());
+      console.log('[Auth] Server logout-all successful');
     } catch (error) {
       console.warn('[Auth] Server logout-all failed:', error);
       // On continue quand même avec le logout local
@@ -217,33 +218,33 @@ export class AuthFacadeService {
   }
 
   /**
-   * Rafraîchissement du token JWT
+   * 🔒 MODIFIÉ: Rafraîchissement du token JWT via cookie httpOnly
    */
   async refreshToken(): Promise<boolean> {
-    const refreshToken = this.tokenService.getRefreshToken();
+    // 🔒 MODIFIÉ: Plus besoin de récupérer le refresh token manuellement
+    // Il est automatiquement envoyé via le cookie httpOnly
     
-    if (!refreshToken) {
-      this.handleLogout();
-      return false;
-    }
-
     try {
-      const dto: RefreshTokenRequestDTO = { refresh_token: refreshToken };
-      const response = await firstValueFrom(this.authApi.refreshToken(dto));
+      console.log('[Auth] Refreshing token via httpOnly cookie...');
       
-      // Sauvegarder les nouveaux tokens
+      const response = await firstValueFrom(this.authApi.refreshToken());
+      
+      // 🔒 MODIFIÉ: Sauvegarder UNIQUEMENT le nouvel access token
+      // Le nouveau refresh token est automatiquement mis à jour dans le cookie
       const tokens: AuthTokens = {
         accessToken: response.access_token,
-        refreshToken: response.refresh_token,
+        // refreshToken retiré - géré par cookie
       };
       
       this.authData.setTokens(tokens);
       
       console.log('[Auth] Token refreshed successfully');
+      console.log('[Auth] New refresh token stored in httpOnly cookie');
       return true;
 
     } catch (error) {
       console.error('[Auth] Token refresh failed:', error);
+      console.log('[Auth] Cookie may be expired or invalid');
       this.handleLogout();
       return false;
     }
@@ -258,6 +259,10 @@ export class AuthFacadeService {
     // Nettoyer auth
     this.authData.clearAll();
     this.tokenService.clearTokens();
+    
+    // 🔒 NOTE: Le cookie httpOnly sera automatiquement supprimé
+    // par le backend lors de l'appel à /api/auth/logout
+    // On ne peut pas le supprimer manuellement en JavaScript (sécurité)
     
     // Nettoyer user
     this.userFacade.clearUserData();
