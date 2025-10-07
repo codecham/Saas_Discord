@@ -8,10 +8,10 @@ import {
   LoginResponseDTO,
   UserDTO,
   JwtPayloadDTO,
-  RefreshTokenResponseDTO,
   UserRole,
 } from '@my-project/shared-types';
 import * as crypto from 'crypto';
+import { InternalTokenRefreshResult } from 'src/modules/interfaces/InternalTokenRefreshResult.interface';
 
 /**
  * Service principal d'authentification
@@ -131,7 +131,9 @@ export class AuthService {
   /**
    * Refresh les tokens JWT
    */
-  async refreshTokens(refreshToken: string): Promise<RefreshTokenResponseDTO> {
+  async refreshTokens(
+    refreshToken: string,
+  ): Promise<InternalTokenRefreshResult> {
     try {
       // Vérifier le refresh token
       // eslint-disable-next-line @typescript-eslint/no-unused-vars

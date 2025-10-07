@@ -23,7 +23,6 @@ export interface ExchangeSessionRequestDTO {
  */
 export interface ExchangeSessionResponseDTO {
   access_token: string;
-  refresh_token: string;
   user: UserDTO;
 }
 
@@ -55,16 +54,13 @@ export enum UserRole {
 /**
  * Requête de refresh token
  */
-export interface RefreshTokenRequestDTO {
-  refresh_token: string;
-}
+export interface RefreshTokenRequestDTO {}
 
 /**
  * Réponse de refresh token
  */
 export interface RefreshTokenResponseDTO {
   access_token: string;
-  refresh_token: string;
 }
 
 /**

@@ -1,55 +1,86 @@
 import { Injectable } from '@angular/core';
 import { JwtPayloadDTO } from '@my-project/shared-types';
 
+/**
+ * 🔒 MODIFIÉ: Structure des tokens (refresh token retiré)
+ * Le refresh token est maintenant stocké dans un cookie httpOnly côté serveur
+ */
 interface AuthTokens {
   accessToken: string;
-  refreshToken: string;
+  // refreshToken retiré - géré par cookie httpOnly
 }
 
+/**
+ * Service de gestion des tokens JWT
+ * 
+ * 🔒 SÉCURITÉ:
+ * - Access token: localStorage (court TTL, acceptable)
+ * - Refresh token: cookie httpOnly (protection XSS)
+ */
 @Injectable({
   providedIn: 'root'
 })
 export class TokenService {
   private readonly ACCESS_TOKEN_KEY = 'access_token';
-  private readonly REFRESH_TOKEN_KEY = 'refresh_token';
+  // 🔒 SUPPRIMÉ: REFRESH_TOKEN_KEY - plus stocké en localStorage
 
   // ===== STOCKAGE DES TOKENS =====
   
+  /**
+   * 🔒 MODIFIÉ: Sauvegarde UNIQUEMENT l'access token
+   */
   setTokens(tokens: AuthTokens): void {
-    localStorage.setItem(this.ACCESS_TOKEN_KEY, tokens.accessToken);
-    localStorage.setItem(this.REFRESH_TOKEN_KEY, tokens.refreshToken);
+    if (tokens.accessToken) {
+      localStorage.setItem(this.ACCESS_TOKEN_KEY, tokens.accessToken);
+      console.log('[TokenService] Access token saved');
+    }
+    
+    // 🔒 NOTE: Le refresh token est géré automatiquement par les cookies
+    // Rien à stocker manuellement
   }
 
   getAccessToken(): string | null {
     return localStorage.getItem(this.ACCESS_TOKEN_KEY);
   }
 
-  getRefreshToken(): string | null {
-    return localStorage.getItem(this.REFRESH_TOKEN_KEY);
-  }
+  /**
+   * 🔒 SUPPRIMÉ: getRefreshToken()
+   * Le refresh token n'est plus accessible en JavaScript
+   * Il est géré automatiquement par les cookies httpOnly
+   */
 
+  /**
+   * 🔒 MODIFIÉ: Récupère UNIQUEMENT l'access token
+   */
   getTokens(): AuthTokens | null {
     const accessToken = this.getAccessToken();
-    const refreshToken = this.getRefreshToken();
 
-    if (accessToken && refreshToken) {
-      return { accessToken, refreshToken };
+    if (!accessToken) {
+      return null;
     }
 
-    return null;
+    // 🔒 MODIFIÉ: Plus de refresh token dans le retour
+    return { accessToken };
   }
 
   // ===== NETTOYAGE =====
   
+  /**
+   * 🔒 MODIFIÉ: Suppression UNIQUEMENT de l'access token
+   * Le cookie httpOnly sera supprimé par le backend lors du logout
+   */
   clearTokens(): void {
     localStorage.removeItem(this.ACCESS_TOKEN_KEY);
-    localStorage.removeItem(this.REFRESH_TOKEN_KEY);
+    console.log('[TokenService] Access token cleared');
+    
+    // 🔒 NOTE: Le cookie refresh_token sera supprimé par le backend
+    // via res.clearCookie() lors de l'appel à /api/auth/logout
   }
 
-  // ===== VÉRIFICATIONS AVEC LE NOUVEAU JwtPayloadDTO =====
+  // ===== VÉRIFICATIONS =====
   
   hasTokens(): boolean {
-    return this.getAccessToken() !== null && this.getRefreshToken() !== null;
+    return this.getAccessToken() !== null;
   }
 
   /**
@@ -63,7 +94,7 @@ export class TokenService {
       const payload = JSON.parse(atob(accessToken.split('.')[1]));
       return payload as JwtPayloadDTO;
     } catch (error) {
-      console.error('Erreur lors du décodage du token:', error);
+      console.error('[TokenService] Erreur lors du décodage du token:', error);
       return null;
     }
   }
@@ -81,7 +112,6 @@ export class TokenService {
 
   /**
    * Récupère les infos utilisateur depuis le token
-   * Utilise le nouveau format : sub (userId), discordId, username, role
    */
   getUserInfoFromToken(): { 
     userId: string; 

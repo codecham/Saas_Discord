@@ -5,11 +5,13 @@ import {
   Post,
   Body,
   Query,
+  Req,
   Res,
   HttpCode,
   HttpStatus,
   UseGuards,
   Logger,
+  UnauthorizedException,
 } from '@nestjs/common';
 import express from 'express';
 import { ConfigService } from '@nestjs/config';
@@ -34,6 +36,7 @@ interface ExchangeSessionDTO {
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
   private readonly frontendUrl: string;
+  private readonly nodeEnv: string;
 
   constructor(
     private readonly authService: AuthService,
@@ -42,6 +45,20 @@ export class AuthController {
     private readonly configService: ConfigService,
   ) {
     this.frontendUrl = this.configService.getOrThrow<string>('FRONTEND_URL');
+    this.nodeEnv = this.configService.get<string>('NODE_ENV') || 'development';
+  }
+
+  /**
+   * 🔒 Utilitaire: Configuration des cookies httpOnly
+   */
+  private getCookieOptions(): express.CookieOptions {
+    return {
+      httpOnly: true, // ✅ Pas accessible en JavaScript
+      secure: this.nodeEnv === 'production', // ✅ HTTPS uniquement en prod
+      sameSite: 'lax', // ✅ Protection CSRF
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 jours
+      path: '/api/auth', // ✅ Limiter le scope aux endpoints auth
+    };
   }
 
   /**
@@ -50,7 +67,6 @@ export class AuthController {
    */
   @Get('discord')
   async discordAuth(@Res() res: express.Response) {
-    // 🔒 MODIFIÉ: getAuthorizationUrl() est maintenant async et génère un state
     const discordAuthUrl = await this.discordOAuth.getAuthorizationUrl();
     return res.redirect(discordAuthUrl);
   }
@@ -58,16 +74,11 @@ export class AuthController {
   /**
    * GET /api/auth/discord/callback
    * Callback Discord OAuth
-   *
-   * 🔒 SÉCURISÉ:
-   * - Valide le state CSRF
-   * - Ne retourne PLUS les tokens dans l'URL
-   * - Crée une session temporaire dans Redis
    */
   @Get('discord/callback')
   async discordCallback(
     @Query('code') code: string,
-    @Query('state') state: string, // 👈 NOUVEAU
+    @Query('state') state: string,
     @Res() res: express.Response,
   ) {
     try {
@@ -78,7 +89,6 @@ export class AuthController {
         );
       }
 
-      // 🔒 NOUVEAU: Valider le state CSRF
       if (!state) {
         this.logger.error('No state provided in Discord callback');
         return res.redirect(
@@ -95,17 +105,14 @@ export class AuthController {
         );
       }
 
-      // Échanger le code Discord contre nos tokens JWT
       const authResponse = await this.authService.handleDiscordCallback(code);
 
-      // 🔒 Créer une session temporaire dans Redis
       const sessionId = await this.oauthSessionService.createSession(
         authResponse.accessToken,
         authResponse.refreshToken,
         authResponse.user.id,
       );
 
-      // Rediriger avec SEULEMENT le sessionId (pas les tokens)
       this.logger.log(`Redirecting to frontend with sessionId: ${sessionId}`);
       return res.redirect(
         `${this.frontendUrl}/auth/callback?session=${sessionId}`,
@@ -120,74 +127,140 @@ export class AuthController {
 
   /**
    * POST /api/auth/exchange-session
-   * 🔒 NOUVEAU: Échange un sessionId contre les tokens JWT
-   *
-   * La session est détruite après utilisation (one-time use)
-   *
-   * @param body { sessionId: string }
-   * @returns { access_token, refresh_token, user }
+   * 🔒 MODIFIÉ: Échange un sessionId contre les tokens JWT + cookie httpOnly
    */
   @Post('exchange-session')
   @HttpCode(HttpStatus.OK)
-  async exchangeSession(@Body() body: ExchangeSessionDTO) {
+  async exchangeSession(
+    @Body() body: ExchangeSessionDTO,
+    @Res() res: express.Response,
+  ) {
     const { sessionId } = body;
 
     if (!sessionId) {
-      throw new Error('Session ID is required');
+      throw new UnauthorizedException('Session ID is required');
     }
 
-    // Échanger le sessionId contre les tokens
-    const session = await this.oauthSessionService.exchangeSession(sessionId);
+    try {
+      const session = await this.oauthSessionService.exchangeSession(sessionId);
+      const user = await this.authService.getCurrentUser(session.userId);
 
-    // Récupérer les infos utilisateur
-    const user = await this.authService.getCurrentUser(session.userId);
+      // 🔒 NOUVEAU: Stocker le refresh token dans un cookie httpOnly
+      res.cookie(
+        'refresh_token',
+        session.refreshToken,
+        this.getCookieOptions(),
+      );
 
-    return {
-      access_token: session.accessToken,
-      refresh_token: session.refreshToken,
-      user,
-    };
+      this.logger.log(
+        `Session exchanged successfully for user ${user.id}, refresh token set in httpOnly cookie`,
+      );
+
+      // ✅ Retourner SEULEMENT l'access token et l'utilisateur
+      return res.json({
+        access_token: session.accessToken,
+        user,
+      });
+    } catch (error) {
+      this.logger.error('Failed to exchange session', error);
+      throw new UnauthorizedException('Invalid or expired session');
+    }
   }
 
   /**
    * POST /api/auth/refresh
-   * Refresh les tokens JWT
+   * 🔒 MODIFIÉ: Refresh les tokens JWT via cookie httpOnly
    */
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(
-    @Body() body: sharedTypes.RefreshTokenRequestDTO,
-  ): Promise<sharedTypes.RefreshTokenResponseDTO> {
-    if (!body.refresh_token) {
-      throw new Error('Refresh token required');
+  async refresh(@Req() req: express.Request, @Res() res: express.Response) {
+    // 🔒 NOUVEAU: Lire le refresh token depuis le cookie
+    const refreshToken = req.cookies['refresh_token'];
+
+    if (!refreshToken) {
+      this.logger.warn('No refresh token found in cookies');
+      throw new UnauthorizedException('No refresh token provided');
     }
 
-    return this.authService.refreshTokens(body.refresh_token);
+    try {
+      const tokens = await this.authService.refreshTokens(refreshToken);
+
+      // 🔒 NOUVEAU: Mettre à jour le cookie avec le nouveau refresh token
+      res.cookie(
+        'refresh_token',
+        tokens.refresh_token,
+        this.getCookieOptions(),
+      );
+
+      this.logger.log(
+        'Tokens refreshed successfully, new refresh token set in cookie',
+      );
+
+      // ✅ Retourner SEULEMENT le nouvel access token
+      return res.json({
+        access_token: tokens.access_token,
+      });
+    } catch (error) {
+      this.logger.error('Token refresh failed', error);
+
+      // 🔒 NOUVEAU: Supprimer le cookie invalide
+      res.clearCookie('refresh_token', { path: '/api/auth' });
+
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
   }
 
   /**
    * POST /api/auth/logout
-   * Déconnexion
+   * 🔒 MODIFIÉ: Déconnexion avec suppression du cookie
    */
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(
     @CurrentUser('id') userId: string,
-    @Body('refresh_token') refreshToken?: string,
+    @Req() req: express.Request,
+    @Res() res: express.Response,
   ) {
-    await this.authService.logout(userId, refreshToken);
+    const refreshToken = req.cookies['refresh_token'];
+
+    try {
+      await this.authService.logout(userId, refreshToken);
+    } catch (error) {
+      this.logger.warn('Logout failed but continuing', error);
+    }
+
+    // 🔒 NOUVEAU: Supprimer le cookie
+    res.clearCookie('refresh_token', { path: '/api/auth' });
+
+    this.logger.log(`User ${userId} logged out, cookie cleared`);
+    return res.status(HttpStatus.NO_CONTENT).send();
   }
 
   /**
    * POST /api/auth/logout-all
-   * Déconnexion de tous les appareils
+   * 🔒 MODIFIÉ: Déconnexion de tous les appareils avec suppression du cookie
    */
   @Post('logout-all')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logoutAll(@CurrentUser('id') userId: string) {
-    await this.authService.logout(userId);
+  async logoutAll(
+    @CurrentUser('id') userId: string,
+    @Res() res: express.Response,
+  ) {
+    try {
+      await this.authService.logout(userId);
+    } catch (error) {
+      this.logger.warn('Logout-all failed but continuing', error);
+    }
+
+    // 🔒 NOUVEAU: Supprimer le cookie
+    res.clearCookie('refresh_token', { path: '/api/auth' });
+
+    this.logger.log(
+      `User ${userId} logged out from all devices, cookie cleared`,
+    );
+    return res.status(HttpStatus.NO_CONTENT).send();
   }
 
   /**
@@ -223,7 +296,7 @@ export class AuthController {
 
   /**
    * GET /api/auth/health
-   * 🔒 NOUVEAU: Health check pour Redis et les sessions
+   * Health check pour Redis et les sessions
    */
   @Get('health')
   async healthCheck() {
