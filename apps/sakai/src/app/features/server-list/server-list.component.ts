@@ -3,13 +3,12 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 
 // PrimeNG Imports
-import { AccordionModule } from 'primeng/accordion';
+import { DataViewModule } from 'primeng/dataview';
 import { ButtonModule } from 'primeng/button';
 import { TagModule } from 'primeng/tag';
-import { BadgeModule } from 'primeng/badge';
 import { MessageModule } from 'primeng/message';
 import { ProgressSpinnerModule } from 'primeng/progressspinner';
-import { TooltipModule } from 'primeng/tooltip';
+import { TabsModule } from 'primeng/tabs';
 
 // Services
 import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
@@ -20,13 +19,12 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
   standalone: true,
   imports: [
     CommonModule,
-    AccordionModule,
+    DataViewModule,
     ButtonModule,
     TagModule,
-    BadgeModule,
     MessageModule,
     ProgressSpinnerModule,
-    TooltipModule
+    TabsModule
   ],
   template: `
     <div class="card">
@@ -48,7 +46,7 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
             [loading]="guildFacade.isLoading()" />
         </div>
 
-        <!-- Status de connexion -->
+        <!-- Status -->
         <div class="flex items-center gap-2 text-sm">
           <i class="pi pi-check-circle text-green-500"></i>
           <span>
@@ -82,254 +80,276 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
         </p-message>
       }
 
-      <!-- Accordion avec les 3 catégories -->
+      <!-- Tabs pour les 3 catégories -->
       @if (!guildFacade.isLoading()) {
-        <p-accordion [value]="['0', '1', '2']" [multiple]="true">
-          
-          <!-- 1. Serveurs Actifs -->
-          <p-accordion-panel value="0">
-            <p-accordion-header>
-              <div class="flex items-center justify-between w-full pr-4">
-                <div class="flex items-center gap-3">
-                  <i class="pi pi-check-circle text-green-500 text-xl"></i>
-                  <span class="font-bold">Serveurs actifs</span>
-                  <p-badge 
-                    [value]="guildFacade.activeGuilds().length.toString()" 
-                    severity="success" />
-                </div>
-                <p-tag 
-                  value="Bot présent" 
-                  severity="success" 
-                  [rounded]="true" />
-              </div>
-            </p-accordion-header>
-            
-            <p-accordion-content>
+        <p-tabs [value]="0">
+          <p-tablist>
+            <!-- Tab Actifs -->
+            <p-tab [value]="0">
+              <i class="pi pi-check-circle mr-2"></i>
+              Serveurs actifs
+              <p-tag 
+                [value]="guildFacade.activeGuilds().length.toString()" 
+                severity="success" 
+                styleClass="ml-2" />
+            </p-tab>
+
+            <!-- Tab Inactifs -->
+            <p-tab [value]="1">
+              <i class="pi pi-clock mr-2"></i>
+              Serveurs inactifs
+              <p-tag 
+                [value]="guildFacade.inactiveGuilds().length.toString()" 
+                severity="warn" 
+                styleClass="ml-2" />
+            </p-tab>
+
+            <!-- Tab Non configurés -->
+            <p-tab [value]="2">
+              <i class="pi pi-plus-circle mr-2"></i>
+              Non configurés
+              <p-tag 
+                [value]="guildFacade.notAddedGuilds().length.toString()" 
+                severity="info" 
+                styleClass="ml-2" />
+            </p-tab>
+          </p-tablist>
+
+          <p-tabpanels>
+            <!-- Panel Serveurs Actifs -->
+            <p-tabpanel [value]="0">
               @if (guildFacade.activeGuilds().length > 0) {
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  @for (guild of guildFacade.activeGuilds(); track guild.id) {
-                    <div class="border border-surface rounded-lg p-4 hover:shadow-lg transition-all duration-300"
-                         [class.ring-2]="guildFacade.isGuildSelected(guild.id)"
-                         [class.ring-primary]="guildFacade.isGuildSelected(guild.id)">
-                      
-                      <!-- Icon & Header -->
-                      <div class="flex items-center gap-3 mb-4">
-                        @if (guild.icon) {
-                          <img 
-                            [src]="getGuildIconUrl(guild)" 
-                            [alt]="guild.name"
-                            class="w-12 h-12 rounded-full" />
-                        } @else {
-                          <div class="w-12 h-12 rounded-full bg-primary text-primary-contrast flex items-center justify-center text-xl font-bold">
-                            {{ guild.name.charAt(0).toUpperCase() }}
-                          </div>
-                        }
-                        
-                        <div class="flex-1 min-w-0">
-                          <h3 class="font-bold truncate" [title]="guild.name">
-                            {{ guild.name }}
-                          </h3>
-                          <div class="flex flex-wrap gap-1 mt-1">
-                            @if (guild.owner) {
-                              <p-tag 
-                                value="Propriétaire" 
-                                icon="pi pi-crown"
-                                severity="warn"
-                                styleClass="text-xs" />
-                            }
+                <p-dataview [value]="guildFacade.activeGuilds()" layout="grid">
+                  <ng-template #grid let-guilds>
+                    <div class="grid grid-cols-12 gap-4">
+                      @for (guild of guilds; track guild.id) {
+                        <div class="col-span-12 sm:col-span-6 lg:col-span-4 p-2">
+                          <div class="border border-surface rounded-lg flex flex-col h-full hover:shadow-lg transition-all duration-300 overflow-hidden"
+                               [class.ring-2]="guildFacade.isGuildSelected(guild.id)"
+                               [class.ring-primary]="guildFacade.isGuildSelected(guild.id)">
+                            
+                            <!-- Header avec fond gradient et icône circulaire -->
+                            <div class="relative bg-gradient-to-br from-primary-100 to-primary-50 dark:from-primary-900 dark:to-primary-800 p-6 flex items-center justify-center">
+                              <!-- Status Badge -->
+                              <div class="absolute top-3 right-3">
+                                <p-tag value="Actif" severity="success" [rounded]="true" />
+                              </div>
+
+                              <!-- Guild Icon (circulaire) -->
+                              @if (guild.icon) {
+                                <img 
+                                  class="w-24 h-24 rounded-full object-cover shadow-lg border-4 border-white dark:border-surface-800"
+                                  [src]="getGuildIconUrl(guild)" 
+                                  [alt]="guild.name" />
+                              } @else {
+                                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg border-4 border-white dark:border-surface-800">
+                                  {{ guild.name.charAt(0).toUpperCase() }}
+                                </div>
+                              }
+                            </div>
+
+                            <!-- Content -->
+                            <div class="p-6 flex-1 flex flex-col">
+                              <!-- Guild Name + Badges -->
+                              <div class="mb-4">
+                                <div class="text-lg font-bold mb-2" [title]="guild.name">
+                                  {{ guild.name }}
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                  @if (guild.owner) {
+                                    <p-tag value="OWNER" icon="pi pi-crown" severity="warn" />
+                                  }
+                                  <p-tag value="ADMIN" icon="pi pi-shield" severity="info" />
+                                </div>
+                              </div>
+
+                              <!-- Action Button -->
+                              <div class="mt-auto">
+                                <p-button 
+                                  label="Administrer" 
+                                  icon="pi pi-arrow-right"
+                                  iconPos="right"
+                                  styleClass="w-full"
+                                  [loading]="guildFacade.isLoadingGuildDetails() && selectedGuildId === guild.id"
+                                  (onClick)="selectGuild(guild)" />
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-
-                      <!-- Bouton Administrer -->
-                      <p-button 
-                        label="Administrer" 
-                        icon="pi pi-arrow-right"
-                        styleClass="w-full"
-                        [loading]="guildFacade.isLoadingGuildDetails() && selectedGuildId === guild.id"
-                        (onClick)="selectGuild(guild)" />
+                      }
                     </div>
-                  }
-                </div>
+                  </ng-template>
+                </p-dataview>
               } @else {
-                <p-message severity="info" styleClass="w-full">
-                  <div class="text-center py-4">
-                    <i class="pi pi-inbox text-4xl mb-2"></i>
-                    <div>Aucun serveur actif</div>
-                  </div>
-                </p-message>
-              }
-            </p-accordion-content>
-          </p-accordion-panel>
-
-          <!-- 2. Serveurs Inactifs -->
-          <p-accordion-panel value="1">
-            <p-accordion-header>
-              <div class="flex items-center justify-between w-full pr-4">
-                <div class="flex items-center gap-3">
-                  <i class="pi pi-clock text-orange-500 text-xl"></i>
-                  <span class="font-bold">Serveurs inactifs</span>
-                  <p-badge 
-                    [value]="guildFacade.inactiveGuilds().length.toString()" 
-                    severity="warn" />
+                <div class="text-center py-12">
+                  <i class="pi pi-inbox text-6xl text-surface-400 mb-4"></i>
+                  <div class="text-xl font-semibold mb-2">Aucun serveur actif</div>
+                  <p class="text-surface-600 dark:text-surface-400">
+                    Le bot n'est présent sur aucun de vos serveurs
+                  </p>
                 </div>
-                <p-tag 
-                  value="Bot retiré" 
-                  severity="warn" 
-                  [rounded]="true" />
-              </div>
-            </p-accordion-header>
-            
-            <p-accordion-content>
+              }
+            </p-tabpanel>
+
+            <!-- Panel Serveurs Inactifs -->
+            <p-tabpanel [value]="1">
+              <p-message severity="warn" styleClass="w-full mb-4">
+                Le bot a été retiré de ces serveurs. Vous pouvez le réinviter pour réactiver la configuration.
+              </p-message>
+
               @if (guildFacade.inactiveGuilds().length > 0) {
-                <div class="mb-4">
-                  <p-message severity="warn" styleClass="w-full">
-                    Le bot a été retiré de ces serveurs. Vous pouvez le réinviter pour réactiver la configuration.
-                  </p-message>
-                </div>
+                <p-dataview [value]="guildFacade.inactiveGuilds()" layout="grid">
+                  <ng-template #grid let-guilds>
+                    <div class="grid grid-cols-12 gap-4">
+                      @for (guild of guilds; track guild.id) {
+                        <div class="col-span-12 sm:col-span-6 lg:col-span-4 p-2">
+                          <div class="border border-orange-200 dark:border-orange-800 rounded-lg flex flex-col h-full bg-orange-50/30 dark:bg-orange-950/10 hover:shadow-lg transition-all duration-300 overflow-hidden">
+                            
+                            <!-- Header avec fond gradient et icône circulaire -->
+                            <div class="relative bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-900 dark:to-orange-800 p-6 flex items-center justify-center">
+                              <!-- Status Badge -->
+                              <div class="absolute top-3 right-3">
+                                <p-tag value="Inactif" severity="warn" [rounded]="true" />
+                              </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  @for (guild of guildFacade.inactiveGuilds(); track guild.id) {
-                    <div class="border border-orange-200 dark:border-orange-800 rounded-lg p-4 bg-orange-50 dark:bg-orange-950/20">
-                      
-                      <!-- Icon & Header -->
-                      <div class="flex items-center gap-3 mb-4">
-                        @if (guild.icon) {
-                          <img 
-                            [src]="getGuildIconUrl(guild)" 
-                            [alt]="guild.name"
-                            class="w-12 h-12 rounded-full opacity-60" />
-                        } @else {
-                          <div class="w-12 h-12 rounded-full bg-orange-400 text-white flex items-center justify-center text-xl font-bold opacity-60">
-                            {{ guild.name.charAt(0).toUpperCase() }}
-                          </div>
-                        }
-                        
-                        <div class="flex-1 min-w-0">
-                          <h3 class="font-bold truncate" [title]="guild.name">
-                            {{ guild.name }}
-                          </h3>
-                          <div class="flex flex-wrap gap-1 mt-1">
-                            @if (guild.owner) {
-                              <p-tag 
-                                value="Propriétaire" 
-                                icon="pi pi-crown"
-                                severity="warn"
-                                styleClass="text-xs" />
-                            }
-                            @if (guild.botAddedAt) {
-                              <p-tag 
-                                [value]="'Inactif depuis ' + formatDate(guild.botAddedAt)"
-                                severity="warn"
-                                styleClass="text-xs"
-                                pTooltip="Date de retrait du bot" />
-                            }
+                              <!-- Guild Icon (circulaire avec opacité) -->
+                              @if (guild.icon) {
+                                <img 
+                                  class="w-24 h-24 rounded-full object-cover shadow-lg border-4 border-white dark:border-surface-800 opacity-75"
+                                  [src]="getGuildIconUrl(guild)" 
+                                  [alt]="guild.name" />
+                              } @else {
+                                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg border-4 border-white dark:border-surface-800 opacity-75">
+                                  {{ guild.name.charAt(0).toUpperCase() }}
+                                </div>
+                              }
+                            </div>
+
+                            <!-- Content -->
+                            <div class="p-6 flex-1 flex flex-col">
+                              <!-- Guild Name + Badges -->
+                              <div class="mb-4">
+                                <div class="text-lg font-bold mb-2" [title]="guild.name">
+                                  {{ guild.name }}
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                  @if (guild.owner) {
+                                    <p-tag value="OWNER" icon="pi pi-crown" severity="warn" />
+                                  }
+                                  <p-tag value="ADMIN" icon="pi pi-shield" severity="info" />
+                                </div>
+                                @if (guild.botAddedAt) {
+                                  <div class="text-sm text-surface-600 dark:text-surface-400 mt-2">
+                                    <i class="pi pi-clock mr-1"></i>
+                                    Inactif depuis {{ formatDate(guild.botAddedAt) }}
+                                  </div>
+                                }
+                              </div>
+
+                              <!-- Action Button -->
+                              <div class="mt-auto">
+                                <p-button 
+                                  label="Réactiver le bot" 
+                                  icon="pi pi-replay"
+                                  severity="warn"
+                                  styleClass="w-full"
+                                  (onClick)="reactivateBot(guild)" />
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-
-                      <!-- Bouton Réactiver -->
-                      <p-button 
-                        label="Réactiver le bot" 
-                        icon="pi pi-replay"
-                        severity="warn"
-                        styleClass="w-full"
-                        (onClick)="reactivateBot(guild)" />
+                      }
                     </div>
-                  }
-                </div>
+                  </ng-template>
+                </p-dataview>
               } @else {
-                <p-message severity="success" styleClass="w-full">
-                  <div class="text-center py-4">
-                    <i class="pi pi-check text-4xl mb-2"></i>
-                    <div>Aucun serveur inactif - Excellent !</div>
-                  </div>
-                </p-message>
-              }
-            </p-accordion-content>
-          </p-accordion-panel>
-
-          <!-- 3. Serveurs Non Configurés -->
-          <p-accordion-panel value="2">
-            <p-accordion-header>
-              <div class="flex items-center justify-between w-full pr-4">
-                <div class="flex items-center gap-3">
-                  <i class="pi pi-plus-circle text-blue-500 text-xl"></i>
-                  <span class="font-bold">Serveurs non configurés</span>
-                  <p-badge 
-                    [value]="guildFacade.notAddedGuilds().length.toString()" 
-                    severity="info" />
+                <div class="text-center py-12">
+                  <i class="pi pi-check-circle text-6xl text-green-500 mb-4"></i>
+                  <div class="text-xl font-semibold mb-2">Aucun serveur inactif</div>
+                  <p class="text-surface-600 dark:text-surface-400">
+                    Tous vos serveurs sont actifs - Excellent !
+                  </p>
                 </div>
-                <p-tag 
-                  value="Bot non ajouté" 
-                  severity="info" 
-                  [rounded]="true" />
-              </div>
-            </p-accordion-header>
-            
-            <p-accordion-content>
+              }
+            </p-tabpanel>
+
+            <!-- Panel Serveurs Non Configurés -->
+            <p-tabpanel [value]="2">
+              <p-message severity="info" styleClass="w-full mb-4">
+                Ajoutez le bot à ces serveurs pour commencer à les administrer avec notre plateforme.
+              </p-message>
+
               @if (guildFacade.notAddedGuilds().length > 0) {
-                <div class="mb-4">
-                  <p-message severity="info" styleClass="w-full">
-                    Ajoutez le bot à ces serveurs pour commencer à les administrer avec notre plateforme.
-                  </p-message>
-                </div>
+                <p-dataview [value]="guildFacade.notAddedGuilds()" layout="grid">
+                  <ng-template #grid let-guilds>
+                    <div class="grid grid-cols-12 gap-4">
+                      @for (guild of guilds; track guild.id) {
+                        <div class="col-span-12 sm:col-span-6 lg:col-span-4 p-2">
+                          <div class="border border-blue-200 dark:border-blue-800 rounded-lg flex flex-col h-full bg-blue-50/30 dark:bg-blue-950/10 hover:shadow-lg transition-all duration-300 overflow-hidden">
+                            
+                            <!-- Header avec fond gradient et icône circulaire -->
+                            <div class="relative bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900 dark:to-blue-800 p-6 flex items-center justify-center">
+                              <!-- Status Badge -->
+                              <div class="absolute top-3 right-3">
+                                <p-tag value="Non configuré" severity="info" [rounded]="true" />
+                              </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  @for (guild of guildFacade.notAddedGuilds(); track guild.id) {
-                    <div class="border border-blue-200 dark:border-blue-800 rounded-lg p-4 bg-blue-50 dark:bg-blue-950/20">
-                      
-                      <!-- Icon & Header -->
-                      <div class="flex items-center gap-3 mb-4">
-                        @if (guild.icon) {
-                          <img 
-                            [src]="getGuildIconUrl(guild)" 
-                            [alt]="guild.name"
-                            class="w-12 h-12 rounded-full" />
-                        } @else {
-                          <div class="w-12 h-12 rounded-full bg-blue-400 text-white flex items-center justify-center text-xl font-bold">
-                            {{ guild.name.charAt(0).toUpperCase() }}
-                          </div>
-                        }
-                        
-                        <div class="flex-1 min-w-0">
-                          <h3 class="font-bold truncate" [title]="guild.name">
-                            {{ guild.name }}
-                          </h3>
-                          <div class="flex flex-wrap gap-1 mt-1">
-                            @if (guild.owner) {
-                              <p-tag 
-                                value="Propriétaire" 
-                                icon="pi pi-crown"
-                                severity="warn"
-                                styleClass="text-xs" />
-                            }
+                              <!-- Guild Icon (circulaire) -->
+                              @if (guild.icon) {
+                                <img 
+                                  class="w-24 h-24 rounded-full object-cover shadow-lg border-4 border-white dark:border-surface-800"
+                                  [src]="getGuildIconUrl(guild)" 
+                                  [alt]="guild.name" />
+                              } @else {
+                                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg border-4 border-white dark:border-surface-800">
+                                  {{ guild.name.charAt(0).toUpperCase() }}
+                                </div>
+                              }
+                            </div>
+
+                            <!-- Content -->
+                            <div class="p-6 flex-1 flex flex-col">
+                              <!-- Guild Name + Badges -->
+                              <div class="mb-4">
+                                <div class="text-lg font-bold mb-2" [title]="guild.name">
+                                  {{ guild.name }}
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                  @if (guild.owner) {
+                                    <p-tag value="OWNER" icon="pi pi-crown" severity="warn" />
+                                  }
+                                  <p-tag value="ADMIN" icon="pi pi-shield" severity="info" />
+                                </div>
+                              </div>
+
+                              <!-- Action Button -->
+                              <div class="mt-auto">
+                                <p-button 
+                                  label="Configurer le bot" 
+                                  icon="pi pi-cog"
+                                  severity="info"
+                                  styleClass="w-full"
+                                  (onClick)="configureBot(guild)" />
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-
-                      <!-- Bouton Configurer -->
-                      <p-button 
-                        label="Configurer le bot" 
-                        icon="pi pi-cog"
-                        severity="info"
-                        styleClass="w-full"
-                        (onClick)="configureBot(guild)" />
+                      }
                     </div>
-                  }
-                </div>
+                  </ng-template>
+                </p-dataview>
               } @else {
-                <p-message severity="success" styleClass="w-full">
-                  <div class="text-center py-4">
-                    <i class="pi pi-check text-4xl mb-2"></i>
-                    <div>Tous vos serveurs sont déjà configurés !</div>
-                  </div>
-                </p-message>
+                <div class="text-center py-12">
+                  <i class="pi pi-check-circle text-6xl text-green-500 mb-4"></i>
+                  <div class="text-xl font-semibold mb-2">Tous vos serveurs sont configurés</div>
+                  <p class="text-surface-600 dark:text-surface-400">
+                    Le bot est présent sur tous vos serveurs !
+                  </p>
+                </div>
               }
-            </p-accordion-content>
-          </p-accordion-panel>
-
-        </p-accordion>
+            </p-tabpanel>
+          </p-tabpanels>
+        </p-tabs>
       }
 
       <!-- Info footer -->
@@ -374,7 +394,6 @@ export class ServerListComponent implements OnInit {
 
   ngOnInit(): void {
     // Les guilds sont déjà chargées par AuthFacade
-    // Mais on peut forcer un refresh si nécessaire
     if (this.totalGuildsCount() === 0 && !this.guildFacade.isLoading()) {
       this.guildFacade.refreshGuildsList();
     }
@@ -420,12 +439,10 @@ export class ServerListComponent implements OnInit {
   reactivateBot(guild: GuildWithBotStatusDTO): void {
     console.log('Réactivation du bot pour la guild:', guild.id, guild.name);
     // TODO: Implémenter la logique de réinvitation du bot
-    // Probablement ouvrir une popup avec le lien d'invitation Discord
   }
 
   configureBot(guild: GuildWithBotStatusDTO): void {
     console.log('Configuration du bot pour la guild:', guild.id, guild.name);
     // TODO: Implémenter la logique d'ajout du bot
-    // Probablement ouvrir une popup avec le lien d'invitation Discord
   }
 }
