@@ -30,7 +30,6 @@ import { EndpointTesterService } from '@app/services/endpoints-tester.service';
     TagModule,
     MessageModule,
     InputTextModule,
-    FloatLabelModule,
     BadgeModule
   ],
   template: `
@@ -118,29 +117,29 @@ import { EndpointTesterService } from '@app/services/endpoints-tester.service';
                     <!-- Formulaire de paramètres -->
                     @if (endpoint.parameters && endpoint.parameters.length > 0) {
                       <div class="mb-4">
-                        <div class="font-semibold mb-3">Paramètres</div>
+                        <div class="font-semibold mb-4">Paramètres</div>
                         <div class="flex flex-col gap-4">
                           @for (param of endpoint.parameters; track param.name) {
-                            <p-floatlabel>
+                            <div class="flex flex-col gap-2">
+                              <label [for]="endpoint.id + '-' + param.name" class="font-medium">
+                                {{ param.name }}
+                                @if (param.required) {
+                                  <span class="text-red-500 ml-1">*</span>
+                                }
+                              </label>
                               <input 
                                 pInputText 
                                 [id]="endpoint.id + '-' + param.name"
                                 [(ngModel)]="parameterValues()[endpoint.id][param.name]"
                                 [placeholder]="param.placeholder || ''"
                                 class="w-full" />
-                              <label [for]="endpoint.id + '-' + param.name">
-                                {{ param.name }}
-                                @if (param.required) {
-                                  <span class="text-red-500">*</span>
+                              <small class="text-surface-600 dark:text-surface-400">
+                                {{ param.description }}
+                                @if (!param.required) {
+                                  <span class="text-surface-500"> (Optionnel)</span>
                                 }
-                              </label>
-                            </p-floatlabel>
-                            <small class="text-surface-600 dark:text-surface-400 -mt-3">
-                              {{ param.description }}
-                              @if (!param.required) {
-                                <span class="text-surface-500"> (Optionnel)</span>
-                              }
-                            </small>
+                              </small>
+                            </div>
                           }
                         </div>
                       </div>
