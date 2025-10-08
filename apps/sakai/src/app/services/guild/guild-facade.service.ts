@@ -26,6 +26,8 @@ export class GuildFacadeService {
   readonly error = this.guildData.error;
   readonly hasSelectedGuild = this.guildData.hasSelectedGuild;
   readonly activeGuilds = this.guildData.activeGuilds;
+  readonly inactiveGuilds = this.guildData.inactiveGuilds;
+  readonly notAddedGuilds = this.guildData.notAddedGuilds;
   readonly totalActiveGuilds = this.guildData.totalActiveGuilds;
 
   constructor() {
