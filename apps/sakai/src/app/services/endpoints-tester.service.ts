@@ -1,12 +1,14 @@
-// apps/frontend/src/app/services/endpoint-tester.service.ts
-
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { AuthFacadeService } from './auth/auth-facade.service';
-import { ApiEndpoint, EndpointTestResult } from '@app/interfaces/endpoint-tester.interface';
-import { environment } from 'src/environments/environment';
+import { GuildFacadeService } from './guild/guild-facade.service';
 import { UserFacadeService } from './user/user-facade.service';
-
+import { 
+  ApiEndpoint, 
+  EndpointTestResult, 
+  ParameterValues 
+} from '@app/interfaces/endpoint-tester.interface';
+import { environment } from 'src/environments/environment';
 
 @Injectable({
   providedIn: 'root',
@@ -14,46 +16,44 @@ import { UserFacadeService } from './user/user-facade.service';
 export class EndpointTesterService {
   private http = inject(HttpClient);
   private authFacade = inject(AuthFacadeService);
-  private userFacade = inject(UserFacadeService)
+  private guildFacade = inject(GuildFacadeService);
+  private userFacade = inject(UserFacadeService);
 
   // Signal pour stocker les résultats des tests
   testResults = signal<EndpointTestResult[]>([]);
 
   /**
-   * Teste un endpoint spécifique
+   * Teste un endpoint avec des valeurs de paramètres optionnelles
    */
-  async testEndpoint(endpoint: ApiEndpoint): Promise<EndpointTestResult> {
+  async testEndpoint(
+    endpoint: ApiEndpoint, 
+    parameterValues?: ParameterValues
+  ): Promise<EndpointTestResult> {
     const startTime = Date.now();
     
     try {
+      // Vérifier l'authentification
+      if (endpoint.requiresAuth && !this.authFacade.isAuthenticated()) {
+        throw new Error('Authentication required but user is not authenticated');
+      }
+
+      // Résoudre les paramètres automatiques si nécessaire
+      const resolvedParams = await this.resolveParameters(endpoint, parameterValues);
+
+      // Construire l'URL avec les paramètres
+      const { url, queryParams, body } = this.buildRequest(endpoint, resolvedParams);
+
       // Préparer les headers
       const headers = new HttpHeaders({
         'Content-Type': 'application/json',
       });
 
-      // Ajouter l'authentification si nécessaire
-      let authHeaders = headers;
-      if (endpoint.requiresAuth) {
-        const isAuthenticated = this.authFacade.isAuthenticated();
-        if (!isAuthenticated) {
-          throw new Error('Authentication required but user is not authenticated');
-        }
-        
-        // L'intercepteur auth ajoutera automatiquement le token
-        // Pas besoin de l'ajouter manuellement
-      }
-
-      // Construire l'URL complète
-      let fullUrl = `${environment.apiUrl}${endpoint.url}`;
-
-      // if (endpoint.url == '/api/discord/v1/user/') {
-      //   fullUrl + this.userFacade.discordUser()?.id;
-      // }
-
       // Faire la requête
-      const response = await this.http.request(endpoint.method, fullUrl, {
-        headers: authHeaders,
-        observe: 'response', // Pour avoir accès au status et aux headers
+      const response = await this.http.request(endpoint.method, url, {
+        headers,
+        params: queryParams,
+        body: body,
+        observe: 'response',
       }).toPromise();
 
       const responseTime = Date.now() - startTime;
@@ -62,9 +62,13 @@ export class EndpointTesterService {
         endpoint,
         success: true,
         status: response?.status || 200,
+        statusText: response?.statusText,
         data: response?.body,
         responseTime,
         timestamp: new Date(),
+        headers: this.extractHeaders(response?.headers),
+        requestUrl: url,
+        requestBody: body,
       };
 
       this.addTestResult(result);
@@ -77,14 +81,126 @@ export class EndpointTesterService {
         endpoint,
         success: false,
         status: error?.status || 0,
+        statusText: error?.statusText,
         error: this.formatError(error),
+        errorDetails: error?.error,
         responseTime,
         timestamp: new Date(),
+        headers: this.extractHeaders(error?.headers),
       };
 
       this.addTestResult(result);
       return result;
     }
+  }
+
+  /**
+   * Résout les paramètres automatiques (ex: firstGuild, currentUserId)
+   */
+  private async resolveParameters(
+    endpoint: ApiEndpoint, 
+    userValues?: ParameterValues
+  ): Promise<ParameterValues> {
+    const resolved: ParameterValues = { ...userValues };
+
+    if (!endpoint.parameters) return resolved;
+
+    for (const param of endpoint.parameters) {
+      // Si l'utilisateur a déjà fourni une valeur, on l'utilise
+      if (resolved[param.name]) continue;
+
+      // Si pas de source automatique, utiliser la valeur par défaut
+      if (!param.autoSource) {
+        if (param.defaultValue) {
+          resolved[param.name] = param.defaultValue;
+        }
+        continue;
+      }
+
+      // Résoudre les sources automatiques
+      switch (param.autoSource) {
+        case 'selectedGuild': {
+          const selectedGuild = this.guildFacade.selectedGuild();
+          if (selectedGuild?.id) {
+            resolved[param.name] = selectedGuild.id;
+          }
+          break;
+        }
+        case 'currentUserId': {
+          const user = this.userFacade.user();
+          if (user?.id) {
+            resolved[param.name] = user.id;
+          }
+          break;
+        }
+        case 'firstChannel': {
+          // TODO: Implémenter quand le service channels sera disponible
+          break;
+        }
+      }
+    }
+
+    return resolved;
+  }
+
+  /**
+   * Construit l'URL et les paramètres de la requête
+   */
+  private buildRequest(
+    endpoint: ApiEndpoint, 
+    parameterValues: ParameterValues
+  ): { url: string; queryParams: Record<string, string>; body?: any } {
+    let url = `${environment.apiUrl}${endpoint.url}`;
+    const queryParams: Record<string, string> = {};
+    let body = endpoint.bodyExample;
+
+    if (!endpoint.parameters) {
+      return { url, queryParams, body };
+    }
+
+    for (const param of endpoint.parameters) {
+      const value = parameterValues[param.name];
+      
+      if (!value) {
+        if (param.required) {
+          throw new Error(`Required parameter '${param.name}' is missing`);
+        }
+        continue;
+      }
+
+      switch (param.type) {
+        case 'path':
+          // Remplacer {paramName} dans l'URL
+          url = url.replace(`{${param.name}}`, value);
+          break;
+        
+        case 'query':
+          // Ajouter aux query params
+          queryParams[param.name] = value;
+          break;
+        
+        case 'body':
+          // Créer ou mettre à jour le body
+          if (!body) body = {};
+          body[param.name] = value;
+          break;
+      }
+    }
+
+    return { url, queryParams, body };
+  }
+
+  /**
+   * Extrait les headers de la réponse
+   */
+  private extractHeaders(headers: any): Record<string, string> {
+    if (!headers) return {};
+    
+    const result: Record<string, string> = {};
+    headers.keys()?.forEach((key: string) => {
+      result[key] = headers.get(key);
+    });
+    return result;
   }
 
   /**
@@ -94,10 +210,16 @@ export class EndpointTesterService {
     const results: EndpointTestResult[] = [];
     
     for (const endpoint of endpoints) {
+      // Skip endpoints avec paramètres obligatoires pour les tests en masse
+      if (endpoint.parameters?.some(p => p.required && !p.autoSource && !p.defaultValue)) {
+        console.log(`Skipping ${endpoint.name} - requires manual parameters`);
+        continue;
+      }
+
       const result = await this.testEndpoint(endpoint);
       results.push(result);
       
-      // Petit délai entre les requêtes pour éviter de spam l'API
+      // Délai entre requêtes
       await new Promise(resolve => setTimeout(resolve, 200));
     }
 
@@ -109,10 +231,7 @@ export class EndpointTesterService {
    */
   private addTestResult(result: EndpointTestResult): void {
     const currentResults = this.testResults();
-    
-    // Garder seulement les 50 derniers résultats pour éviter la surcharge
     const updatedResults = [result, ...currentResults].slice(0, 50);
-    
     this.testResults.set(updatedResults);
   }
 
