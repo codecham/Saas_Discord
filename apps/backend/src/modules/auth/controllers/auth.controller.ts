@@ -23,13 +23,7 @@ import * as sharedTypes from '@my-project/shared-types';
 import { OAuthSessionService } from '../services/oauth-session.service';
 // 🔒 AJOUT: Imports pour le rate limiting
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
-
-/**
- * Interface pour la requête d'échange de session
- */
-interface ExchangeSessionDTO {
-  sessionId: string;
-}
+import { ExchangeSessionDTO } from '../dto/exchange-session.dto';
 
 /**
  * Contrôleur d'authentification
@@ -132,23 +126,20 @@ export class AuthController {
   /**
    * POST /api/auth/exchange-session
    * 🔒 MODIFIÉ: Échange un sessionId contre les tokens JWT + cookie httpOnly
-   * 🔒 AJOUT: Rate limit strict: 10 req/min pour éviter les tentatives de deviner sessionId
+   * 🔒 AJOUT: Rate limit strict + Validation stricte du sessionId
    */
   @Post('exchange-session')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 req/min
   async exchangeSession(
-    @Body() body: ExchangeSessionDTO,
+    @Body() body: ExchangeSessionDTO, // ✅ DTO validé automatiquement
     @Res() res: express.Response,
   ) {
-    const { sessionId } = body;
-
-    if (!sessionId) {
-      throw new UnauthorizedException('Session ID is required');
-    }
-
+    // Plus besoin de vérifier sessionId manuellement, c'est fait par le ValidationPipe
     try {
-      const session = await this.oauthSessionService.exchangeSession(sessionId);
+      const session = await this.oauthSessionService.exchangeSession(
+        body.sessionId,
+      );
       const user = await this.authService.getCurrentUser(session.userId);
 
       // 🔒 NOUVEAU: Stocker le refresh token dans un cookie httpOnly
