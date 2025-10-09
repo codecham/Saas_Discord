@@ -1,4 +1,4 @@
-import { Injectable, effect, signal, computed } from '@angular/core';
+import { Injectable, effect, signal, computed, inject } from '@angular/core';
 import { Subject } from 'rxjs';
 
 export interface layoutConfig {
@@ -26,6 +26,7 @@ interface MenuChangeEvent {
     providedIn: 'root'
 })
 export class LayoutService {
+
     _config: layoutConfig = {
         preset: 'Aura',
         primary: 'emerald',

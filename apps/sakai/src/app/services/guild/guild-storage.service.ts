@@ -35,7 +35,11 @@ export class GuildStorageService {
   /**
    * Supprime l'ID de la guild sélectionnée
    */
-  clearSelectedGuildId(): void {
+  clearSelectedGuildId(message?: string): void {
+    if (message) {
+      console.log(`[GuildStorage] from: ${message}`);
+    }
+
     try {
       localStorage.removeItem(this.SELECTED_GUILD_KEY);
       console.log('[GuildStorage] Cleared guild ID');

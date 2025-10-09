@@ -6,7 +6,7 @@ import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
  * Guard qui vérifie qu'une guild est sélectionnée
  * Redirige vers /server-list si aucune guild n'est sélectionnée
  */
-export const guildGuard: CanActivateFn = async (route, state) => {
+export const guildGuard: CanActivateFn = (route, state) => {
   const guildFacade = inject(GuildFacadeService);
   const router = inject(Router);
 
@@ -16,23 +16,6 @@ export const guildGuard: CanActivateFn = async (route, state) => {
   if (guildFacade.hasSelectedGuild()) {
     console.log('[GuildGuard] Guild selected, access granted');
     return true;
-  }
-
-  // Tenter de restaurer une guild depuis localStorage
-  const savedGuildId = inject(GuildFacadeService).selectedGuildId();
-  
-  if (savedGuildId) {
-    try {
-      console.log('[GuildGuard] Attempting to restore guild from storage...');
-      await guildFacade.selectGuildById(savedGuildId, false);
-      
-      if (guildFacade.hasSelectedGuild()) {
-        console.log('[GuildGuard] Guild restored, access granted');
-        return true;
-      }
-    } catch (error) {
-      console.error('[GuildGuard] Failed to restore guild:', error);
-    }
   }
 
   // Aucune guild sélectionnée, rediriger vers la liste
