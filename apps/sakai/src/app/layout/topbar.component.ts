@@ -94,17 +94,9 @@ import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
 export class AppTopbarComponent {
     items!: MenuItem[];
     auth = inject(AuthFacadeService);
-    startTime: number;
-
-    constructor(public layoutService: LayoutService) {
-        this.startTime = Date.now();
-    }
+    layoutService = inject(LayoutService);
 
     toggleDarkMode() {
         this.layoutService.layoutConfig.update((state) => ({ ...state, darkTheme: !state.darkTheme }));
-    }
-
-    getTimeSecond(): number {
-        return Math.floor((Date.now() - this.startTime) / 1000);
     }
 }
