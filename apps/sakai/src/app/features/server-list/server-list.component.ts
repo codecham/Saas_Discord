@@ -32,7 +32,7 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
       <div class="mb-6">
         <div class="flex items-center justify-between mb-4 flex-wrap gap-4">
           <div>
-            <div class="font-semibold text-xl mb-2">🖥️ Sélection du serveur</div>
+            <div class="font-semibold text-xl mb-2">Sélection du serveur</div>
             <p class="text-surface-600 dark:text-surface-400">
               Choisissez le serveur Discord que vous souhaitez administrer
             </p>
