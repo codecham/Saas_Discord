@@ -1,16 +1,19 @@
 import { Component, inject } from '@angular/core';
 import { MenuItem } from 'primeng/api';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { StyleClassModule } from 'primeng/styleclass';
 import { AppConfiguratorComponent } from '../components/configurator.component';
 import { LayoutService } from '../services/layout.service';
 import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
+import { AvatarModule } from 'primeng/avatar';
+import { UserFacadeService } from '@app/services/user/user-facade.service';
+import { MenuModule } from 'primeng/menu';
 
 @Component({
     selector: 'app-topbar',
     standalone: true,
-    imports: [RouterModule, CommonModule, StyleClassModule, AppConfiguratorComponent],
+    imports: [RouterModule, CommonModule, StyleClassModule, AppConfiguratorComponent, AvatarModule, MenuModule],
     template: ` <div class="layout-topbar">
         <div class="layout-topbar-logo-container">
             <button class="layout-menu-button layout-topbar-action" (click)="layoutService.onMenuToggle()">
@@ -39,38 +42,35 @@ import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
         </div>
 
         <div class="layout-topbar-actions">
-            <div class="flex items-center gap-2">
-                @if (auth.isAuthenticated()) {
-                    <i class="pi pi-circle-fill text-green-500 text-xs"></i>
-                    <span class="text-sm text-surface-700 dark:text-surface-300">Connected</span>
-                } @else {
-                    <i class="pi pi-circle-fill text-red-500 text-xs"></i>
-                    <span class="text-sm text-surface-700 dark:text-surface-300">Disconnected</span>
-                }
-             </div>
             <div class="layout-config-menu">
                 <button type="button" class="layout-topbar-action" (click)="toggleDarkMode()">
                     <i [ngClass]="{ 'pi ': true, 'pi-moon': layoutService.isDarkTheme(), 'pi-sun': !layoutService.isDarkTheme() }"></i>
                 </button>
-                <div class="relative">
-                    <button
-                        class="layout-topbar-action layout-topbar-action-highlight"
-                        pStyleClass="@next"
-                        enterFromClass="hidden"
-                        enterActiveClass="animate-scalein"
-                        leaveToClass="hidden"
-                        leaveActiveClass="animate-fadeout"
-                        [hideOnOutsideClick]="true"
-                    >
-                        <i class="pi pi-palette"></i>
-                    </button>
-                    <app-configurator />
-                </div>
             </div>
 
-            <button class="layout-topbar-menu-button layout-topbar-action" pStyleClass="@next" enterFromClass="hidden" enterActiveClass="animate-scalein" leaveToClass="hidden" leaveActiveClass="animate-fadeout" [hideOnOutsideClick]="true">
+            <div class="relative">
+                <button
+                    class="layout-topbar-action layout-topbar-action-highlight"
+                    pStyleClass="@next"
+                    enterFromClass="hidden"
+                    enterActiveClass="animate-scalein"
+                    leaveToClass="hidden"
+                    leaveActiveClass="animate-fadeout"
+                    [hideOnOutsideClick]="true"
+                >
+                    <i class="pi pi-palette"></i>
+                </button>
+                <app-configurator />
+            </div>
+
+            <!-- <button class="layout-topbar-menu-button layout-topbar-action" pStyleClass="@next" enterFromClass="hidden" enterActiveClass="animate-scalein" leaveToClass="hidden" leaveActiveClass="animate-fadeout" [hideOnOutsideClick]="true">
                 <i class="pi pi-ellipsis-v"></i>
-            </button>
+            </button> -->
+
+            <!-- <button type="button" class="layout-topbar-action">
+                <i class="pi pi-user"></i>
+                <span>Profile</span>
+            </button> -->
 
             <div class="layout-topbar-menu hidden lg:block">
                 <div class="layout-topbar-menu-content">
@@ -82,19 +82,59 @@ import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
                         <i class="pi pi-inbox"></i>
                         <span>Messages</span>
                     </button>
-                    <button type="button" class="layout-topbar-action">
-                        <i class="pi pi-user"></i>
-                        <span>Profile</span>
-                    </button>
                 </div>
+            </div>
+
+            <div>
+                <button
+                    type="button"
+                    class="layout-topbar-action"
+                    >
+                    <p-avatar 
+                    [image]="userFacade.avatar()" 
+                    shape="circle"
+                    [style]="{'width': '2.5rem', 'height': '2.5rem'}"
+                    (click)="userMenu.toggle($event)"
+                    />
+                    <span>Profile</span>
+                    <p-menu 
+                        #userMenu 
+                        [model]="userMenuItems" 
+                        [popup]="true"
+                        appendTo="body"
+                    />
+                </button>
             </div>
         </div>
     </div>`
 })
 export class AppTopbarComponent {
     items!: MenuItem[];
-    auth = inject(AuthFacadeService);
+    authFacade = inject(AuthFacadeService);
     layoutService = inject(LayoutService);
+    userFacade = inject(UserFacadeService);
+    private router = inject(Router);
+
+        userMenuItems: MenuItem[] = [
+        {
+            label: 'Profile',
+            icon: 'pi pi-user',
+            command: () => {
+                this.router.navigate(['/profile']);
+            }
+        },
+        {
+            separator: true
+        },
+        {
+            label: 'Logout',
+            icon: 'pi pi-sign-out',
+            command: () => {
+                this.authFacade.logout();
+            }
+        }
+    ];
+
 
     toggleDarkMode() {
         this.layoutService.layoutConfig.update((state) => ({ ...state, darkTheme: !state.darkTheme }));

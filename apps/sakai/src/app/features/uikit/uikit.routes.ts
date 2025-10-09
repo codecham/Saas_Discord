@@ -14,8 +14,10 @@ import { TableDemo } from './tabledemo';
 import { OverlayDemo } from './overlaydemo';
 import { TreeDemo } from './treedemo';
 import { MenuDemo } from './menudemo';
+import { DemoDashboardComponentDemo } from './dashboarddemo';
 
 export default [
+    { path: 'DashboardDemo', data: { breadcrumb: 'Home' }, component: DemoDashboardComponentDemo },
     { path: 'button', data: { breadcrumb: 'Button' }, component: ButtonDemo },
     { path: 'charts', data: { breadcrumb: 'Charts' }, component: ChartDemo },
     { path: 'file', data: { breadcrumb: 'File' }, component: FileDemo },
