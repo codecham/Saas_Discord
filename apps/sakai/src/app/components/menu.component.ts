@@ -19,7 +19,11 @@ export class AppMenuComponent {
     model: MenuItem[] = [];
 
     ngOnInit() {
-        this.model = [
+        this.model = this.selectedServerModel;
+    }
+
+
+    devModel: MenuItem[] = [
             {
                 label: 'Home',
                 items: [
@@ -51,6 +55,7 @@ export class AppMenuComponent {
             {
                 label: 'UI Components',
                 items: [
+                    { label: 'Dashboard Demo', icon: 'pi pi-fw pi-home', routerLink: ['/uikit/DashboardDemo'] },
                     { label: 'Form Layout', icon: 'pi pi-fw pi-id-card', routerLink: ['/uikit/formlayout'] },
                     { label: 'Input', icon: 'pi pi-fw pi-check-square', routerLink: ['/uikit/input'] },
                     { label: 'Button', icon: 'pi pi-fw pi-mobile', class: 'rotated-icon', routerLink: ['/uikit/button'] },
@@ -172,5 +177,30 @@ export class AppMenuComponent {
                 ]
             }
         ];
-    }
+    
+
+    selectedServerModel: MenuItem[] = [
+            {
+                label: 'Home',
+                items: [
+                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/dashboard'] },
+                ]
+            },
+            {
+                label: 'Profile',
+                items: [
+                    { label: 'Profile', icon: 'pi pi-fw pi-user', routerLink: ['/profile'] },
+                ]
+            },
+            {
+                label: 'Server',
+                items: [
+                    { label: 'Server List', icon: 'pi pi-fw pi-server', routerLink: ['/server-list']},
+                    { label: 'Server Fnfo', icon: 'pi pi-fw pi-info-circle', routerLink: ['/server-info']},
+                    { label: 'Members', icon: 'pi pi-fw pi-users', routerLink: ['/members'] },
+                    { label: 'Channels', icon: 'pi pi-fw pi-hashtag', routerLink: ['/channels'] },
+                    { label: 'Roles', icon: 'pi pi-fw pi-id-card', routerLink: ['/roles'] },
+                ]
+            },
+        ];
 }
