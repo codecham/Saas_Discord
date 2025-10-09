@@ -1,4 +1,4 @@
-import { inject, Injectable, effect } from '@angular/core';
+import { inject, Injectable, effect, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { GuildDataService } from './guild-data.service';
@@ -6,6 +6,7 @@ import { GuildApiService } from './guild-api.service';
 import { GuildStorageService } from './guild-storage.service';
 import { ErrorHandlerService } from '../error-handler.service';
 import { DiscordGuildDTO } from '@my-project/shared-types';
+import { getGuildIconUrl } from '@my-project/shared-types';
 
 @Injectable({
   providedIn: 'root'
@@ -16,6 +17,9 @@ export class GuildFacadeService {
   private readonly guildStorage = inject(GuildStorageService);
   private readonly errorHandler = inject(ErrorHandlerService);
   private readonly router = inject(Router);
+
+  // Signal pour savoir si on a déjà initialisé le service
+  private isInitialized = signal<boolean>(false);
 
   // Exposer les signals publics
   readonly selectedGuild = this.guildData.selectedGuild;
@@ -31,13 +35,21 @@ export class GuildFacadeService {
   readonly totalActiveGuilds = this.guildData.totalActiveGuilds;
 
   constructor() {
-    // Synchroniser selectedGuildId avec localStorage
+    // ✅ Effect amélioré : synchronise UNIQUEMENT après initialisation
     effect(() => {
+      // Ne rien faire tant qu'on n'a pas initialisé le service
+      if (!this.isInitialized()) {
+        return;
+      }
+
       const guildId = this.guildData.selectedGuildId();
+      
       if (guildId) {
         this.guildStorage.setSelectedGuildId(guildId);
+        console.log('[GuildFacade Effect] Saved guild ID to storage:', guildId);
       } else {
         this.guildStorage.clearSelectedGuildId();
+        console.log('[GuildFacade Effect] Cleared guild ID from storage');
       }
     });
   }
@@ -51,20 +63,31 @@ export class GuildFacadeService {
     console.log('[GuildFacade] Initializing guild service...');
 
     try {
-      // Charger la liste des guilds
+      // 1. Charger la liste des guilds
       await this.loadUserGuildsList();
 
-      // Tenter de restaurer la guild depuis localStorage
+      // 2. Attendre un petit délai pour que les signals soient mis à jour
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // 3. Tenter de restaurer la guild depuis localStorage
       const savedGuildId = this.guildStorage.getSelectedGuildId();
       if (savedGuildId) {
+        console.log('[GuildFacade] Found saved guild ID:', savedGuildId);
         await this.tryRestoreGuild(savedGuildId);
+      } else {
+        console.log('[GuildFacade] No saved guild ID found');
       }
 
     } catch (error) {
-      this.errorHandler.handleError(error, 'Guild Initialization');
-      throw error;
+      this.errorHandler.handleError(error, 'Initialisation des serveurs', false);
+      // Ne pas throw l'erreur pour ne pas bloquer l'app
+    } finally {
+      // ✅ Marquer comme initialisé pour activer l'effect
+      this.isInitialized.set(true);
+      console.log('[GuildFacade] Initialization complete');
     }
   }
+
 
   /**
    * Charge la liste des guilds de l'utilisateur
@@ -107,6 +130,9 @@ export class GuildFacadeService {
 
     // Vérifier que la guild est dans les guilds actives
     const activeGuilds = this.guildData.activeGuilds();
+    
+    console.log('[GuildFacade] Available active guilds:', activeGuilds.map(g => g.id));
+    
     const guildExists = activeGuilds.some(g => g.id === guildId);
 
     if (!guildExists) {
@@ -117,15 +143,17 @@ export class GuildFacadeService {
 
     try {
       // Charger les détails complets de la guild
-      await this.selectGuildById(guildId, false); // false = ne pas naviguer
+      // false = ne pas naviguer automatiquement au dashboard
+      await this.selectGuildById(guildId, false);
       console.log('[GuildFacade] Guild restored successfully');
 
     } catch (error) {
       console.error('[GuildFacade] Failed to restore guild:', error);
       this.guildStorage.clearSelectedGuildId();
-      this.errorHandler.handleError(error, 'Restauration du serveur', false);
+      // Ne pas afficher d'erreur à l'utilisateur, c'est une restauration silencieuse
     }
   }
+
 
   /**
    * Sélectionne une guild par son ID et charge ses détails complets
@@ -188,7 +216,7 @@ export class GuildFacadeService {
   clearSelectedGuild(): void {
     console.log('[GuildFacade] Clearing selected guild');
     this.guildData.setSelectedGuild(null);
-    this.guildStorage.clearSelectedGuildId();
+    // Le localStorage sera nettoyé automatiquement par l'effect
   }
 
   /**
@@ -250,6 +278,18 @@ export class GuildFacadeService {
   getCurrentGuild(): DiscordGuildDTO | null {
     return this.guildData.selectedGuild();
   }
+
+  /**
+   * Obtient l'URL de l'icône de la guild sélectionnée
+   * @param size Taille de l'icône (par défaut: 128)
+   * @returns URL de l'icône ou null si pas d'icône
+   */
+  getSelectedGuildIconUrl(size: number = 128): string | null {
+    const guild = this.selectedGuild();
+    if (!guild) return null;
+    return getGuildIconUrl(guild, size);
+  }
+
 
   /**
    * Nettoie toutes les données (appelé au logout)
