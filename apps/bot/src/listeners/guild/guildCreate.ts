@@ -32,7 +32,7 @@ export class GuildDeleteListener extends Listener {
 
 	private createEventDTO(newGuild: GuildDTO) : BotEventDto {
 		const eventDto: BotEventDto = {
-			type: EventType.GuildCreate,
+			type: EventType.GUILD_CREATE,
 			guildId: '0',
 			data: newGuild,
 			timestamp: Date.now(),

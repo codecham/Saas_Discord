@@ -6,7 +6,7 @@
 
 export * from './dtos/auth/auth.dto'
 export * from './dtos/discord.dto';
-export * from './dtos/gateway.dto';
+export * from './dtos/events/botEvent.dto';
 export * from './dtos/discord/user.dto';
 export * from './dtos/discord/guild.dto';
 export * from './dtos/discord/channel.dto';
