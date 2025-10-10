@@ -54,7 +54,7 @@ export const appRoutes: Routes = [
                 path: 'members',
                 canActivate: [guildGuard],
                 loadComponent: () => import('./app/features/members/members.component')
-                    .then(m => m.MembersComponent)
+                    .then(m => m.MemberListComponent)
             },
             {
                 path: 'channels',

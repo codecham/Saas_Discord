@@ -19,7 +19,7 @@ export class AppMenuComponent {
     model: MenuItem[] = [];
 
     ngOnInit() {
-        this.model = this.selectedServerModel;
+        this.model = this.devModel;
     }
 
 
