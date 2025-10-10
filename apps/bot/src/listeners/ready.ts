@@ -68,7 +68,7 @@ ${line03}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('DEVELOPMENT MO
 			memberCount: guild.memberCount
 		}));
 		const guildSyncDto: BotEventDto = {
-			type: EventType.GuildSync,
+			type: EventType.GUILD_SYNC,
 			guildId: '',
 			timestamp: Date.now(),
 			data: guilds,

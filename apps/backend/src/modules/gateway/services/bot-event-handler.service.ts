@@ -11,19 +11,19 @@ export class BotEventHandlerService {
   async processEvent(event: BotEventDto) {
     // Traitement selon le type d'événement
     switch (event.type) {
-      case EventType.GuildSync:
+      case EventType.GUILD_SYNC:
         await this.handleGuildsSync(event.data);
         this.logger.log(`Guild sync event recu: ${JSON.stringify(event)}`);
         break;
-      case EventType.GuildCreate:
+      case EventType.GUILD_CREATE:
         await this.handleGuildCreate(event.data);
         this.logger.log(`Guild Create event recu: ${JSON.stringify(event)}`);
         break;
-      case EventType.GuildDelete:
+      case EventType.GUILD_DELETE:
         await this.handleGuildDelete(event.data);
         this.logger.log(`Guild Detele event recu: ${JSON.stringify(event)}`);
         break;
-      case EventType.GuildUpdate:
+      case EventType.GUILD_UPDATE:
         await this.handleGuildUpdate(event.data);
         this.logger.log(`Guild Update event recu: ${JSON.stringify(event)}`);
         break;

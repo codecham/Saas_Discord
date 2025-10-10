@@ -86,19 +86,19 @@ export class EventBatcher {
 			return this.batchesConfig.voiceStateUpdate;
 		}
 		switch (eventType) {
-			case EventType.MessageCreate:
+			case EventType.MESSAGE_CREATE:
 				return this.batchesConfig.messageCreate;
-			case EventType.MessageDelete:
+			case EventType.MESSAGE_DELETE:
 				return this.batchesConfig.messageDelete;
-			case EventType.MessageUpdate:
+			case EventType.MESSAGE_UPDATE:
 				return this.batchesConfig.messageUpdate;
-			case EventType.MessageReactionAdd:
+			case EventType.MESSAGE_REACTION_ADD:
 				return this.batchesConfig.messageReactionEvent;
-			case EventType.MessageReactionRemove:
+			case EventType.MESSAGE_REACTION_REMOVE:
 				return this.batchesConfig.messageReactionEvent;
-			case EventType.MessageReactionRemoveAll:
+			case EventType.MESSAGE_REACTION_REMOVE_ALL:
 				return this.batchesConfig.messageReactionEvent;
-			case EventType.MessageReactionRemoveEmoji:
+			case EventType.MESSAGE_REACTION_REMOVE_EMOJI:
 				return this.batchesConfig.messageReactionEvent;
 		}
 		return this.batchesConfig.default;

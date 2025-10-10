@@ -38,7 +38,7 @@ export class GuildUpdateListener extends Listener {
 
 	private createEventDTO(updatedGuild: GuildDTO): BotEventDto {
 		const eventDto: BotEventDto = {
-			type: EventType.GuildUpdate,
+			type: EventType.GUILD_UPDATE,
 			guildId: '0',
 			data: updatedGuild,
 			timestamp: Date.now(),

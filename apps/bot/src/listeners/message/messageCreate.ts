@@ -17,7 +17,7 @@ export class MessageCreateListener extends Listener {
 		if (guildId) {
 			const eventArray: BotEventDto[] = [];
 			const event: BotEventDto = {
-				type: EventType.MessageCreate,
+				type: EventType.MESSAGE_CREATE,
 				guildId: message.guild.id,
 				userId: message.author.id,
 				channelId: message.channel.id,
