@@ -2,9 +2,12 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 import { ValidationPipe } from '@nestjs/common';
+import { logger } from './common/logger/winston.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger,
+  });
 
   // 🔒 AJOUT: Support des cookies httpOnly
   app.use(cookieParser());
@@ -32,11 +35,13 @@ async function bootstrap() {
   const port = process.env.PORT || 3000;
   await app.listen(port);
 
-  console.log(
-    `🚀 Backend running on https://855e70039085.ngrok-free.app and http://localhost:${port}`,
+  logger.log(`🚀 Backend running on http://localhost:${port}`, 'Bootstrap');
+  logger.log('🔒 Cookies support enabled with CORS credentials', 'Bootstrap');
+  logger.log('🔒 Global validation pipe enabled', 'Bootstrap');
+  logger.log(
+    `📊 Logs envoyés vers Loki: ${process.env.LOKI_URL || 'http://localhost:3100'}`,
+    'Bootstrap',
   );
-  console.log('🔒 Cookies support enabled with CORS credentials');
-  console.log('🔒 Global validation pipe enabled');
 }
 
 void bootstrap();

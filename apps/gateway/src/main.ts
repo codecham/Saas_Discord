@@ -1,8 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { logger } from './common/logger/winston.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger,
+  });
 
   app.enableCors({
     origin: process.env.ALLOWED_ORIGINS?.split(',') || [
@@ -13,8 +16,12 @@ async function bootstrap() {
 
   const port = process.env.GATEWAY_PORT || 3001;
   await app.listen(port);
-  console.log(`🚀 Gateway démarrée sur le port ${port}`);
-  console.log(`📡 WebSocket disponible sur ws://localhost:${port}`);
+  logger.log(`🚀 Gateway démarrée sur le port ${port}`, 'Bootstrap');
+  logger.log(`📡 WebSocket disponible sur ws://localhost:${port}`, 'Bootstrap');
+  logger.log(
+    `📊 Logs envoyés vers Loki: ${process.env.LOKI_URL || 'http://localhost:3100'}`,
+    'Bootstrap',
+  );
 }
 
 void bootstrap();
