@@ -4,6 +4,7 @@ import './lib/setup';
 import { LogLevel, SapphireClient, container } from '@sapphire/framework';
 import { GatewayIntentBits } from 'discord.js';
 import { WebSocketService } from './services/websocket.service';
+import { logger } from './lib/logger/winston.config';
 
 declare module '@sapphire/pieces' {
 	interface Container {
@@ -47,13 +48,16 @@ const client = new SapphireClient({
 
 const main = async () => {
 	try {
-		client.logger.info('Logging in');
+		logger.info('🤖 Bot démarrage...');
 		const token = process.env.DISCORD_TOKEN;
 		if (!token) throw new Error('Token not define in .env');
+		
 		await client.login();
-		client.logger.info('logged in');
+		
+		logger.info('🤖 Bot connecté à Discord');
+		logger.info(`📊 Logs envoyés vers Loki: ${process.env.LOKI_URL || 'http://localhost:3100'}`);
 	} catch (error) {
-		client.logger.fatal(error);
+		logger.error('❌ Erreur fatale lors du démarrage du bot', error);
 		await client.destroy();
 		process.exit(1);
 	}
