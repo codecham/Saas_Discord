@@ -7,6 +7,8 @@ import { EventBatcher } from '../services/eventBatcher.service';
 
 const dev = process.env.NODE_ENV !== 'production';
 
+const guildSYNC = false;
+
 @ApplyOptions<Listener.Options>({ once: true })
 export class UserEvent extends Listener {
 	private readonly style = dev ? yellow : blue;
@@ -21,7 +23,8 @@ export class UserEvent extends Listener {
 		this.printBanner();
 		this.printStoreDebugInformation();
 		(this.container as any).eventBatcher = this.eventBatcher;
-		this.sendGuildListToBackEnd();
+		if (guildSYNC)
+			this.sendGuildListToBackEnd();
 	}
 
 	private printBanner() {

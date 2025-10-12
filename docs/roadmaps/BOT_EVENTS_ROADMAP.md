@@ -1046,7 +1046,7 @@ export class [EventName]Listener extends Listener {
     };
 
     // 6. Envoi via le batcher
-    this.container.eventBatchter.addEvent([event]);
+    this.container.eventBatcher.addEvent([event]);
   }
 }
 ```
@@ -1087,30 +1087,30 @@ export class [EventName]Listener extends Listener {
 - [x] Créer/vérifier `apps/bot/src/lib/types/augment.d.ts`
 - [x] Nettoyer `packages/shared-types/src/dtos/events/botEvent.dto.ts`
 - [x] Créer le template standardisé de listener
-- [ ] Créer la structure de dossiers dans `apps/bot/src/listeners/` (à faire lors de l'implémentation)
+- [x] Créer la structure de dossiers dans `apps/bot/src/listeners/` (à faire lors de l'implémentation)
 
 ### Phase 1 : Événements de base (20 listeners)
-- [ ] **Messages** (4)
-  - [ ] MESSAGE_CREATE (vérifier existant)
-  - [ ] MESSAGE_UPDATE
-  - [ ] MESSAGE_DELETE
-  - [ ] MESSAGE_DELETE_BULK
-- [ ] **Membres** (3)
-  - [ ] GUILD_MEMBER_ADD
-  - [ ] GUILD_MEMBER_REMOVE
-  - [ ] GUILD_MEMBER_UPDATE
-- [ ] **Modération** (4)
-  - [ ] GUILD_BAN_ADD
-  - [ ] GUILD_BAN_REMOVE
-  - [ ] GUILD_AUDIT_LOG_ENTRY_CREATE
-  - [ ] AUTO_MODERATION_ACTION_EXECUTION
-- [ ] **Réactions** (4)
-  - [ ] MESSAGE_REACTION_ADD
-  - [ ] MESSAGE_REACTION_REMOVE
-  - [ ] MESSAGE_REACTION_REMOVE_ALL
-  - [ ] MESSAGE_REACTION_REMOVE_EMOJI
-- [ ] **Voice** (1)
-  - [ ] VOICE_STATE_UPDATE
+- [x] **Messages** (4)
+  - [x] MESSAGE_CREATE (vérifier existant)
+  - [x] MESSAGE_UPDATE
+  - [x] MESSAGE_DELETE
+  - [x] MESSAGE_DELETE_BULK
+- [x] **Membres** (3)
+  - [x] GUILD_MEMBER_ADD
+  - [x] GUILD_MEMBER_REMOVE
+  - [x] GUILD_MEMBER_UPDATE
+- [x] **Modération** (4)
+  - [x] GUILD_BAN_ADD
+  - [x] GUILD_BAN_REMOVE
+  - [x] GUILD_AUDIT_LOG_ENTRY_CREATE
+  - [x] AUTO_MODERATION_ACTION_EXECUTION
+- [x] **Réactions** (4)
+  - [x] MESSAGE_REACTION_ADD
+  - [x] MESSAGE_REACTION_REMOVE
+  - [x] MESSAGE_REACTION_REMOVE_ALL
+  - [x] MESSAGE_REACTION_REMOVE_EMOJI
+- [x] **Voice** (1)
+  - [x] VOICE_STATE_UPDATE
 
 ### Phase 2 : Gestion du serveur (9 listeners)
 - [ ] **Channels** (4)

@@ -10,7 +10,7 @@ import { EventBatcher } from './services/eventBatcher.service';
 declare module '@sapphire/pieces' {
 	interface Container {
 		ws: WebSocketService;
-		eventBatchter: EventBatcher;
+		eventBatcher: EventBatcher;
 	}
 }
 
@@ -64,7 +64,7 @@ const main = async () => {
 		process.exit(1);
 	}
 	container.ws = new WebSocketService();
-	container.eventBatchter = new EventBatcher();
+	container.eventBatcher = new EventBatcher();
 };
 
 void main();
