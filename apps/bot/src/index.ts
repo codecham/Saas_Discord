@@ -5,10 +5,12 @@ import { LogLevel, SapphireClient, container } from '@sapphire/framework';
 import { GatewayIntentBits } from 'discord.js';
 import { WebSocketService } from './services/websocket.service';
 import { logger } from './lib/logger/winston.config';
+import { EventBatcher } from './services/eventBatcher.service';
 
 declare module '@sapphire/pieces' {
 	interface Container {
 		ws: WebSocketService;
+		eventBatchter: EventBatcher;
 	}
 }
 
@@ -62,6 +64,7 @@ const main = async () => {
 		process.exit(1);
 	}
 	container.ws = new WebSocketService();
+	container.eventBatchter = new EventBatcher();
 };
 
 void main();

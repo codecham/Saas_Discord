@@ -15,7 +15,6 @@ export class MessageCreateListener extends Listener {
 		this.container.logger.info(`MessageCreate event catch!`);
 		const guildId = message.guild?.id;
 		if (guildId) {
-			const eventArray: BotEventDto[] = [];
 			const event: BotEventDto = {
 				type: EventType.MESSAGE_CREATE,
 				guildId: message.guild.id,
@@ -24,8 +23,7 @@ export class MessageCreateListener extends Listener {
 				data: message.content,
 				timestamp: Date.now()
 			}
-			eventArray.push(event);
-			this.container.ws.sendToBackend(eventArray);
+			this.container.eventBatchter.addEvent(event);
 		}
 	}
 
