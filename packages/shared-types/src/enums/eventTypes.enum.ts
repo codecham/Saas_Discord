@@ -52,7 +52,6 @@ export enum EventType {
   GUILD_LIST = 'GUILD-LIST',
   GUILD_SYNC = 'GUILD-SYNC',
   GUILD_UNAVAILABLE = 'GUILD-UNAVAILABLE',
-  GUILD_INTEGRATIONS_UPDATE = 'GUILD-INTEGRATIONS-UPDATE',
 
   // Événements vocaux - Connexions/Déconnexions
   VOICE_CHANNEL_JOIN = 'VOICE-CHANNEL-JOIN',
@@ -106,23 +105,38 @@ export enum EventType {
   AUTO_MODERATION_RULE_DELETE = 'AUTO-MODERATION-RULE-DELETE',
   AUTO_MODERATION_RULE_UPDATE = 'AUTO-MODERATION-RULE-UPDATE',
 
+  // Stickers
+  GUILD_STICKER_CREATE = 'GUILD_STICKER_CREATE',
+  GUILD_STICKER_UPDATE = 'GUILD_STICKER_UPDATE',
+  GUILD_STICKER_DELETE = 'GUILD_STICKER_DELETE',
+
+  // Guild Scheduled
+  GUILD_SCHEDULED_EVENT_CREATE = 'GUILD_SCHEDULED_EVENT_CREATE',
+  GUILD_SCHEDULED_EVENT_UPDATE = 'GUILD_SCHEDULED_EVENT_UPDATE',
+  GUILD_SCHEDULED_EVENT_DELETE = 'GUILD_SCHEDULED_EVENT_DELETE',
+  GUILD_SCHEDULED_EVENT_USER_ADD = 'GUILD_SCHEDULED_EVENT_USER_ADD',
+  GUILD_SCHEDULED_EVENT_USER_REMOVE = 'GUILD_SCHEDULED_EVENT_USER_REMOVE',
+
+  // Stage
+  STAGE_INSTANCE_CREATE = 'STAGE_INSTANCE_CREATE',
+  STAGE_INSTANCE_UPDATE = 'STAGE_INSTANCE_UPDATE',
+  STAGE_INSTANCE_DELETE = 'STAGE_INSTANCE_DELETE',
+
+  //Integration
+  GUILD_INTEGRATIONS_UPDATE = 'GUILD-INTEGRATIONS-UPDATE',
+
+
   // ==========================================
   // NOUVEAUX ÉVÉNEMENTS (Phase 1)
   // ==========================================
   
-  // Invitations - Tracking
-  INVITE_USE = 'INVITE-USE',  // Nouveau : pour tracker qui invite qui
-  
+  INVITE_USE = 'INVITE-USE',
   // Audit Log
-  GUILD_AUDIT_LOG_ENTRY_CREATE = 'GUILD-AUDIT-LOG-ENTRY-CREATE',  // Nouveau : timeouts, etc.
+  GUILD_AUDIT_LOG_ENTRY_CREATE = 'GUILD-AUDIT-LOG-ENTRY-CREATE',
   
-  // Métriques agrégées
   METRICS_SNAPSHOT = 'METRICS-SNAPSHOT',  // Nouveau : snapshot de métriques (messages, vocal, réactions)
   MEMBER_ACTIVITY_SNAPSHOT = 'MEMBER-ACTIVITY-SNAPSHOT',  // Nouveau : activité détaillée par membre
   
-  // ==========================================
-  // PHASE 2-3 (Futur - pas de listener pour l'instant)
-  // ==========================================
   
   // XP/Levels
   XP_GAIN = 'XP-GAIN',
