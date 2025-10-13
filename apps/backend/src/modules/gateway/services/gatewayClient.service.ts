@@ -56,8 +56,8 @@ export class GatewayClientService implements OnModuleInit {
   private async handleBotEvent(events: BotEventDto[]) {
     // Normaliser en array
 
+    this.logger.log(`Event recieved[${events.length}]:`);
     for (const event of events) {
-      this.logger.log(`Événement reçu: ${event.type}`);
       await this.botEventHandlerService.processEvent(event);
     }
   }

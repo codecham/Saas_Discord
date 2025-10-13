@@ -13,22 +13,32 @@ export class BotEventHandlerService {
     switch (event.type) {
       case EventType.GUILD_SYNC:
         await this.handleGuildsSync(event.data);
-        this.logger.log(`Guild sync event recu: ${JSON.stringify(event)}`);
+        this.logger.log(
+          `Guild sync event recu: ${JSON.stringify(event, null, 2)}`,
+        );
         break;
       case EventType.GUILD_CREATE:
         await this.handleGuildCreate(event.data);
-        this.logger.log(`Guild Create event recu: ${JSON.stringify(event)}`);
+        this.logger.log(
+          `Guild Create event recu: ${JSON.stringify(event, null, 2)}`,
+        );
         break;
       case EventType.GUILD_DELETE:
         await this.handleGuildDelete(event.data);
-        this.logger.log(`Guild Detele event recu: ${JSON.stringify(event)}`);
+        this.logger.log(
+          `Guild Detele event recu: ${JSON.stringify(event, null, 2)}`,
+        );
         break;
       case EventType.GUILD_UPDATE:
         await this.handleGuildUpdate(event.data);
-        this.logger.log(`Guild Update event recu: ${JSON.stringify(event)}`);
+        this.logger.log(
+          `Guild Update event recu: ${JSON.stringify(event, null, 2)}`,
+        );
         break;
       default:
-        this.logger.log(`Evenement inconnu reçu: ${JSON.stringify(event)}`);
+        this.logger.log(
+          `Evenement inconnu reçu: ${JSON.stringify(event, null, 2)}`,
+        );
         break;
     }
   }

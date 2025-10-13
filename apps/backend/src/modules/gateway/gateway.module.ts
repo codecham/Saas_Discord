@@ -7,7 +7,11 @@ import { BotEventHandlerService } from './services/bot-event-handler.service';
 
 @Module({
   imports: [PrismaModule],
-  providers: [GatewayClientService, BotCommandSenderService, BotEventHandlerService],
+  providers: [
+    GatewayClientService,
+    BotCommandSenderService,
+    BotEventHandlerService,
+  ],
   controllers: [GatewayController],
 })
 export class GatewayModule {}
