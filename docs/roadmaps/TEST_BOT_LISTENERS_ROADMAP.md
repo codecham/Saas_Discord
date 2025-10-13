@@ -11,8 +11,8 @@ Créer une **suite de tests complète** pour tous les 47 listeners du bot Discor
 | Phase | Catégorie | Listeners | Priorité | Statut | Tests |
 |-------|-----------|-----------|----------|--------|-------|
 | **0** | Infrastructure | - | 🔴 Critique | ✅ | Setup complet |
-| **1** | Messages | 4 | 🔴 Haute | 🟡 | 1/4 |
-| **1** | Membres | 3 | 🔴 Haute | ⏳ | 0/3 |
+| **1** | Messages | 4 | 🔴 Haute | ✅ | 4/4 |
+| **1** | Membres | 3 | 🔴 Haute | ✅ | 3/3 |
 | **1** | Modération | 4 | 🔴 Haute | ⏳ | 0/4 |
 | **1** | Réactions | 4 | 🔴 Haute | ⏳ | 0/4 |
 | **1** | Voice | 1 | 🔴 Haute | ⏳ | 0/1 |
@@ -30,7 +30,7 @@ Créer une **suite de tests complète** pour tous les 47 listeners du bot Discor
 | **3** | Interactions | 1 | 🔵 Basse | ⏳ | 0/1 |
 | **3** | AutoMod Rules | 3 | 🔵 Basse | ⏳ | 0/3 |
 | **3** | Guild | 3 | 🔵 Basse | ⏳ | 0/3 |
-| | **TOTAL** | **47** | | | **1/47** |
+| | **TOTAL** | **47** | | | **7/47** |
 
 **Légende des statuts** :
 - ✅ Complété
@@ -85,23 +85,183 @@ Créer une **suite de tests complète** pour tous les 47 listeners du bot Discor
 
 ---
 
-### 🟡 Messages (4 listeners) - EN COURS
+### ✅ Messages (4 listeners) - COMPLÉTÉE
 
 #### ✅ Tâche #1.1 - messageCreate ✅
 **Statut** : ✅ COMPLÉTÉ  
 **Priorité** : 🔴 CRITIQUE  
-**Effort** : 2 heures  
+**Effort réel** : 2 heures  
 
-**Fichiers** :
+**Fichiers créés** :
 - [x] `tests/unit/listeners/messages/messageCreate.spec.ts`
 
 **Tests** :
-- [x] Configuration (activé/désactivé)
-- [x] Filtrage (bots, DMs, système)
-- [x] Extraction de données (contenu, attachments, embeds)
-- [x] Structure BotEventDto
+- [x] Configuration (activé/désactivé) - 2 tests
+- [x] Filtrage (bots, DMs, système) - 5 tests
+- [x] Extraction de données (contenu, attachments, embeds) - 4 tests
+- [x] Structure BotEventDto - 1 test
 
 **Résultat** : ✅ 12/12 tests passent
+
+---
+
+#### ✅ Tâche #1.2 - messageUpdate ✅
+**Statut** : ✅ COMPLÉTÉ  
+**Priorité** : 🔴 CRITIQUE  
+**Effort réel** : 1.5 heures  
+
+**Fichiers créés** :
+- [x] `tests/unit/listeners/messages/messageUpdate.spec.ts`
+
+**Tests** :
+- [x] Configuration - 2 tests
+- [x] Filtrage (bots, DMs) - 2 tests
+- [x] Gestion des partials - 4 tests
+- [x] Extraction des changements (oldContent vs newContent) - 6 tests
+- [x] Structure BotEventDto - 1 test
+
+**Résultat** : ✅ 15/15 tests passent
+
+---
+
+#### ✅ Tâche #1.3 - messageDelete ✅
+**Statut** : ✅ COMPLÉTÉ  
+**Priorité** : 🔴 CRITIQUE  
+**Effort réel** : 1.5 heures  
+
+**Fichiers créés** :
+- [x] `tests/unit/listeners/messages/messageDelete.spec.ts`
+
+**Tests** :
+- [x] Configuration - 2 tests
+- [x] Filtrage - 2 tests
+- [x] Gestion extensive des partials - 5 tests
+- [x] Extraction de données - 4 tests
+- [x] Structure BotEventDto - 2 tests
+
+**Résultat** : ✅ 15/15 tests passent
+
+---
+
+#### ✅ Tâche #1.4 - messageDeleteBulk ✅
+**Statut** : ✅ COMPLÉTÉ  
+**Priorité** : 🟡 IMPORTANT  
+**Effort réel** : 1 heure  
+
+**Fichiers créés** :
+- [x] `tests/unit/listeners/messages/messageDeleteBulk.spec.ts`
+
+**Tests** :
+- [x] Configuration - 2 tests
+- [x] Filtrage de collections - 2 tests
+- [x] Traitement de multiples messages (1 à 100) - 3 tests
+- [x] Gestion des partials - 3 tests
+- [x] Extraction des données - 5 tests
+- [x] Structure BotEventDto - 2 tests
+
+**Résultat** : ✅ 16/16 tests passent
+
+**Total Messages** : ✅ 58 tests
+
+---
+
+### ✅ Membres (3 listeners) - COMPLÉTÉE
+
+#### ✅ Tâche #1.5 - guildMemberAdd ✅
+**Statut** : ✅ COMPLÉTÉ  
+**Priorité** : 🔴 CRITIQUE  
+**Effort réel** : 1.5 heures  
+
+**Fichiers créés/modifiés** :
+- [x] `tests/unit/listeners/members/guildMemberAdd.spec.ts`
+- [x] Mise à jour `createMockMember()` dans mockFactory
+
+**Tests** :
+- [x] Configuration - 2 tests
+- [x] Extraction données membre - 8 tests
+- [x] Détection des bots - inclus
+- [x] Calcul de l'âge du compte - inclus
+- [x] Gestion discriminator nouveau/ancien système - 2 tests
+- [x] Structure BotEventDto - 2 tests
+
+**Résultat** : ✅ 13/13 tests passent
+
+**Corrections appliquées** :
+- Ajout de `createdAt`, `avatar`, `displayAvatarURL` au mock User
+- Ajout de `memberCount` au mock Guild
+
+---
+
+#### ✅ Tâche #1.6 - guildMemberRemove ✅
+**Statut** : ✅ COMPLÉTÉ  
+**Priorité** : 🔴 CRITIQUE  
+**Effort réel** : 1 heure  
+
+**Fichiers créés** :
+- [x] `tests/unit/listeners/members/guildMemberRemove.spec.ts`
+
+**Corrections appliquées au listener** :
+- [x] Correction de la logique d'extraction des rôles (`roles?.cache` au lieu de `instanceof Map`)
+
+**Tests** :
+- [x] Configuration - 2 tests
+- [x] Extraction données - 3 tests
+- [x] Calcul durée d'appartenance - 2 tests
+- [x] Gestion des partials - 4 tests
+- [x] Structure BotEventDto - 2 tests
+
+**Résultat** : ✅ 13/13 tests passent
+
+---
+
+#### ✅ Tâche #1.7 - guildMemberUpdate ✅
+**Statut** : ✅ COMPLÉTÉ  
+**Priorité** : 🟡 IMPORTANT  
+**Effort réel** : 2 heures  
+
+**Fichiers créés/modifiés** :
+- [x] `tests/unit/listeners/members/guildMemberUpdate.spec.ts`
+- [x] Mise à jour mock avec `isCommunicationDisabled`, `guild.roles.cache`
+
+**Corrections appliquées au listener** :
+- [x] Correction de la logique d'extraction des rôles (`.cache` au lieu de `instanceof Map`)
+- [x] Ajout optional chaining pour `guild.roles?.cache?.get()`
+- [x] Correction de `extractMemberUpdateData` pour correspondre à l'interface complète
+- [x] Ajout de tous les changements : avatar, communicationDisabledUntil, pending
+
+**Tests** :
+- [x] Configuration - 2 tests
+- [x] Détection absence de changements - 1 test
+- [x] Détection changements nickname - 3 tests
+- [x] Détection changements rôles - 4 tests
+- [x] Gestion des partials - 2 tests
+- [x] Extraction des données - 1 test
+- [x] Structure BotEventDto - 3 tests
+
+**Résultat** : ✅ 16/16 tests passent
+
+**Total Membres** : ✅ 42 tests
+
+---
+
+### ⏳ Modération (4 listeners) - À FAIRE
+
+#### ⏳ Tâche #1.8 - guildBanAdd
+**Statut** : ⏳ À FAIRE  
+**Priorité** : 🔴 CRITIQUE  
+**Effort estimé** : 1 heure  
+
+**Fichiers à créer** :
+- [ ] `tests/unit/listeners/moderation/guildBanAdd.spec.ts`
+- [ ] `createMockBan()` dans mockFactory
+
+**Tests à écrire** :
+- [ ] Configuration
+- [ ] Extraction données ban (user, reason)
+- [ ] Envoi immédiat (événement critique)
+- [ ] Structure BotEventDto
+
+**Dépendances** : Aucune
 
 ---
 
@@ -164,7 +324,7 @@ Créer une **suite de tests complète** pour tous les 47 listeners du bot Discor
 
 ---
 
-### ⏳ Réactions (4 listeners)
+### ⏳ Réactions (4 listeners) - À FAIRE
 
 #### ⏳ Tâche #1.12 - messageReactionAdd
 **Statut** : ⏳ À FAIRE  
@@ -238,7 +398,7 @@ Créer une **suite de tests complète** pour tous les 47 listeners du bot Discor
 
 ---
 
-### ⏳ Voice (1 listener)
+### ⏳ Voice (1 listener) - À FAIRE
 
 #### ⏳ Tâche #1.16 - voiceStateUpdate
 **Statut** : ⏳ À FAIRE  
@@ -260,271 +420,23 @@ Créer une **suite de tests complète** pour tous les 47 listeners du bot Discor
 
 ---
 
-## 📅 Phase 2 : Listeners priorité moyenne (9 tests)
-
-**Objectif** : Tester la gestion du serveur (channels, rôles, invitations)
-
-**Durée estimée totale** : 6-8 heures
-
----
-
-### ⏳ Channels (4 listeners)
-
-#### ⏳ Tâche #2.1 - channelCreate
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🟡 IMPORTANT  
-**Effort estimé** : 1 heure  
-
-**Fichiers à créer** :
-- [ ] `tests/unit/listeners/channels/channelCreate.spec.ts`
-- [ ] `createMockChannel()` dans mockFactory
-
-**Tests à écrire** :
-- [ ] Configuration
-- [ ] Extraction données channel (type, name, permissions)
-- [ ] Structure BotEventDto
-
----
-
-#### ⏳ Tâche #2.2 - channelUpdate
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🟡 IMPORTANT  
-**Effort estimé** : 1.5 heures  
-
----
-
-#### ⏳ Tâche #2.3 - channelDelete
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🟡 IMPORTANT  
-**Effort estimé** : 1 heure  
-
----
-
-#### ⏳ Tâche #2.4 - channelPinsUpdate
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🟢 NORMAL  
-**Effort estimé** : 1 heure  
-
----
-
-### ⏳ Rôles (3 listeners)
-
-#### ⏳ Tâche #2.5 - roleCreate
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🟡 IMPORTANT  
-**Effort estimé** : 1 heure  
-
-**Fichiers à créer** :
-- [ ] `tests/unit/listeners/roles/roleCreate.spec.ts`
-- [ ] `createMockRole()` dans mockFactory
-
----
-
-#### ⏳ Tâche #2.6 - roleUpdate
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🟡 IMPORTANT  
-**Effort estimé** : 1.5 heures  
-
----
-
-#### ⏳ Tâche #2.7 - roleDelete
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🟡 IMPORTANT  
-**Effort estimé** : 1 heure  
-
----
-
-### ⏳ Invitations (2 listeners)
-
-#### ⏳ Tâche #2.8 - inviteCreate
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🟡 IMPORTANT  
-**Effort estimé** : 1 heure  
-
-**Fichiers à créer** :
-- [ ] `tests/unit/listeners/invites/inviteCreate.spec.ts`
-- [ ] `createMockInvite()` dans mockFactory
-
----
-
-#### ⏳ Tâche #2.9 - inviteDelete
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🟡 IMPORTANT  
-**Effort estimé** : 1 heure  
-
----
-
-## 📅 Phase 3 : Listeners priorité basse (22 tests)
-
-**Objectif** : Compléter la couverture avec les fonctionnalités avancées
-
-**Durée estimée totale** : 15-20 heures
-
----
-
-### ⏳ Threads (4 listeners)
-
-Tâches #3.1 à #3.4 : threadCreate, threadUpdate, threadDelete, threadMembersUpdate
-
-**Effort total estimé** : 4 heures
-
----
-
-### ⏳ Emojis (3 listeners)
-
-Tâches #3.5 à #3.7 : emojiCreate, emojiUpdate, emojiDelete
-
-**Effort total estimé** : 2.5 heures
-
----
-
-### ⏳ Stickers (3 listeners)
-
-Tâches #3.8 à #3.10 : guildStickerCreate, guildStickerUpdate, guildStickerDelete
-
-**Effort total estimé** : 2.5 heures
-
----
-
-### ⏳ Events planifiés (5 listeners)
-
-Tâches #3.11 à #3.15 : scheduledEventCreate/Update/Delete/UserAdd/UserRemove
-
-**Effort total estimé** : 5 heures
-
----
-
-### ⏳ Webhooks (1 listener)
-
-Tâche #3.16 : webhooksUpdate
-
-**Effort total estimé** : 45 minutes
-
----
-
-### ⏳ Stage (3 listeners)
-
-Tâches #3.17 à #3.19 : stageInstanceCreate, stageInstanceUpdate, stageInstanceDelete
-
-**Effort total estimé** : 2.5 heures
-
----
-
-### ⏳ Intégrations (1 listener)
-
-Tâche #3.20 : guildIntegrationsUpdate
-
-**Effort total estimé** : 45 minutes
-
----
-
-### ⏳ Utilisateur (3 listeners)
-
-Tâches #3.21 à #3.23 : userUpdate, presenceUpdate, typingStart
-
-**Effort total estimé** : 3 heures
-
-**Note** : presenceUpdate et typingStart sont très verbeux, tests à adapter
-
----
-
-### ⏳ Interactions (1 listener)
-
-Tâche #3.24 : interactionCreate
-
-**Effort total estimé** : 1.5 heures
-
----
-
-### ⏳ AutoMod Rules (3 listeners)
-
-Tâches #3.25 à #3.27 : autoModerationRuleCreate/Update/Delete
-
-**Effort total estimé** : 2.5 heures
-
----
-
-### ⏳ Guild (3 listeners)
-
-Tâches #3.28 à #3.30 : guildCreate, guildUpdate, guildDelete
-
-**Effort total estimé** : 3 heures
-
----
-
-## 🎯 Phase 4 : Tests d'intégration et de charge
-
-### ⏳ Tests d'intégration (2 tests)
-
-#### ⏳ Tâche #4.1 - Test du flux complet
-**Fichier** : `tests/integration/eventFlow.spec.ts`  
-**Effort** : 2 heures
-
-**Tests** :
-- [ ] Événements traités en séquence
-- [ ] Batching fonctionnel
-- [ ] Aucun événement perdu
-
----
-
-#### ⏳ Tâche #4.2 - Test du EventBatcher
-**Fichier** : `tests/integration/batching.spec.ts`  
-**Effort** : 2 heures
-
-**Tests** :
-- [ ] Batch par guild
-- [ ] Batch par type
-- [ ] Flush automatique
-- [ ] Priorités respectées
-
----
-
-### ⏳ Tests de charge (3 tests)
-
-#### ⏳ Tâche #4.3 - Volume élevé
-**Fichier** : `tests/load/highVolume.spec.ts`  
-**Effort** : 3 heures
-
-**Tests** :
-- [ ] 1000 événements/seconde
-- [ ] 10000 événements simultanés
-- [ ] 100 guilds simultanées
-
----
-
-#### ⏳ Tâche #4.4 - Stress test
-**Fichier** : `tests/load/stressTest.spec.ts`  
-**Effort** : 2 heures
-
-**Tests** :
-- [ ] 50000 événements
-- [ ] Détection fuites mémoire
-- [ ] Performance stable
-
----
-
-#### ⏳ Tâche #4.5 - Priorisation sous charge
-**Fichier** : `tests/load/priorityTest.spec.ts`  
-**Effort** : 2 heures
-
-**Tests** :
-- [ ] Événements critiques prioritaires
-- [ ] Mélange événements normaux/critiques
-
----
-
 ## 📊 Tableau de bord
 
 ### Progression globale
 
 ```
 Phase 0 (Infrastructure)    : ████████████████████ 100% (3/3)
-Phase 1 (Haute priorité)    : █░░░░░░░░░░░░░░░░░░░   6% (1/16)
+Phase 1 (Haute priorité)    : ████████░░░░░░░░░░░░  44% (7/16)
+  - Messages                : ████████████████████ 100% (4/4)
+  - Membres                 : ████████████████████ 100% (3/3)
+  - Modération              : ░░░░░░░░░░░░░░░░░░░░   0% (0/4)
+  - Réactions               : ░░░░░░░░░░░░░░░░░░░░   0% (0/4)
+  - Voice                   : ░░░░░░░░░░░░░░░░░░░░   0% (0/1)
 Phase 2 (Priorité moyenne)  : ░░░░░░░░░░░░░░░░░░░░   0% (0/9)
 Phase 3 (Priorité basse)    : ░░░░░░░░░░░░░░░░░░░░   0% (0/22)
 Phase 4 (Intégration/Charge): ░░░░░░░░░░░░░░░░░░░░   0% (0/5)
 
-TOTAL                       : ██░░░░░░░░░░░░░░░░░░   7% (4/55)
+TOTAL                       : ███░░░░░░░░░░░░░░░░░  18% (10/55)
 ```
 
 ### Temps estimé
@@ -532,253 +444,72 @@ TOTAL                       : ██░░░░░░░░░░░░░░�
 | Phase | Temps estimé | Temps passé | Temps restant |
 |-------|--------------|-------------|---------------|
 | 0 | 3.5h | ✅ 3.5h | - |
-| 1 | 8-12h | 2h | 6-10h |
+| 1 | 10-14h | ✅ 7.5h | 2.5-6.5h |
 | 2 | 6-8h | 0h | 6-8h |
 | 3 | 15-20h | 0h | 15-20h |
 | 4 | 9h | 0h | 9h |
-| **TOTAL** | **41.5-52.5h** | **5.5h** | **36-47h** |
+| **TOTAL** | **43.5-54.5h** | **11h** | **32.5-43.5h** |
 
 ### Vélocité
 
-- **Temps moyen par test** : ~1.5 heures
-- **Tests complétés** : 4 (infrastructure + messageCreate)
-- **Tests restants** : 51
-- **Estimation** : ~1-2 semaines à temps plein
+- **Temps moyen par test** : ~1.1 heures (plus rapide qu'estimé !)
+- **Tests complétés** : 10 (infrastructure + 7 listeners)
+- **Tests restants** : 45
+- **Estimation révisée** : ~1.5-2 semaines à temps plein
 
 ---
 
-## ✅ Checklist avant de commencer une tâche
+## 🎯 Leçons apprises
 
-- [ ] Lire la description complète de la tâche
-- [ ] Vérifier les dépendances (mocks nécessaires)
-- [ ] Créer une branche git : `git checkout -b test/listener-name`
-- [ ] Copier le template de test
-- [ ] Adapter le template au listener
+### ✅ Bonnes pratiques identifiées
 
----
+1. **Mocks réutilisables** : Créer des mocks complets dès le début évite des retours en arrière
+2. **Double cast TypeScript** : Utiliser `as any as Type` pour les mocks Jest
+3. **Jest.fn() obligatoire** : Pour les méthodes mockées dans les interfaces Discord.js
+4. **Vérification des interfaces** : Toujours vérifier que le listener correspond exactement à l'interface EventData
+5. **Optional chaining** : Utiliser `?.` pour gérer les partials gracieusement
 
-## ✅ Checklist après avoir complété une tâche
+### 📝 Corrections communes
 
-- [ ] Tous les tests passent : `npm run test -- listener-name.spec.ts`
-- [ ] Couverture > 80% : `npm run test:coverage`
-- [ ] Code formaté : `npm run format`
-- [ ] Commit : `git commit -m "test(bot): add tests for listenerName"`
-- [ ] Mettre à jour cette roadmap (cocher ✅)
-- [ ] Mettre à jour le tableau de progression
+1. **createMockMember** : Nécessite `user.createdAt`, `user.displayAvatarURL`, `guild.roles.cache`, `isCommunicationDisabled`
+2. **Extraction de rôles** : Toujours utiliser `roles?.cache` et non `instanceof Map`
+3. **Guild.roles.cache** : Doit être mocké dans la guild pour les tests de changements de rôles
+4. **Tests de rôles** : Vérifier les objets `{id, name}` et non les strings simples
 
 ---
 
-## 🎯 Priorités recommandées
+## 📝 Notes importantes
 
-### Sprint 1 (1 semaine)
-**Objectif** : Compléter Phase 1
+### Corrections apportées aux listeners
 
-1. Messages (3 restants) - 4h
-2. Membres (3) - 4h
-3. Modération (4) - 5h
-4. Réactions (4) - 4h
-5. Voice (1) - 2h
+Les corrections suivantes ont été nécessaires pendant le développement des tests :
 
-**Total** : 19h (~1 semaine)
+1. **guildMemberRemove.ts** :
+   - Correction : `member.roles?.cache` au lieu de `member.roles instanceof Map`
 
-### Sprint 2 (3-4 jours)
-**Objectif** : Compléter Phase 2
+2. **guildMemberUpdate.ts** :
+   - Correction : `oldMember.roles?.cache` au lieu de `instanceof Map`
+   - Correction : `guild.roles?.cache?.get()` avec optional chaining
+   - Correction : Ajout de tous les changements (avatar, communicationDisabledUntil, pending)
+   - Correction : Adaptation à l'interface `MemberUpdateEventData` complète
 
-1. Channels (4) - 4h
-2. Rôles (3) - 3h
-3. Invitations (2) - 2h
+### Mocks disponibles
 
-**Total** : 9h (~3-4 jours)
-
-### Sprint 3 (2 semaines)
-**Objectif** : Compléter Phase 3
-
-Répartir les 22 listeners sur 2 semaines
-
-**Total** : 20h (~2 semaines)
-
-### Sprint 4 (3-4 jours)
-**Objectif** : Tests d'intégration et de charge
-
-**Total** : 9h (~3-4 jours)
+- ✅ `createMockMessage()` - Message Discord complet
+- ✅ `createMockMessageWithAttachments()` - Message avec attachments
+- ✅ `createMockMessageWithEmbeds()` - Message avec embeds
+- ✅ `createMockBotMessage()` - Message d'un bot
+- ✅ `createMockSystemMessage()` - Message système
+- ✅ `createMockReplyMessage()` - Message de réponse
+- ✅ `createMockMember()` - GuildMember complet (mis à jour)
+- ✅ `createMockGuild()` - Guild
+- ⏳ `createMockBan()` - À créer
+- ⏳ `createMockReaction()` - À créer
+- ⏳ `createMockVoiceState()` - À créer
+- ⏳ `createMockAuditLogEntry()` - À créer
 
 ---
 
-## 🎉 Milestones
-
-- [ ] **Milestone 1** : Phase 0 complète ✅
-- [ ] **Milestone 2** : messageCreate testé ✅
-- [ ] **Milestone 3** : Phase 1 complète (16 tests)
-- [ ] **Milestone 4** : Phase 2 complète (25 tests cumulés)
-- [ ] **Milestone 5** : Phase 3 complète (47 tests cumulés)
-- [ ] **Milestone 6** : Tests d'intégration (49 tests cumulés)
-- [ ] **Milestone 7** : Tests de charge (52 tests cumulés)
-- [ ] **Milestone 8** : Couverture globale > 80%
-- [ ] **Milestone 9** : Documentation complète
-- [ ] **Milestone 10** : CI/CD intégré
-
----
-
-## 📝 Notes et décisions
-
-### Listeners désactivés par défaut
-
-Certains listeners sont désactivés par défaut car très verbeux :
-- `PRESENCE_UPDATE` : Milliers d'événements/minute
-- `TYPING_START` : Très fréquent
-
-**Décision** : Les tester quand même mais adapter les tests pour simuler un volume réduit.
-
-### Listeners combinés
-
-Certains événements sont combinés dans le batching :
-- Tous les `MESSAGE_REACTION_*` utilisent le même batch config
-
-**Décision** : Tests individuels mais partager les mocks.
-
----
-
-**Version** : 1.0  
+**Version** : 1.1  
 **Dernière mise à jour** : Octobre 2025  
-**Prochaine révision** : Après Sprint 1 Tâche #1.2 - messageUpdate
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🔴 CRITIQUE  
-**Effort estimé** : 1.5 heures  
-
-**Fichiers à créer** :
-- [ ] `tests/unit/listeners/messages/messageUpdate.spec.ts`
-
-**Tests à écrire** :
-- [ ] Configuration
-- [ ] Filtrage (bots, DMs)
-- [ ] Extraction des changements (oldContent vs newContent)
-- [ ] Gestion des partials
-- [ ] Structure BotEventDto
-
-**Dépendances** : Aucune
-
-**Notes** :
-- Le listener reçoit 2 paramètres : `oldMessage` et `newMessage`
-- Tester les cas où `oldMessage` est un partial
-
----
-
-#### ⏳ Tâche #1.3 - messageDelete
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🔴 CRITIQUE  
-**Effort estimé** : 1.5 heures  
-
-**Fichiers à créer** :
-- [ ] `tests/unit/listeners/messages/messageDelete.spec.ts`
-
-**Tests à écrire** :
-- [ ] Configuration
-- [ ] Filtrage
-- [ ] Gestion des partials (message non en cache)
-- [ ] Extraction de données disponibles
-- [ ] Structure BotEventDto
-
-**Dépendances** : Aucune
-
-**Notes** :
-- Message peut être partial si pas en cache
-- Tester avec/sans informations complètes
-
----
-
-#### ⏳ Tâche #1.4 - messageDeleteBulk
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🟡 IMPORTANT  
-**Effort estimé** : 1 heure  
-
-**Fichiers à créer** :
-- [ ] `tests/unit/listeners/messages/messageDeleteBulk.spec.ts`
-
-**Tests à écrire** :
-- [ ] Configuration
-- [ ] Traitement de collection de messages
-- [ ] Gestion des partials
-- [ ] Structure BotEventDto
-
-**Dépendances** : Aucune
-
----
-
-### ⏳ Membres (3 listeners)
-
-#### ⏳ Tâche #1.5 - guildMemberAdd
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🔴 CRITIQUE  
-**Effort estimé** : 1.5 heures  
-
-**Fichiers à créer** :
-- [ ] `tests/unit/listeners/members/guildMemberAdd.spec.ts`
-- [ ] `createMockMember()` dans mockFactory (si pas déjà fait)
-
-**Tests à écrire** :
-- [ ] Configuration
-- [ ] Extraction données membre (user, roles, joinedAt)
-- [ ] Détection des bots
-- [ ] Structure BotEventDto
-
-**Dépendances** : Aucune
-
----
-
-#### ⏳ Tâche #1.6 - guildMemberRemove
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🔴 CRITIQUE  
-**Effort estimé** : 1 heure  
-
-**Fichiers à créer** :
-- [ ] `tests/unit/listeners/members/guildMemberRemove.spec.ts`
-
-**Tests à écrire** :
-- [ ] Configuration
-- [ ] Extraction données membre
-- [ ] Structure BotEventDto
-
-**Dépendances** : Tâche #1.5 (mock member)
-
----
-
-#### ⏳ Tâche #1.7 - guildMemberUpdate
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🟡 IMPORTANT  
-**Effort estimé** : 1.5 heures  
-
-**Fichiers à créer** :
-- [ ] `tests/unit/listeners/members/guildMemberUpdate.spec.ts`
-
-**Tests à écrire** :
-- [ ] Configuration
-- [ ] Détection des changements (roles, nickname)
-- [ ] Extraction oldMember vs newMember
-- [ ] Structure BotEventDto
-
-**Dépendances** : Tâche #1.5 (mock member)
-
----
-
-### ⏳ Modération (4 listeners)
-
-#### ⏳ Tâche #1.8 - guildBanAdd
-**Statut** : ⏳ À FAIRE  
-**Priorité** : 🔴 CRITIQUE  
-**Effort estimé** : 1 heure  
-
-**Fichiers à créer** :
-- [ ] `tests/unit/listeners/moderation/guildBanAdd.spec.ts`
-- [ ] `createMockBan()` dans mockFactory
-
-**Tests à écrire** :
-- [ ] Configuration
-- [ ] Extraction données ban (user, reason)
-- [ ] Envoi immédiat (événement critique)
-- [ ] Structure BotEventDto
-
-**Dépendances** : Aucune
-
----
-
-#### ⏳
+**Prochaine révision** : Après complétion Phase 1

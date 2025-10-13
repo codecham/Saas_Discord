@@ -49,7 +49,7 @@ export class GuildMemberRemoveListener extends Listener {
       );
     }
 
-    const roles = member.roles instanceof Map 
+    const roles = member.roles?.cache 
       ? Array.from(member.roles.cache.keys())
       : undefined;
 

@@ -52,6 +52,12 @@
     "test:integration": "jest --testPathPatterns=integration",
     "test:load": "jest --testPathPatterns=load --runInBand",
     "test:messageCreate": "jest --testPathPatterns=messageCreate.spec.ts",
+    "test:messageDelete": "jest --testPathPatterns=messageDelete.spec.ts",
+    "test:messageDeleteBulk": "jest --testPathPatterns=messageDeleteBulk.spec.ts",
+    "test:messageUpdate": "jest --testPathPatterns=messageUpdate.spec.ts",
+    "test:guildMemberAdd": "jest --testPathPatterns=guildMemberAdd.spec.ts",
+    "test:guildMemberRemove": "jest --testPathPatterns=guildMemberRemove.spec.ts",
+    "test:guildMemberUpdate": "jest --testPathPatterns=guildMemberUpdate.spec.ts",
     "test:debug": "node --inspect-brk ../../node_modules/.bin/jest --runInBand",
     "test:ci": "jest --ci --coverage --maxWorkers=2"
   },

@@ -183,10 +183,17 @@ export function createMockMember(overrides?: Partial<GuildMember>): GuildMember 
       discriminator: '0001',
       bot: false,
       tag: 'TestMember#0001',
-    } as User,
+      createdAt: new Date('2023-01-01T00:00:00Z'),
+      avatar: null,
+      displayAvatarURL: jest.fn(() => 'https://cdn.discordapp.com/embed/avatars/0.png'),
+    } as any as User,  // ← Double cast ici
     guild: {
       id: 'guild123',
       name: 'Test Guild',
+      memberCount: 100,
+      roles: {
+        cache: new Collection(),
+      },
     } as Guild,
     joinedTimestamp: Date.now(),
     joinedAt: new Date(),
@@ -195,9 +202,12 @@ export function createMockMember(overrides?: Partial<GuildMember>): GuildMember 
       highest: null,
     },
     nickname: null,
+    isCommunicationDisabled: jest.fn(() => false),
+    communicationDisabledUntil: null,   
     ...overrides,
   } as unknown as GuildMember;
 }
+
 
 /**
  * Crée un mock de Guild

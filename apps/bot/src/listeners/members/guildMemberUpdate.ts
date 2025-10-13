@@ -62,25 +62,25 @@ export class GuildMemberUpdateListener extends Listener {
     }
 
     // Changement de rôles
-    const oldRoles = oldMember.roles instanceof Map 
-      ? Array.from(oldMember.roles.cache.keys()) 
+    const oldRoles = oldMember.roles?.cache 
+      ? Array.from(oldMember.roles.cache.keys())
       : [];
     const newRoles = Array.from(newMember.roles.cache.keys());
-    
+
     const addedRoleIds = newRoles.filter(id => !oldRoles.includes(id));
     const removedRoleIds = oldRoles.filter(id => !newRoles.includes(id));
-    
+
     if (addedRoleIds.length > 0 || removedRoleIds.length > 0) {
       changes.roles = {
         added: addedRoleIds.map(id => {
-          const role = newMember.guild.roles.cache.get(id);
+          const role = newMember.guild.roles?.cache?.get(id);
           return {
             id,
             name: role?.name || 'Unknown Role'
           };
         }),
         removed: removedRoleIds.map(id => {
-          const role = newMember.guild.roles.cache.get(id);
+          const role = newMember.guild.roles?.cache?.get(id);
           return {
             id,
             name: role?.name || 'Unknown Role'
@@ -89,7 +89,7 @@ export class GuildMemberUpdateListener extends Listener {
       };
     }
 
-    // Changement d'avatar serveur
+    // Changement d'avatar de serveur
     if (oldMember.avatar !== newMember.avatar) {
       changes.avatar = {
         old: oldMember.avatar || undefined,
@@ -97,10 +97,9 @@ export class GuildMemberUpdateListener extends Listener {
       };
     }
 
-    // Changement de timeout
+    // Changement de timeout (communication disabled)
     const oldTimeout = oldMember.communicationDisabledUntil;
     const newTimeout = newMember.communicationDisabledUntil;
-    
     if (oldTimeout?.getTime() !== newTimeout?.getTime()) {
       changes.communicationDisabledUntil = {
         old: oldTimeout || undefined,
@@ -108,7 +107,7 @@ export class GuildMemberUpdateListener extends Listener {
       };
     }
 
-    // Changement de pending (vérification du serveur)
+    // Changement de pending (membre en attente)
     if (oldMember.pending !== newMember.pending) {
       changes.pending = {
         old: oldMember.pending || false,
@@ -125,7 +124,9 @@ export class GuildMemberUpdateListener extends Listener {
       
       currentNickname: newMember.nickname || undefined,
       currentRoles: newRoles,
-      isCommunicationDisabled: newMember.isCommunicationDisabled(),
+      isCommunicationDisabled: typeof newMember.isCommunicationDisabled === 'function' 
+        ? newMember.isCommunicationDisabled() 
+        : false,
       communicationDisabledUntil: newMember.communicationDisabledUntil || undefined
     };
   }

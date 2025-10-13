@@ -10,7 +10,7 @@ Ce guide vous permet de créer un test pour un nouveau listener en **moins de 15
 
 ### ✅ Étape 1 : Identifier le listener (30 secondes)
 
-Choisissez un listener dans la [roadmap](./TESTS_ROADMAP.md).
+Choisissez un listener dans la [roadmap](./TEST_BOT_LISTENERS_ROADMAP.md).
 
 **Exemple** : `messageUpdate.ts`
 
@@ -28,9 +28,15 @@ touch tests/unit/listeners/messages/messageUpdate.spec.ts
 
 ---
 
-### ✅ Étape 3 : Copier le template (1 minute)
+### ✅ Étape 3 : Copier un test similaire (1 minute)
 
-Copiez le contenu du template depuis la documentation complète et collez-le dans votre fichier.
+La méthode la plus rapide est de copier un test existant similaire :
+
+```bash
+# Exemple : Si vous testez messageUpdate
+cp tests/unit/listeners/messages/messageCreate.spec.ts \
+   tests/unit/listeners/messages/messageUpdate.spec.ts
+```
 
 ---
 
@@ -40,11 +46,9 @@ Utilisez la fonction "Rechercher/Remplacer" de votre éditeur :
 
 | Rechercher | Remplacer par | Exemple |
 |------------|---------------|---------|
-| `[LISTENER_CLASS_NAME]` | Nom de la classe | `MessageUpdateListener` |
-| `[CATEGORY]` | Catégorie | `messages` |
-| `[LISTENER_NAME]` | Nom du fichier | `messageUpdate` |
-| `[EVENT_TYPE]` | Type EventType | `MESSAGE_UPDATE` |
-| `[OBJECT]` | Type d'objet Discord | `Message` |
+| `MessageCreateListener` | Nom de la classe | `MessageUpdateListener` |
+| `messageCreate` | Nom du fichier | `messageUpdate` |
+| `MESSAGE_CREATE` | Type EventType | `MESSAGE_UPDATE` |
 
 ---
 
@@ -52,7 +56,7 @@ Utilisez la fonction "Rechercher/Remplacer" de votre éditeur :
 
 #### A. Paramètres du listener
 
-Vérifiez la signature du `run()` :
+Vérifiez la signature du `run()` dans le listener source :
 
 ```typescript
 // messageCreate : 1 paramètre
@@ -61,11 +65,14 @@ public async run(message: Message)
 // messageUpdate : 2 paramètres
 public async run(oldMessage: Message, newMessage: Message)
 
+// guildMemberUpdate : 2 paramètres
+public async run(oldMember: GuildMember, newMember: GuildMember)
+
 // voiceStateUpdate : 2 paramètres
 public async run(oldState: VoiceState, newState: VoiceState)
 ```
 
-Adaptez vos tests :
+Adaptez vos tests en conséquence :
 
 ```typescript
 // Pour 1 paramètre
@@ -96,7 +103,7 @@ it('should ignore messages not in a guild', async () => {
 
 #### C. Données à extraire
 
-Listez les champs importants à vérifier :
+Listez les champs importants à vérifier selon l'interface `*EventData` correspondante :
 
 ```typescript
 // Exemple pour messageUpdate
@@ -112,14 +119,29 @@ expectEventSent(
 );
 ```
 
+**⚠️ Important** : Vérifiez toujours l'interface `*EventData` dans `shared-types` pour connaître la structure exacte des données.
+
 ---
 
 ### ✅ Étape 6 : Vérifier les mocks (2 minutes)
 
-Vérifiez si vous avez besoin de créer de nouveaux mocks dans `mockFactory.ts` :
+Vérifiez si vous avez besoin de créer de nouveaux mocks dans `mockFactory.ts`.
+
+#### Mocks disponibles :
+
+- ✅ `createMockMessage()` - Message Discord
+- ✅ `createMockMessageWithAttachments()` - Message avec fichiers
+- ✅ `createMockMessageWithEmbeds()` - Message avec embeds
+- ✅ `createMockBotMessage()` - Message d'un bot
+- ✅ `createMockSystemMessage()` - Message système
+- ✅ `createMockReplyMessage()` - Réponse à un message
+- ✅ `createMockMember()` - Membre de serveur
+- ✅ `createMockGuild()` - Serveur Discord
+
+#### Si vous devez créer un nouveau mock :
 
 ```typescript
-// Exemple : Si votre listener utilise VoiceState
+// Exemple : Mock de VoiceState
 export function createMockVoiceState(overrides?: Partial<VoiceState>): VoiceState {
   return {
     channelId: 'voice123',
@@ -134,6 +156,33 @@ export function createMockVoiceState(overrides?: Partial<VoiceState>): VoiceStat
 }
 ```
 
+**⚠️ Points d'attention** :
+
+1. **Méthodes mockées** : Utilisez `jest.fn()` pour les fonctions
+   ```typescript
+   displayAvatarURL: jest.fn(() => 'https://example.com/avatar.png')
+   ```
+
+2. **Double cast TypeScript** : Pour contourner les erreurs de type strictes
+   ```typescript
+   } as any as User
+   ```
+
+3. **Collections Discord.js** : Utilisez `Collection` de discord.js
+   ```typescript
+   import { Collection } from 'discord.js';
+   
+   roles: {
+     cache: new Collection(),
+   }
+   ```
+
+4. **Propriétés requises par les listeners** : Vérifiez les propriétés utilisées dans le listener
+   - `user.createdAt` pour calcul d'âge de compte
+   - `user.displayAvatarURL()` pour les avatars
+   - `guild.roles.cache` pour les changements de rôles
+   - `isCommunicationDisabled()` pour les timeouts
+
 ---
 
 ### ✅ Étape 7 : Lancer et valider (2 minutes)
@@ -141,6 +190,9 @@ export function createMockVoiceState(overrides?: Partial<VoiceState>): VoiceStat
 ```bash
 # Lancer le test
 npm run test -- [LISTENER_NAME].spec.ts
+
+# Exemple concret
+npm run test -- messageUpdate.spec.ts
 
 # Vérifier la couverture
 npm run test:coverage
@@ -152,524 +204,135 @@ git commit -m "test(bot): add tests for [LISTENER_NAME]"
 
 ---
 
-## 🔄 Exemples concrets
-
-### Exemple 1 : messageUpdate (listener à 2 paramètres)
-
-```typescript
-import { MessageUpdateListener } from '../../../../src/listeners/messages/messageUpdate';
-import { EventType } from '@my-project/shared-types';
-import { MessageType } from 'discord.js';
-import { 
-  setupTestContainer, 
-  expectEventSent, 
-  expectNoEventSent 
-} from '../../../helpers/testHelpers';
-import { 
-  createMockMessage,
-  createMockBotMessage
-} from '../../../helpers/mockFactory';
-import * as listenersConfig from '../../../../src/config/listeners.config';
-
-describe('MessageUpdateListener', () => {
-  let listener: MessageUpdateListener;
-  let mockEventBatcher: any;
-  
-  beforeEach(() => {
-    const setup = setupTestContainer();
-    mockEventBatcher = setup.mockEventBatcher;
-    
-    listener = new MessageUpdateListener({} as any, {});
-    
-    Object.defineProperty(listener, 'container', {
-      value: {
-        eventBatcher: mockEventBatcher,
-        logger: {
-          debug: jest.fn(),
-          info: jest.fn(),
-          warn: jest.fn(),
-          error: jest.fn(),
-        }
-      },
-      writable: true,
-      configurable: true
-    });
-  });
-  
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe('Configuration du listener', () => {
-    it('should be disabled when listener config is disabled', async () => {
-      jest.spyOn(listenersConfig, 'isListenerEnabled').mockReturnValue(false);
-      
-      const oldMessage = createMockMessage({ content: 'Old' } as any);
-      const newMessage = createMockMessage({ content: 'New' } as any);
-      
-      await listener.run(oldMessage, newMessage);
-      
-      expectNoEventSent(mockEventBatcher);
-    });
-  });
-
-  describe('Filtrage des messages', () => {
-    beforeEach(() => {
-      jest.spyOn(listenersConfig, 'isListenerEnabled').mockReturnValue(true);
-    });
-
-    it('should ignore messages from bots', async () => {
-      const botMessage = createMockBotMessage();
-      
-      await listener.run(botMessage, botMessage);
-      
-      expectNoEventSent(mockEventBatcher);
-    });
-  });
-
-  describe('Extraction des données', () => {
-    beforeEach(() => {
-      jest.spyOn(listenersConfig, 'isListenerEnabled').mockReturnValue(true);
-    });
-
-    it('should extract old and new content', async () => {
-      const oldMessage = createMockMessage({ 
-        id: 'msg123',
-        content: 'Old content' 
-      } as any);
-      
-      const newMessage = createMockMessage({ 
-        id: 'msg123',
-        content: 'New content',
-        editedTimestamp: Date.now(),
-        editedAt: new Date()
-      } as any);
-      
-      await listener.run(oldMessage, newMessage);
-      
-      expectEventSent(
-        mockEventBatcher,
-        EventType.MESSAGE_UPDATE,
-        'guild123',
-        (evt) => {
-          expect(evt.data.oldContent).toBe('Old content');
-          expect(evt.data.newContent).toBe('New content');
-          expect(evt.data.editedAt).toBeDefined();
-        }
-      );
-    });
-  });
-});
-```
-
----
-
-### Exemple 2 : guildMemberAdd (objet différent)
-
-**Étape 1** : Créer le mock si nécessaire
-
-```typescript
-// Dans mockFactory.ts
-export function createMockMember(overrides?: Partial<GuildMember>): GuildMember {
-  return {
-    id: 'member123',
-    user: {
-      id: 'user123',
-      username: 'TestMember',
-      discriminator: '0001',
-      bot: false,
-      tag: 'TestMember#0001',
-    } as User,
-    guild: {
-      id: 'guild123',
-      name: 'Test Guild',
-    } as Guild,
-    joinedTimestamp: Date.now(),
-    joinedAt: new Date(),
-    roles: {
-      cache: new Collection(),
-    },
-    nickname: null,
-    ...overrides,
-  } as unknown as GuildMember;
-}
-```
-
-**Étape 2** : Créer le test
-
-```typescript
-import { GuildMemberAddListener } from '../../../../src/listeners/members/guildMemberAdd';
-import { EventType } from '@my-project/shared-types';
-import { 
-  setupTestContainer, 
-  expectEventSent 
-} from '../../../helpers/testHelpers';
-import { createMockMember } from '../../../helpers/mockFactory';
-import * as listenersConfig from '../../../../src/config/listeners.config';
-
-describe('GuildMemberAddListener', () => {
-  let listener: GuildMemberAddListener;
-  let mockEventBatcher: any;
-  
-  beforeEach(() => {
-    const setup = setupTestContainer();
-    mockEventBatcher = setup.mockEventBatcher;
-    
-    listener = new GuildMemberAddListener({} as any, {});
-    
-    Object.defineProperty(listener, 'container', {
-      value: {
-        eventBatcher: mockEventBatcher,
-        logger: {
-          debug: jest.fn(),
-          info: jest.fn(),
-          warn: jest.fn(),
-          error: jest.fn(),
-        }
-      },
-      writable: true,
-      configurable: true
-    });
-  });
-  
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe('Extraction des données', () => {
-    beforeEach(() => {
-      jest.spyOn(listenersConfig, 'isListenerEnabled').mockReturnValue(true);
-    });
-
-    it('should extract member data correctly', async () => {
-      const member = createMockMember({
-        user: {
-          id: 'newuser123',
-          username: 'NewUser',
-          bot: false
-        } as any
-      });
-      
-      await listener.run(member);
-      
-      expectEventSent(
-        mockEventBatcher,
-        EventType.GUILD_MEMBER_ADD,
-        'guild123',
-        (evt) => {
-          expect(evt.data.userId).toBe('newuser123');
-          expect(evt.data.username).toBe('NewUser');
-          expect(evt.data.isBot).toBe(false);
-          expect(evt.data.joinedAt).toBeDefined();
-        }
-      );
-    });
-    
-    it('should detect bot accounts', async () => {
-      const botMember = createMockMember({
-        user: {
-          id: 'bot123',
-          username: 'BotAccount',
-          bot: true
-        } as any
-      });
-      
-      await listener.run(botMember);
-      
-      expectEventSent(
-        mockEventBatcher,
-        EventType.GUILD_MEMBER_ADD,
-        'guild123',
-        (evt) => {
-          expect(evt.data.isBot).toBe(true);
-        }
-      );
-    });
-  });
-});
-```
-
----
-
-### Exemple 3 : voiceStateUpdate (détection de changements)
-
-```typescript
-import { VoiceStateUpdateListener } from '../../../../src/listeners/voice/voiceStateUpdate';
-import { EventType } from '@my-project/shared-types';
-import { 
-  setupTestContainer, 
-  expectEventSent 
-} from '../../../helpers/testHelpers';
-import { createMockVoiceState } from '../../../helpers/mockFactory';
-import * as listenersConfig from '../../../../src/config/listeners.config';
-
-describe('VoiceStateUpdateListener', () => {
-  let listener: VoiceStateUpdateListener;
-  let mockEventBatcher: any;
-  
-  beforeEach(() => {
-    const setup = setupTestContainer();
-    mockEventBatcher = setup.mockEventBatcher;
-    
-    listener = new VoiceStateUpdateListener({} as any, {});
-    
-    Object.defineProperty(listener, 'container', {
-      value: {
-        eventBatcher: mockEventBatcher,
-        logger: {
-          debug: jest.fn(),
-          info: jest.fn(),
-          warn: jest.fn(),
-          error: jest.fn(),
-        }
-      },
-      writable: true,
-      configurable: true
-    });
-  });
-  
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe('Détection des actions', () => {
-    beforeEach(() => {
-      jest.spyOn(listenersConfig, 'isListenerEnabled').mockReturnValue(true);
-    });
-
-    it('should detect channel join', async () => {
-      const oldState = createMockVoiceState({ channelId: null } as any);
-      const newState = createMockVoiceState({ channelId: 'voice123' } as any);
-      
-      await listener.run(oldState, newState);
-      
-      expectEventSent(
-        mockEventBatcher,
-        EventType.VOICE_STATE_UPDATE,
-        'guild123',
-        (evt) => {
-          expect(evt.data.action).toBe('join');
-          expect(evt.data.channelId).toBe('voice123');
-        }
-      );
-    });
-    
-    it('should detect channel leave', async () => {
-      const oldState = createMockVoiceState({ channelId: 'voice123' } as any);
-      const newState = createMockVoiceState({ channelId: null } as any);
-      
-      await listener.run(oldState, newState);
-      
-      expectEventSent(
-        mockEventBatcher,
-        EventType.VOICE_STATE_UPDATE,
-        'guild123',
-        (evt) => {
-          expect(evt.data.action).toBe('leave');
-        }
-      );
-    });
-    
-    it('should detect mute/unmute', async () => {
-      const oldState = createMockVoiceState({ 
-        channelId: 'voice123',
-        mute: false 
-      } as any);
-      
-      const newState = createMockVoiceState({ 
-        channelId: 'voice123',
-        mute: true 
-      } as any);
-      
-      await listener.run(oldState, newState);
-      
-      expectEventSent(
-        mockEventBatcher,
-        EventType.VOICE_STATE_UPDATE,
-        'guild123',
-        (evt) => {
-          expect(evt.data.changes).toContain('mute');
-        }
-      );
-    });
-  });
-});
-```
-
----
-
-## 🎨 Patterns courants
-
-### Pattern 1 : Listener avec filtrage de bots
-
-```typescript
-describe('Filtrage des messages', () => {
-  it('should ignore messages from bots', async () => {
-    const botMessage = createMockBotMessage();
-    await listener.run(botMessage);
-    expectNoEventSent(mockEventBatcher);
-  });
-  
-  it('should accept messages from users', async () => {
-    const userMessage = createMockMessage();
-    await listener.run(userMessage);
-    expect(mockEventBatcher.addEvent).toHaveBeenCalled();
-  });
-});
-```
-
-### Pattern 2 : Listener avec détection de changements
-
-```typescript
-describe('Détection des changements', () => {
-  it('should detect when [FIELD] changes', async () => {
-    const oldObject = createMock[OBJECT]({ [FIELD]: 'old value' } as any);
-    const newObject = createMock[OBJECT]({ [FIELD]: 'new value' } as any);
-    
-    await listener.run(oldObject, newObject);
-    
-    expectEventSent(
-      mockEventBatcher,
-      EventType.[EVENT_TYPE],
-      'guild123',
-      (evt) => {
-        expect(evt.data.changes.[FIELD]).toEqual({
-          old: 'old value',
-          new: 'new value'
-        });
-      }
-    );
-  });
-});
-```
-
-### Pattern 3 : Listener avec événement critique (envoi immédiat)
-
-```typescript
-describe('Envoi immédiat', () => {
-  it('should send event immediately (critical)', async () => {
-    jest.spyOn(listenersConfig, 'isListenerEnabled').mockReturnValue(true);
-    
-    const banEvent = createMockBan();
-    
-    await listener.run(banEvent);
-    
-    // L'événement devrait être envoyé immédiatement
-    expect(mockEventBatcher.addEvent).toHaveBeenCalledTimes(1);
-    
-    // Vérifier que c'est bien un événement critique
-    const event = mockEventBatcher.addEvent.mock.calls[0][0];
-    expect(event.type).toBe(EventType.GUILD_BAN_ADD);
-  });
-});
-```
-
-### Pattern 4 : Listener avec gestion de partials
-
-```typescript
-describe('Gestion des partials', () => {
-  it('should handle partial messages', async () => {
-    jest.spyOn(listenersConfig, 'isListenerEnabled').mockReturnValue(true);
-    
-    const partialMessage = createMockMessage({
-      partial: true,
-      content: undefined, // Non disponible si partial
-      author: { id: 'user123' } as any
-    } as any);
-    
-    await listener.run(partialMessage);
-    
-    expectEventSent(
-      mockEventBatcher,
-      EventType.MESSAGE_DELETE,
-      'guild123',
-      (evt) => {
-        expect(evt.data.content).toBeUndefined();
-        expect(evt.data.authorId).toBe('user123');
-      }
-    );
-  });
-});
-```
-
----
-
-## 🚨 Erreurs fréquentes et solutions
+## 🔧 Erreurs courantes et solutions
 
 ### Erreur 1 : "Cannot read properties of undefined"
 
 **Symptôme** :
 ```
-TypeError: Cannot read properties of undefined (reading 'map')
+TypeError: Cannot read properties of undefined (reading 'getTime')
 ```
 
-**Cause** : Un champ manque dans votre mock
+**Cause** : Une propriété requise par le listener n'est pas définie dans le mock.
 
-**Solution** :
+**Solution** : Ajoutez la propriété manquante au mock
 ```typescript
-// Ajouter le champ manquant dans mockFactory.ts
-export function createMockMessage(overrides?: Partial<Message>): Message {
-  const defaultMessage = {
-    // ... autres champs
-    stickers: new Collection(),  // <-- Ajouter
-    reactions: new Collection(), // <-- Ajouter si nécessaire
-  };
-  return { ...defaultMessage, ...overrides } as unknown as Message;
+// Dans mockFactory.ts - createMockMember
+user: {
+  id: 'user123',
+  username: 'TestMember',
+  createdAt: new Date('2023-01-01'), // ← Ajouter
+  displayAvatarURL: jest.fn(() => 'https://...'), // ← Ajouter
+  // ...
 }
 ```
 
 ---
 
-### Erreur 2 : "Type '...' is not assignable"
+### Erreur 2 : "is not a function"
 
 **Symptôme** :
 ```
-Type '{ content: string; }' is not assignable to type 'Partial<Message>'
+TypeError: member.user.displayAvatarURL is not a function
 ```
 
-**Solution** : Ajouter `as any` au cast
+**Solution** : Utilisez `jest.fn()` au lieu d'une fonction fléchée
 ```typescript
-const message = createMockMessage({ content: 'test' } as any);
+// ❌ Incorrect
+displayAvatarURL: () => 'https://...'
+
+// ✅ Correct
+displayAvatarURL: jest.fn(() => 'https://...')
 ```
 
 ---
 
-### Erreur 3 : Mock du container qui ne fonctionne pas
+### Erreur 3 : Erreur de cast TypeScript
 
 **Symptôme** :
 ```
-TypeError: Cannot read properties of undefined (reading 'addEvent')
+La conversion du type '{ ... }' en type 'User' est peut-être une erreur
 ```
 
-**Solution** : Utiliser `Object.defineProperty`
+**Solution** : Utilisez un double cast
 ```typescript
-Object.defineProperty(listener, 'container', {
-  value: {
-    eventBatcher: mockEventBatcher,
-    logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() }
+// ❌ Incorrect
+} as User
+
+// ✅ Correct
+} as any as User
+```
+
+---
+
+### Erreur 4 : "Cannot read properties of undefined (reading 'cache')"
+
+**Symptôme** :
+```
+TypeError: Cannot read properties of undefined (reading 'cache')
+```
+
+**Cause** : Le listener essaie d'accéder à une structure imbriquée non mockée (ex: `guild.roles.cache`)
+
+**Solution** : Ajoutez la structure complète au mock
+```typescript
+guild: {
+  id: 'guild123',
+  name: 'Test Guild',
+  roles: {  // ← Ajouter
+    cache: new Collection(),
   },
-  writable: true,
-  configurable: true
-});
+} as any as Guild
 ```
 
 ---
 
-### Erreur 4 : Test qui timeout
+### Erreur 5 : Test qui attend un array d'objets mais reçoit des strings
 
 **Symptôme** :
 ```
-Timeout - Async callback was not invoked within the 10000 ms timeout
+expect(received).toContain(expected)
+Expected value: "role2"
+Received array: [{"id": "role2", "name": "Unknown Role"}]
 ```
 
-**Solution** : Augmenter le timeout ou vérifier les promises
-```typescript
-it('should do something', async () => {
-  // ... test
-}, 15000); // 15 secondes au lieu de 10
+**Cause** : L'interface `*EventData` retourne des objets, pas des strings simples.
 
-// OU vérifier que vous utilisez bien async/await
-await listener.run(message); // Ne pas oublier le await !
+**Solution** : Vérifiez les propriétés des objets
+```typescript
+// ❌ Incorrect
+expect(evt.data.changes.roles.added).toContain('role2');
+
+// ✅ Correct - vérifier l'ID dans l'objet
+expect(evt.data.changes.roles.added[0].id).toBe('role2');
+
+// ✅ Correct - avec find
+expect(evt.data.changes.roles.added.find((r: any) => r.id === 'role2')).toBeDefined();
+
+// ✅ Correct - avec map
+const addedIds = evt.data.changes.roles.added.map((r: any) => r.id);
+expect(addedIds).toContain('role2');
+```
+
+---
+
+### Erreur 6 : Problème avec instanceof Map
+
+**Symptôme** : Les rôles ne sont pas extraits correctement
+
+**Cause** : Utilisation de `instanceof Map` au lieu de vérifier `.cache`
+
+**Solution dans le listener** :
+```typescript
+// ❌ Incorrect
+const roles = member.roles instanceof Map 
+  ? Array.from(member.roles.cache.keys())
+  : undefined;
+
+// ✅ Correct
+const roles = member.roles?.cache 
+  ? Array.from(member.roles.cache.keys())
+  : undefined;
 ```
 
 ---
@@ -682,13 +345,14 @@ Avant de considérer un test comme terminé :
 - [ ] Au moins 4 catégories de tests :
   - [ ] Configuration (activé/désactivé)
   - [ ] Filtrage (ce qui doit être ignoré)
-  - [ ] Extraction de données (vérifier les champs)
+  - [ ] Extraction de données (vérifier les champs selon l'interface)
   - [ ] Structure BotEventDto (format correct)
 - [ ] Couverture > 80% pour ce listener
 - [ ] Tous les cas limites testés (null, undefined, partials)
 - [ ] Code formaté : `npm run format`
 - [ ] Pas de console.log oubliés
-- [ ] Commit avec message clair
+- [ ] Commit avec message clair : `test(bot): add tests for listenerName`
+- [ ] Mise à jour de la roadmap (cocher la case ✅)
 
 ---
 
@@ -703,7 +367,7 @@ Si vous testez `messageUpdate` et que `messageCreate` existe déjà :
 cp tests/unit/listeners/messages/messageCreate.spec.ts \
    tests/unit/listeners/messages/messageUpdate.spec.ts
 
-# Faire un rechercher/remplacer global
+# Faire un rechercher/remplacer global dans votre éditeur
 # messageCreate → messageUpdate
 # MessageCreate → MessageUpdate
 # MESSAGE_CREATE → MESSAGE_UPDATE
@@ -762,11 +426,13 @@ Vos tests se relancent automatiquement à chaque sauvegarde !
 
 ## 🎓 Ressources rapides
 
-- **Template complet** : Voir documentation principale
-- **Roadmap** : `TESTS_ROADMAP.md`
+- **Roadmap** : `docs/roadmaps/TEST_BOT_LISTENERS_ROADMAP.md`
 - **Helpers disponibles** : `tests/helpers/testHelpers.ts`
 - **Mocks disponibles** : `tests/helpers/mockFactory.ts`
-- **Exemple de référence** : `tests/unit/listeners/messages/messageCreate.spec.ts`
+- **Exemples de référence** :
+  - `tests/unit/listeners/messages/messageCreate.spec.ts` (1 paramètre, simple)
+  - `tests/unit/listeners/messages/messageUpdate.spec.ts` (2 paramètres, gestion partials)
+  - `tests/unit/listeners/members/guildMemberUpdate.spec.ts` (détection changements complexes)
 
 ---
 
@@ -778,8 +444,35 @@ Vos tests se relancent automatiquement à chaque sauvegarde !
 | Moyen (2 params, filtrage standard) | 45-90 min | 🟡 Moyen |
 | Complexe (détection changements, partials) | 90-120 min | 🔴 Difficile |
 
+**Note** : Avec l'expérience acquise, les temps réels sont souvent plus courts (~1.1h en moyenne).
+
+---
+
+## 📚 Leçons apprises (Octobre 2025)
+
+### Points clés à retenir
+
+1. **Toujours vérifier l'interface EventData** avant d'écrire les tests
+2. **Mocks complets dès le début** : Mieux vaut ajouter toutes les propriétés nécessaires au début
+3. **Jest.fn() pour les méthodes** : Obligatoire pour les fonctions dans les mocks Discord.js
+4. **Optional chaining partout** : Utiliser `?.` pour gérer les partials gracieusement
+5. **Double cast TypeScript** : `as any as Type` résout la plupart des problèmes de typage
+6. **Vérifier le listener** : Parfois c'est le listener qui a besoin d'être corrigé, pas le test
+
+### Corrections communes
+
+- ✅ `roles?.cache` au lieu de `instanceof Map`
+- ✅ `guild.roles?.cache?.get()` avec optional chaining
+- ✅ `jest.fn()` pour `displayAvatarURL`, `isCommunicationDisabled`
+- ✅ Vérifier les objets `{id, name}` et non les strings pour les rôles
+- ✅ Ajouter `user.createdAt` pour les calculs d'âge de compte
+
 ---
 
 **Bon courage ! 🚀**
 
 Vous avez tous les outils pour créer des tests de qualité rapidement. N'hésitez pas à consulter les exemples et à adapter les patterns à votre cas d'usage.
+
+**Version** : 1.1  
+**Dernière mise à jour** : Octobre 2025  
+**Inclut les leçons des 7 premiers listeners testés**

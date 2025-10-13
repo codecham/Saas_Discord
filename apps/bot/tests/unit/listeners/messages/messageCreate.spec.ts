@@ -1,5 +1,3 @@
-// apps/bot/tests/unit/listeners/messages/messageCreate.spec.ts
-
 import { MessageCreateListener } from '../../../../src/listeners/messages/messageCreate';
 import { EventType } from '@my-project/shared-types';
 import { MessageType } from 'discord.js';
