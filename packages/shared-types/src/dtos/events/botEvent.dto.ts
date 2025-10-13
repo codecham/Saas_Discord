@@ -378,8 +378,6 @@ export interface AutoModerationActionExecutionEventData {
     REACTION LISTENERS
 */
 
-// Fichier: packages/shared-types/src/dtos/events/botEvent.dto.ts
-
 export interface ReactionAddEventData {
   emoji: {
     id?: string;
@@ -426,8 +424,6 @@ export interface ReactionRemoveEmojiEventData {
     VOICE LISTENERS
 */
 
-// Fichier: packages/shared-types/src/dtos/events/botEvent.dto.ts
-
 export interface VoiceStateUpdateEventData {
   userId: string;
   username: string;
@@ -458,4 +454,270 @@ export interface VoiceStateUpdateEventData {
     selfVideo: boolean;
     streaming: boolean;
   };
+}
+
+/*
+    CHANNELS LISTENERS
+*/
+
+export interface ChannelCreateEventData {
+  channelId: string;
+  channelName: string;
+  channelType: number; // ChannelType enum
+  
+  parentId?: string;
+  parentName?: string;
+  
+  position: number;
+  
+  // Permissions
+  permissionOverwrites?: Array<{
+    id: string;
+    type: number; // 0 = role, 1 = member
+    allow: string;
+    deny: string;
+  }>;
+  
+  // Text channels
+  topic?: string;
+  nsfw?: boolean;
+  rateLimitPerUser?: number; // slowmode en secondes
+  
+  // Voice channels
+  bitrate?: number;
+  userLimit?: number;
+  
+  createdAt: Date;
+}
+
+export interface ChannelUpdateEventData {
+  channelId: string;
+  channelName: string;
+  channelType: number;
+  
+  changes: {
+    name?: {
+      old: string;
+      new: string;
+    };
+    
+    topic?: {
+      old?: string;
+      new?: string;
+    };
+    
+    nsfw?: {
+      old: boolean;
+      new: boolean;
+    };
+    
+    rateLimitPerUser?: {
+      old: number;
+      new: number;
+    };
+    
+    bitrate?: {
+      old: number;
+      new: number;
+    };
+    
+    userLimit?: {
+      old: number;
+      new: number;
+    };
+    
+    parent?: {
+      oldId?: string;
+      oldName?: string;
+      newId?: string;
+      newName?: string;
+    };
+    
+    position?: {
+      old: number;
+      new: number;
+    };
+    
+    permissionOverwrites?: {
+      added: Array<{
+        id: string;
+        type: number;
+        allow: string;
+        deny: string;
+      }>;
+      removed: Array<{
+        id: string;
+        type: number;
+      }>;
+      updated: Array<{
+        id: string;
+        type: number;
+        oldAllow: string;
+        newAllow: string;
+        oldDeny: string;
+        newDeny: string;
+      }>;
+    };
+  };
+  
+  updatedAt: Date;
+}
+
+export interface ChannelDeleteEventData {
+  channelId: string;
+  channelName: string;
+  channelType: number;
+  
+  parentId?: string;
+  parentName?: string;
+  
+  position: number;
+  
+  // Statistiques si disponibles
+  messageCount?: number;
+  
+  deletedAt: Date;
+}
+
+export interface ChannelPinsUpdateEventData {
+  channelId: string;
+  channelName: string;
+  channelType: number;
+  
+  lastPinTimestamp?: Date; // undefined si tous les pins ont été retirés
+  
+  updatedAt: Date;
+}
+
+
+/*
+    ROLES LISTENERS
+*/
+
+export interface RoleCreateEventData {
+  roleId: string;
+  roleName: string;
+  
+  color: number;
+  hoist: boolean; // Affiché séparément dans la liste des membres
+  position: number;
+  permissions: string; // Bitfield des permissions
+  
+  mentionable: boolean;
+  managed: boolean; // Géré par une intégration (bot, boost, etc.)
+  
+  icon?: string | null;
+  unicodeEmoji?: string | null;
+  
+  createdAt: Date;
+}
+
+export interface RoleUpdateEventData {
+  roleId: string;
+  roleName: string;
+  
+  changes: {
+    name?: {
+      old: string;
+      new: string;
+    };
+    
+    color?: {
+      old: number;
+      new: number;
+    };
+    
+    hoist?: {
+      old: boolean;
+      new: boolean;
+    };
+    
+    position?: {
+      old: number;
+      new: number;
+    };
+    
+    permissions?: {
+      old: string;
+      new: string;
+      addedPermissions: string[];
+      removedPermissions: string[];
+    };
+    
+    mentionable?: {
+      old: boolean;
+      new: boolean;
+    };
+    
+    icon?: {
+      old?: string | null;
+      new?: string | null;
+    };
+    
+    unicodeEmoji?: {
+      old?: string | null;
+      new?: string | null;
+    };
+  };
+  
+  updatedAt: Date;
+}
+
+export interface RoleDeleteEventData {
+  roleId: string;
+  roleName: string;
+  
+  color: number;
+  hoist: boolean;
+  position: number;
+  permissions: string;
+  
+  mentionable: boolean;
+  managed: boolean;
+  
+  memberCount?: number; // Nombre de membres qui avaient ce rôle (si disponible)
+  
+  deletedAt: Date;
+}
+
+/*
+    INVITES LISTENERS
+*/
+
+export interface InviteCreateEventData {
+  code: string;
+  channelId: string;
+  channelName: string;
+  
+  inviterId?: string;
+  inviterUsername?: string;
+  inviterBot?: boolean;
+  
+  maxAge: number; // Durée de validité en secondes (0 = infini)
+  maxUses: number; // Nombre d'utilisations max (0 = illimité)
+  temporary: boolean; // Adhésion temporaire
+  
+  createdAt: Date;
+  expiresAt?: Date; // Calculé si maxAge > 0
+  
+  targetType?: number; // InviteTargetType (stream, embedded application)
+  targetUserId?: string;
+  targetUsername?: string;
+  targetApplicationId?: string;
+}
+
+export interface InviteDeleteEventData {
+  code: string;
+  channelId: string;
+  channelName: string;
+  
+  inviterId?: string;
+  inviterUsername?: string;
+  
+  uses?: number; // Nombre d'utilisations avant suppression (si disponible)
+  maxUses?: number;
+  createdAt?: Date;
+  
+  deletedAt: Date;
+  reason?: 'expired' | 'max_uses' | 'manual' | 'unknown'; // Raison de la suppression (si détectable)
 }

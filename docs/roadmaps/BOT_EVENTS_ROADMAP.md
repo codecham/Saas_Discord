@@ -1113,18 +1113,18 @@ export class [EventName]Listener extends Listener {
   - [x] VOICE_STATE_UPDATE
 
 ### Phase 2 : Gestion du serveur (9 listeners)
-- [ ] **Channels** (4)
-  - [ ] CHANNEL_CREATE
-  - [ ] CHANNEL_UPDATE
-  - [ ] CHANNEL_DELETE
-  - [ ] CHANNEL_PINS_UPDATE
-- [ ] **Rôles** (3)
-  - [ ] ROLE_CREATE
-  - [ ] ROLE_UPDATE
-  - [ ] ROLE_DELETE
-- [ ] **Invitations** (2)
-  - [ ] INVITE_CREATE
-  - [ ] INVITE_DELETE
+- [x] **Channels** (4)
+  - [x] CHANNEL_CREATE
+  - [x] CHANNEL_UPDATE
+  - [x] CHANNEL_DELETE
+  - [x] CHANNEL_PINS_UPDATE
+- [x] **Rôles** (3)
+  - [x] ROLE_CREATE
+  - [x] ROLE_UPDATE
+  - [x] ROLE_DELETE
+- [x] **Invitations** (2)
+  - [x] INVITE_CREATE
+  - [x] INVITE_DELETE
 
 ### Phase 3 : Fonctionnalités avancées (22 listeners)
 - [ ] **Threads** (4)
