@@ -14,7 +14,6 @@
     "@sapphire/utilities": "^3.18.1",
     "@skyra/env-utilities": "^1.3.0",
     "@types/jasmine": "^5.1.9",
-    "@types/jest": "^30.0.0",
     "better-sqlite3": "^12.4.1",
     "colorette": "^2.0.20",
     "discord.js": "^14.22.1",
@@ -27,9 +26,12 @@
     "@sapphire/prettier-config": "^2.0.0",
     "@sapphire/ts-config": "^5.0.1",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.18.6",
     "@types/ws": "^8.5.13",
+    "jest": "^30.1.3",
     "prettier": "^3.4.2",
+    "ts-jest": "^29.4.5",
     "tsc-watch": "^6.3.0",
     "typescript": "~5.4.5"
   },
@@ -41,7 +43,17 @@
     "start": "node dist/index.js",
     "dev": "npm run build && npm run start",
     "watch:start": "tsc-watch --onSuccess \"npm run start\"",
-    "format": "prettier --write \"src/\""
+    "format": "prettier --write \"src/\"",
+
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:unit": "jest --testPathPatterns=unit",
+    "test:integration": "jest --testPathPatterns=integration",
+    "test:load": "jest --testPathPatterns=load --runInBand",
+    "test:messageCreate": "jest --testPathPatterns=messageCreate.spec.ts",
+    "test:debug": "node --inspect-brk ../../node_modules/.bin/jest --runInBand",
+    "test:ci": "jest --ci --coverage --maxWorkers=2"
   },
   "prettier": "@sapphire/prettier-config"
 }
