@@ -5,10 +5,6 @@
 1. [Vision & Philosophie](#vision--philosophie)
 2. [Architecture des Pages](#architecture-des-pages)
 3. [Roadmap Évolutive](#roadmap-évolutive)
-4. [Spécifications Techniques](#spécifications-techniques)
-5. [Design System](#design-system)
-6. [User Flows](#user-flows)
-7. [Métriques de Succès](#métriques-de-succès)
 
 ---
 
