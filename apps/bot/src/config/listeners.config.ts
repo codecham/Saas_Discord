@@ -313,5 +313,7 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
  */
 export function isListenerEnabled(eventName: string): boolean {
   const config = LISTENERS_CONFIG[eventName];
+  // const response = config?.enabled ?? false;
+  // console.log(`[Listener Config] Event: ${eventName} are ${response}`);
   return config?.enabled ?? false;
 }

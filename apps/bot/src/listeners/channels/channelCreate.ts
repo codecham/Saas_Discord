@@ -10,11 +10,22 @@ import { isListenerEnabled } from '../../config/listeners.config';
 })
 export class ChannelCreateListener extends Listener {
   public override async run(channel: GuildChannel) {
+      this.container.logger.debug(
+        `[ChannelCreate] [0] Channel created trigger`
+      );
     // 1. Vérification configuration
     if (!isListenerEnabled(EventType.CHANNEL_CREATE)) return;
 
+      this.container.logger.debug(
+        `[ChannelCreate] [1] Channel created enable`
+      );
+
     // 2. Vérification que c'est bien un channel de guild
     if (!channel.guild) return;
+
+      this.container.logger.debug(
+        `[ChannelCreate] [2] Channel has guild`
+      );
 
     try {
       // 3. Extraction des données

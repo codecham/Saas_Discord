@@ -7,7 +7,7 @@ import { EventBatcher } from '../services/eventBatcher.service';
 
 const dev = process.env.NODE_ENV !== 'production';
 
-const guildSYNC = false;
+const guildSYNC = true;
 
 @ApplyOptions<Listener.Options>({ once: true })
 export class UserEvent extends Listener {
