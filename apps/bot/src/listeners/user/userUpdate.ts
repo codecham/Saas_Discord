@@ -70,6 +70,7 @@ export class UserUpdateListener extends Listener {
 
       const event: BotEventDto = {
         type: EventType.USER_UPDATE,
+        guildId: 'EMPTY',
         userId: newUser.id,
         timestamp: Date.now(),
         data: eventData,

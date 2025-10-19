@@ -4,9 +4,10 @@ import { GatewayController } from './controllers/gateway.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { BotCommandSenderService } from './services/bot-command-sender.service';
 import { BotEventHandlerService } from './services/bot-event-handler.service';
+import { EventsModule } from '../events/events.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, EventsModule],
   providers: [
     GatewayClientService,
     BotCommandSenderService,

@@ -13,6 +13,7 @@ export * from './dtos/discord/channel.dto';
 export * from './dtos/discord/message.dto';
 export * from './dtos/discord/role.dto';
 export * from './dtos/discord/member.dto';
+export * from './dtos/stats/stats-response.dto';
 export * from './enums/eventTypes.enum';
 
 // Pour l'instant, on peut mettre un placeholder
