@@ -1,6 +1,6 @@
 {
   "meta": {
-    "lastUpdate": "2025-10-19T14:59:27.640Z",
+    "lastUpdate": "2025-10-19T22:06:30.754Z",
     "version": "1.0.0",
     "projectName": "Discord Admin App"
   },
@@ -9,12 +9,12 @@
     "phaseName": "MVP Core - Stats",
     "sprint": "stats-frontend",
     "task": {
-      "id": "1.8",
-      "name": "Dashboard Overview Components",
+      "id": "1.9",
+      "name": "Member Stats Page",
       "phase": "phase-1",
-      "status": "in_progress",
+      "status": "not_started",
       "progress": 0,
-      "estimatedHoursRemaining": 24
+      "estimatedHoursRemaining": 16
     }
   },
   "phases": {
@@ -33,8 +33,8 @@
       "status": "in_progress",
       "tasks": {
         "total": 12,
-        "completed": 7,
-        "percentage": 58
+        "completed": 8,
+        "percentage": 67
       }
     },
     "phase-2": {
@@ -189,21 +189,23 @@
       "description": "Créer StatisticsService (pattern facade), models TypeScript, HTTP calls vers Backend API",
       "completedAt": "2025-10-19",
       "actualHours": 1
-    }
-  ],
-  "upcomingTasks": [
+    },
     {
       "id": "1.8",
       "name": "Dashboard Overview Components",
       "phase": "phase-1",
-      "status": "not_started",
+      "status": "completed",
       "estimatedHours": 24,
       "priority": "high",
       "dependencies": [
         "1.7"
       ],
-      "description": "Page Dashboard avec cards stats, charts (PrimeNG), leaderboard top 10"
-    },
+      "description": "Page Dashboard avec cards stats, charts (PrimeNG), leaderboard top 10",
+      "completedAt": "2025-10-19",
+      "actualHours": 1
+    }
+  ],
+  "upcomingTasks": [
     {
       "id": "1.9",
       "name": "Member Stats Page",
@@ -278,7 +280,7 @@
   ],
   "stats": {
     "totalEstimatedHours": 450,
-    "completedHours": 112,
+    "completedHours": 113,
     "remainingHours": 339,
     "percentComplete": 25,
     "averageTaskCompletionTime": 10.1,
