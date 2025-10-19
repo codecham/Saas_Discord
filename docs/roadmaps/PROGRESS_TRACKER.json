@@ -1,6 +1,6 @@
 {
   "meta": {
-    "lastUpdate": "2025-10-19T16:00:00Z",
+    "lastUpdate": "2025-10-19T14:18:01.859Z",
     "version": "1.0.0",
     "projectName": "Discord Admin App"
   },
@@ -12,7 +12,7 @@
       "id": "1.7",
       "name": "Services & Models Frontend",
       "phase": "phase-1",
-      "status": "not_started",
+      "status": "in_progress",
       "progress": 0,
       "estimatedHoursRemaining": 8
     }
@@ -185,7 +185,9 @@
       "status": "not_started",
       "estimatedHours": 8,
       "priority": "high",
-      "dependencies": ["1.5"],
+      "dependencies": [
+        "1.5"
+      ],
       "description": "Créer StatisticsService (pattern facade), models TypeScript, HTTP calls vers Backend API"
     },
     {
@@ -195,7 +197,9 @@
       "status": "not_started",
       "estimatedHours": 24,
       "priority": "high",
-      "dependencies": ["1.7"],
+      "dependencies": [
+        "1.7"
+      ],
       "description": "Page Dashboard avec cards stats, charts (PrimeNG), leaderboard top 10"
     },
     {
@@ -205,7 +209,9 @@
       "status": "not_started",
       "estimatedHours": 16,
       "priority": "high",
-      "dependencies": ["1.7"],
+      "dependencies": [
+        "1.7"
+      ],
       "description": "Page stats membre individuel avec charts activité, comparaison moyenne"
     },
     {
@@ -215,7 +221,9 @@
       "status": "not_started",
       "estimatedHours": 16,
       "priority": "medium",
-      "dependencies": ["1.8"],
+      "dependencies": [
+        "1.8"
+      ],
       "description": "Gateway WebSocket pour Frontend, rooms par guild, updates temps réel"
     },
     {
@@ -225,7 +233,10 @@
       "status": "not_started",
       "estimatedHours": 8,
       "priority": "medium",
-      "dependencies": ["1.8", "1.9"],
+      "dependencies": [
+        "1.8",
+        "1.9"
+      ],
       "description": "Redis cache stats, optimistic updates frontend, query optimizations"
     },
     {
@@ -235,7 +246,12 @@
       "status": "not_started",
       "estimatedHours": 8,
       "priority": "high",
-      "dependencies": ["1.8", "1.9", "1.10", "1.11"],
+      "dependencies": [
+        "1.8",
+        "1.9",
+        "1.10",
+        "1.11"
+      ],
       "description": "Tests end-to-end, documentation STATISTICS.md"
     }
   ],
