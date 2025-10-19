@@ -1,6 +1,6 @@
 {
   "meta": {
-    "lastUpdate": "2025-10-19T14:18:01.859Z",
+    "lastUpdate": "2025-10-19T14:54:53.712Z",
     "version": "1.0.0",
     "projectName": "Discord Admin App"
   },
@@ -9,12 +9,12 @@
     "phaseName": "MVP Core - Stats",
     "sprint": "stats-frontend",
     "task": {
-      "id": "1.7",
-      "name": "Services & Models Frontend",
+      "id": "1.8",
+      "name": "Dashboard Overview Components",
       "phase": "phase-1",
-      "status": "in_progress",
+      "status": "not_started",
       "progress": 0,
-      "estimatedHoursRemaining": 8
+      "estimatedHoursRemaining": 24
     }
   },
   "phases": {
@@ -33,8 +33,8 @@
       "status": "in_progress",
       "tasks": {
         "total": 12,
-        "completed": 6,
-        "percentage": 50
+        "completed": 7,
+        "percentage": 58
       }
     },
     "phase-2": {
@@ -175,21 +175,23 @@
       "estimatedHours": 8,
       "actualHours": 10,
       "notes": "StatsSchedulerService avec 4 cron jobs (5min, hourly, daily, cleanup)"
-    }
-  ],
-  "upcomingTasks": [
+    },
     {
       "id": "1.7",
       "name": "Services & Models Frontend",
       "phase": "phase-1",
-      "status": "not_started",
+      "status": "completed",
       "estimatedHours": 8,
       "priority": "high",
       "dependencies": [
         "1.5"
       ],
-      "description": "Créer StatisticsService (pattern facade), models TypeScript, HTTP calls vers Backend API"
-    },
+      "description": "Créer StatisticsService (pattern facade), models TypeScript, HTTP calls vers Backend API",
+      "completedAt": "2025-10-19",
+      "actualHours": 1
+    }
+  ],
+  "upcomingTasks": [
     {
       "id": "1.8",
       "name": "Dashboard Overview Components",
@@ -276,7 +278,7 @@
   ],
   "stats": {
     "totalEstimatedHours": 450,
-    "completedHours": 111,
+    "completedHours": 112,
     "remainingHours": 339,
     "percentComplete": 25,
     "averageTaskCompletionTime": 10.1,
