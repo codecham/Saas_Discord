@@ -1215,5 +1215,3 @@ Dernière mise à jour : 20 octobre 2025
 **FIN DE LA ROADMAP**
 
 ---
-
-*Pour toute question ou suggestion d'amélioration de cette roadmap, ouvrir une issue GitHub ou contacter l'équipe technique.*
