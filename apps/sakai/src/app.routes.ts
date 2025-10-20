@@ -53,8 +53,18 @@ export const appRoutes: Routes = [
             {
                 path: 'members',
                 canActivate: [guildGuard],
-                loadComponent: () => import('./app/features/members/members.component')
-                    .then(m => m.MemberListComponent)
+                children: [
+                    {
+                        path: '',
+                        loadComponent: () => import('./app/features/members/members.component')
+                            .then(m => m.MemberListComponent)
+                    },
+                    {
+                        path: ':userId/stats',
+                        loadComponent: () => import('./app/features/member-stats/member-stats.component')
+                            .then(m => m.MemberStatsComponent)
+                    }
+                ]
             },
             {
                 path: 'channels',
