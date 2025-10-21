@@ -27,7 +27,7 @@ export class MemberApiService {
    */
   getMembers(
     guildId: string, 
-    limit: number = 100, 
+    limit: number = 100,
     after?: string
   ): Observable<DiscordGuildMemberDTO[]> {
     let params = new HttpParams().set('limit', limit.toString());

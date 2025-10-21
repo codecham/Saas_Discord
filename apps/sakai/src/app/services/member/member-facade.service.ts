@@ -8,7 +8,7 @@ import { ErrorHandlerService } from '../error-handler.service';
 import { 
   DiscordGuildMemberDTO, 
   ModifyGuildMemberDTO,
-  CreateGuildBanDTO 
+  CreateGuildBanDTO,
 } from '@my-project/shared-types';
 
 /**
@@ -550,5 +550,9 @@ export class MemberFacadeService {
    */
   resetSelection(): void {
     this.memberData.resetSelection();
+  }
+
+  getMemberById(id: string): DiscordGuildMemberDTO | undefined {
+    return this.members().find(member => member.user?.id == id);
   }
 }
