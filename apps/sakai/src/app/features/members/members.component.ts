@@ -1,10 +1,7 @@
-// apps/sakai/src/app/features/members/members.component.ts
-import { Component, ViewChild, signal, computed, inject } from '@angular/core';
+import { Component, ViewChild, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-
-// PrimeNG imports
 import { Table, TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
@@ -13,397 +10,280 @@ import { TooltipModule } from 'primeng/tooltip';
 import { InputIconModule } from 'primeng/inputicon';
 import { IconFieldModule } from 'primeng/iconfield';
 import { RippleModule } from 'primeng/ripple';
-import { ToolbarModule } from 'primeng/toolbar';
 import { AvatarModule } from 'primeng/avatar';
-import { SkeletonModule } from 'primeng/skeleton';
 import { MenuModule } from 'primeng/menu';
 import { MenuItem } from 'primeng/api';
-import { BadgeModule } from 'primeng/badge';
 import { ChipModule } from 'primeng/chip';
-
-// Services
 import { MemberFacadeService } from '@app/services/member/member-facade.service';
 import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
-
-// Types
 import { GuildMemberDTO } from '@my-project/shared-types';
 
-/**
- * Page de liste des membres
- * 
- * Fonctionnalités:
- * - Liste complète des membres (auto-chargée)
- * - Recherche locale
- * - Filtres rapides (admins, bots, timeout, etc.)
- * - Tri sur toutes les colonnes
- * - Navigation vers détails membre
- * - Actions rapides (menu contextuel)
- */
 @Component({
   selector: 'app-members',
   standalone: true,
   imports: [
-    CommonModule,
-    FormsModule,
-    TableModule,
-    ButtonModule,
-    InputTextModule,
-    TagModule,
-    TooltipModule,
-    InputIconModule,
-    IconFieldModule,
-    RippleModule,
-    ToolbarModule,
-    AvatarModule,
-    SkeletonModule,
-    MenuModule,
-    BadgeModule,
-    ChipModule
+    CommonModule, FormsModule, TableModule, ButtonModule, InputTextModule,
+    TagModule, TooltipModule, InputIconModule, IconFieldModule, RippleModule,
+    AvatarModule, MenuModule, ChipModule
   ],
-  templateUrl: './members.component.html',
-  styleUrls: ['./members.component.scss']
+  template: `
+    <div class="grid grid-cols-12 gap-6">
+      <!-- Stats Cards -->
+      <div class="col-span-12 lg:col-span-3">
+        <div class="card mb-0">
+          <div class="flex justify-between mb-3">
+            <div>
+              <span class="block text-muted-color font-medium mb-3">Total Membres</span>
+              <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">{{ memberFacade.totalMembers() }}</div>
+            </div>
+            <div class="flex items-center justify-center bg-blue-100 dark:bg-blue-400/10 rounded-lg" style="width:2.5rem;height:2.5rem">
+              <i class="pi pi-users text-blue-500 text-xl"></i>
+            </div>
+          </div>
+          <span class="text-green-500 font-medium">{{ memberFacade.loadedCount() }} </span>
+          <span class="text-muted-color">chargés</span>
+        </div>
+      </div>
+
+      <div class="col-span-12 lg:col-span-3">
+        <div class="card mb-0">
+          <div class="flex justify-between mb-3">
+            <div>
+              <span class="block text-muted-color font-medium mb-3">Admins</span>
+              <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">{{ memberFacade.admins().length }}</div>
+            </div>
+            <div class="flex items-center justify-center bg-yellow-100 dark:bg-yellow-400/10 rounded-lg" style="width:2.5rem;height:2.5rem">
+              <i class="pi pi-shield text-yellow-500 text-xl"></i>
+            </div>
+          </div>
+          <span class="text-muted-color">dont {{ memberFacade.owner() ? '1 owner' : '0 owner' }}</span>
+        </div>
+      </div>
+
+      <div class="col-span-12 lg:col-span-3">
+        <div class="card mb-0">
+          <div class="flex justify-between mb-3">
+            <div>
+              <span class="block text-muted-color font-medium mb-3">Bots</span>
+              <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">{{ memberFacade.bots().length }}</div>
+            </div>
+            <div class="flex items-center justify-center bg-cyan-100 dark:bg-cyan-400/10 rounded-lg" style="width:2.5rem;height:2.5rem">
+              <i class="pi pi-desktop text-cyan-500 text-xl"></i>
+            </div>
+          </div>
+          <span class="text-muted-color">{{ ((memberFacade.bots().length / memberFacade.totalMembers()) * 100).toFixed(1) }}% du total</span>
+        </div>
+      </div>
+
+      <div class="col-span-12 lg:col-span-3">
+        <div class="card mb-0">
+          <div class="flex justify-between mb-3">
+            <div>
+              <span class="block text-muted-color font-medium mb-3">En Timeout</span>
+              <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">{{ memberFacade.timedOutMembers().length }}</div>
+            </div>
+            <div class="flex items-center justify-center bg-red-100 dark:bg-red-400/10 rounded-lg" style="width:2.5rem;height:2.5rem">
+              <i class="pi pi-ban text-red-500 text-xl"></i>
+            </div>
+          </div>
+          <span class="text-muted-color">membres sanctionnés</span>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="col-span-12">
+        <div class="card">
+          <div class="font-semibold text-xl mb-4">Liste des membres</div>
+          
+          <!-- Toolbar -->
+          <div class="flex flex-col md:flex-row justify-between gap-4 mb-4">
+            <div class="flex-1">
+              <p-iconField iconPosition="left" class="w-full">
+                <p-inputIcon styleClass="pi pi-search" />
+                <input pInputText type="text" [(ngModel)]="searchValue" 
+                  (ngModelChange)="onSearchChange()" placeholder="Rechercher..." class="w-full" />
+              </p-iconField>
+            </div>
+            <button pButton pRipple label="Rafraîchir" icon="pi pi-refresh" 
+              class="p-button-outlined" [loading]="memberFacade.isLoading()" (click)="refresh()"></button>
+          </div>
+
+          <!-- Filtres -->
+          <div class="flex flex-wrap gap-2 mb-4">
+            <button pButton pRipple [label]="'Tous (' + memberFacade.members().length + ')'" 
+              [outlined]="activeFilter !== 'all'" 
+              [class.p-button-primary]="activeFilter === 'all'"
+              (click)="setFilter('all')"></button>
+            <button pButton pRipple [label]="'Admins (' + memberFacade.admins().length + ')'" 
+              [outlined]="activeFilter !== 'admins'" 
+              [class.p-button-warning]="activeFilter === 'admins'"
+              (click)="setFilter('admins')"></button>
+            <button pButton pRipple [label]="'Bots (' + memberFacade.bots().length + ')'" 
+              [outlined]="activeFilter !== 'bots'" 
+              [class.p-button-info]="activeFilter === 'bots'"
+              (click)="setFilter('bots')"></button>
+            <button pButton pRipple [label]="'Timeout (' + memberFacade.timedOutMembers().length + ')'" 
+              [outlined]="activeFilter !== 'timeout'" 
+              [class.p-button-danger]="activeFilter === 'timeout'"
+              (click)="setFilter('timeout')"></button>
+          </div>
+
+          <!-- Table -->
+          <p-table #dt [value]="displayedMembers()" [rows]="50" [paginator]="true" 
+            [rowsPerPageOptions]="[25, 50, 100]" [loading]="memberFacade.isLoading()"
+            [rowHover]="true" [showCurrentPageReport]="true" 
+            currentPageReportTemplate="Affichage de {first} à {last} sur {totalRecords} membres"
+            [globalFilterFields]="['username', 'displayName', 'nickname']">
+            
+            <ng-template #header>
+              <tr>
+                <th style="width:4rem"></th>
+                <th pSortableColumn="displayName">Membre <p-sortIcon field="displayName" /></th>
+                <th pSortableColumn="nickname">Pseudo <p-sortIcon field="nickname" /></th>
+                <th>Rôles</th>
+                <th pSortableColumn="joinedAt">Rejoint le <p-sortIcon field="joinedAt" /></th>
+                <th>Statut</th>
+                <th style="width:8rem">Actions</th>
+              </tr>
+            </ng-template>
+
+            <ng-template #body let-member>
+              <tr class="cursor-pointer" (click)="viewMemberDetails(member)">
+                <td>
+                  <p-avatar [image]="member.guildAvatarUrl || member.avatarUrl" 
+                    shape="circle" size="large"></p-avatar>
+                </td>
+                <td>
+                  <div class="font-semibold">{{ member.displayName }}</div>
+                  <div class="text-sm text-muted-color">{{ member.username }}</div>
+                </td>
+                <td>{{ member.nickname || '-' }}</td>
+                <td>
+                  <div class="flex flex-wrap gap-1">
+                    @if (member.isOwner) {
+                      <p-chip label="Owner" styleClass="bg-yellow-100 text-yellow-900" />
+                    }
+                    @if (member.isAdmin) {
+                      <p-chip label="Admin" styleClass="bg-orange-100 text-orange-900" />
+                    }
+                    @if (member.isBot) {
+                      <p-chip label="Bot" styleClass="bg-blue-100 text-blue-900" />
+                    }
+                  </div>
+                </td>
+                <td>{{ formatDate(member.joinedAt) }}</td>
+                <td>
+                  @if (member.isTimedOut) {
+                    <p-tag value="Timeout" severity="danger" />
+                  } @else if (member.isMuted) {
+                    <p-tag value="Muted" severity="warn" />
+                  } @else {
+                    <p-tag value="Actif" severity="success" />
+                  }
+                </td>
+                <td>
+                  <button pButton pRipple icon="pi pi-ellipsis-v" class="p-button-text p-button-rounded" 
+                    (click)="showActions($event, member); $event.stopPropagation()"></button>
+                </td>
+              </tr>
+            </ng-template>
+
+            <ng-template #emptymessage>
+              <tr><td colspan="7" class="text-center py-4">Aucun membre trouvé</td></tr>
+            </ng-template>
+          </p-table>
+        </div>
+      </div>
+    </div>
+
+    <p-menu #menu [model]="menuItems" [popup]="true"></p-menu>
+  `
 })
 export class MembersComponent {
   @ViewChild('dt') table!: Table;
+  @ViewChild('menu') menu!: any;
 
-  guildFacade: GuildFacadeService = inject(GuildFacadeService);
-  memberFacade: MemberFacadeService = inject(MemberFacadeService);
-  router: Router = inject(Router);
+  protected readonly memberFacade = inject(MemberFacadeService);
+  private readonly guildFacade = inject(GuildFacadeService);
+  private readonly router = inject(Router);
 
-  // Services injectés (protected pour utilisation dans le template)
-  constructor() {}
+  searchValue = '';
+  activeFilter = 'all';
+  selectedMember: GuildMemberDTO | null = null;
 
-  // ============================================
-  // ÉTATS LOCAUX
-  // ============================================
-
-  /**
-   * Query de recherche locale
-   */
-  searchValue = signal('');
-
-  /**
-   * Filtre actif (all, admins, moderators, bots, timedout, muted)
-   */
-  activeFilter = signal<string>('all');
-
-  /**
-   * Membre sélectionné pour le menu contextuel
-   */
-  selectedMemberForActions = signal<GuildMemberDTO | null>(null);
-
-  // ============================================
-  // COMPUTED - Données filtrées
-  // ============================================
-
-  /**
-   * Membres affichés selon le filtre actif
-   */
   displayedMembers = computed(() => {
-    const filter = this.activeFilter();
-    const members = this.memberFacade.filteredMembers(); // Déjà filtré par searchQuery
-
-    switch (filter) {
-      case 'admins':
-        return members.filter(m => m.isAdmin);
-      case 'moderators':
-        return members.filter(m => m.isModerator && !m.isAdmin);
-      case 'bots':
-        return members.filter(m => m.isBot);
-      case 'timedout':
-        return members.filter(m => m.isTimedOut);
-      case 'muted':
-        return members.filter(m => m.isMuted);
-      case 'deafened':
-        return members.filter(m => m.isDeafened);
-      case 'pending':
-        return members.filter(m => m.isPending);
-      default:
-        return members;
+    let members = this.memberFacade.members();
+    
+    // Filtres rapides
+    if (this.activeFilter === 'admins') members = this.memberFacade.admins();
+    else if (this.activeFilter === 'bots') members = this.memberFacade.bots();
+    else if (this.activeFilter === 'timeout') members = this.memberFacade.timedOutMembers();
+    
+    // Recherche
+    if (this.searchValue) {
+      const search = this.searchValue.toLowerCase();
+      members = members.filter(m => 
+        m.displayName.toLowerCase().includes(search) ||
+        m.username.toLowerCase().includes(search) ||
+        m.nickname?.toLowerCase().includes(search)
+      );
     }
+    
+    return members;
   });
 
-  /**
-   * Guild actuellement sélectionnée
-   */
-  selectedGuild = this.guildFacade.selectedGuild;
-
-  // ============================================
-  // MENU CONTEXTUEL
-  // ============================================
-
-  /**
-   * Items du menu contextuel (actions sur membre)
-   */
-  memberActions = computed<MenuItem[]>(() => {
-    const member = this.selectedMemberForActions();
-    if (!member) return [];
-
+  get menuItems(): MenuItem[] {
     return [
-      {
-        label: 'Voir le profil',
-        icon: 'pi pi-user',
-        command: () => this.viewMemberDetails(member)
-      },
-      {
-        label: 'Voir les stats',
-        icon: 'pi pi-chart-bar',
-        command: () => this.viewMemberStats(member)
-      },
-      {
-        separator: true
-      },
-      {
-        label: 'Changer le pseudo',
-        icon: 'pi pi-pencil',
-        command: () => this.changeNickname(member)
-      },
-      {
-        label: 'Gérer les rôles',
-        icon: 'pi pi-shield',
-        command: () => this.manageRoles(member)
-      },
-      {
-        separator: true
-      },
-      {
-        label: member.isTimedOut ? 'Retirer le timeout' : 'Mettre en timeout',
-        icon: 'pi pi-clock',
-        command: () => this.toggleTimeout(member)
-      },
-      {
-        label: 'Expulser',
-        icon: 'pi pi-sign-out',
-        command: () => this.kickMember(member),
-        styleClass: 'text-orange-500'
-      },
-      {
-        label: 'Bannir',
-        icon: 'pi pi-ban',
-        command: () => this.banMember(member),
-        styleClass: 'text-red-500'
-      }
+      { label: 'Voir profil', icon: 'pi pi-user', command: () => this.viewMemberDetails(this.selectedMember!) },
+      { label: 'Modifier pseudo', icon: 'pi pi-pencil', command: () => this.changeNickname(this.selectedMember!) },
+      { separator: true },
+      { label: 'Timeout', icon: 'pi pi-ban', command: () => this.toggleTimeout(this.selectedMember!), styleClass: 'text-orange-500' },
+      { label: 'Kick', icon: 'pi pi-sign-out', command: () => this.kickMember(this.selectedMember!), styleClass: 'text-red-500' }
     ];
-  });
-
-  // ============================================
-  // RECHERCHE
-  // ============================================
-
-  /**
-   * Déclenché à chaque changement de recherche
-   */
-  onSearchChange(value: string): void {
-    this.searchValue.set(value);
-    this.memberFacade.setSearchQuery(value);
   }
 
-  /**
-   * Clear la recherche
-   */
-  clearSearch(): void {
-    this.searchValue.set('');
-    this.memberFacade.clearSearch();
-    if (this.table) {
-      this.table.clear();
-    }
+  setFilter(filter: string) {
+    this.activeFilter = filter;
   }
 
-  // ============================================
-  // FILTRES RAPIDES
-  // ============================================
-
-  /**
-   * Afficher tous les membres
-   */
-  filterAll(): void {
-    this.activeFilter.set('all');
+  onSearchChange() {
+    // Trigger reactivity
   }
 
-  /**
-   * Afficher uniquement les admins
-   */
-  filterAdmins(): void {
-    this.activeFilter.set('admins');
+  formatDate(date: string): string {
+    return new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
-  /**
-   * Afficher uniquement les modérateurs
-   */
-  filterModerators(): void {
-    this.activeFilter.set('moderators');
-  }
-
-  /**
-   * Afficher uniquement les bots
-   */
-  filterBots(): void {
-    this.activeFilter.set('bots');
-  }
-
-  /**
-   * Afficher uniquement les membres en timeout
-   */
-  filterTimedOut(): void {
-    this.activeFilter.set('timedout');
-  }
-
-  /**
-   * Afficher uniquement les membres muted
-   */
-  filterMuted(): void {
-    this.activeFilter.set('muted');
-  }
-
-  /**
-   * Afficher uniquement les membres en attente
-   */
-  filterPending(): void {
-    this.activeFilter.set('pending');
-  }
-
-  // ============================================
-  // NAVIGATION
-  // ============================================
-
-  /**
-   * Ouvre le profil détaillé d'un membre
-   */
-  viewMemberDetails(member: GuildMemberDTO): void {
+  viewMemberDetails(member: GuildMemberDTO) {
     const guildId = this.guildFacade.selectedGuildId();
-    if (guildId) {
-      this.router.navigate(['/guilds', guildId, 'members', member.id]);
-    }
+    if (guildId) this.router.navigate(['/guilds', guildId, 'members', member.id]);
   }
 
-  /**
-   * Ouvre les statistiques d'un membre
-   */
-  viewMemberStats(member: GuildMemberDTO): void {
-    const guildId = this.guildFacade.selectedGuildId();
-    if (guildId) {
-      this.router.navigate(['/guilds', guildId, 'members', member.id, 'stats']);
-    }
+  showActions(event: Event, member: GuildMemberDTO) {
+    this.selectedMember = member;
+    this.menu.toggle(event);
   }
 
-  // ============================================
-  // ACTIONS
-  // ============================================
-
-  /**
-   * Rafraîchir la liste des membres
-   */
-  async refresh(): Promise<void> {
+  async refresh() {
     await this.memberFacade.refresh();
   }
 
-  /**
-   * Ouvre le menu contextuel pour un membre
-   */
-  showMemberActions(event: Event, member: GuildMemberDTO): void {
-    this.selectedMemberForActions.set(member);
-    // Le menu s'ouvre automatiquement avec [model] et [popup]
+  changeNickname(member: GuildMemberDTO) {
+    console.log('Change nickname:', member.displayName);
   }
 
-  /**
-   * Change le pseudo d'un membre
-   * TODO: Ouvrir un dialog
-   */
-  changeNickname(member: GuildMemberDTO): void {
-    console.log('Change nickname for', member.displayName);
-    // TODO: Implémenter dialog avec input
-  }
-
-  /**
-   * Gère les rôles d'un membre
-   * TODO: Ouvrir un dialog
-   */
-  manageRoles(member: GuildMemberDTO): void {
-    console.log('Manage roles for', member.displayName);
-    // TODO: Implémenter dialog avec liste de rôles
-  }
-
-  /**
-   * Toggle le timeout d'un membre
-   */
-  async toggleTimeout(member: GuildMemberDTO): Promise<void> {
+  async toggleTimeout(member: GuildMemberDTO) {
     if (member.isTimedOut) {
-      await this.memberFacade.removeTimeout(member.id, 'Retrait timeout via interface');
+      await this.memberFacade.removeTimeout(member.id);
     } else {
-      // Timeout de 1 heure
       const until = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-      await this.memberFacade.timeoutMember(member.id, until, 'Timeout 1h via interface');
+      await this.memberFacade.timeoutMember(member.id, until);
     }
   }
 
-  /**
-   * Kick un membre
-   * TODO: Ajouter confirmation
-   */
-  async kickMember(member: GuildMemberDTO): Promise<void> {
+  async kickMember(member: GuildMemberDTO) {
     if (confirm(`Expulser ${member.displayName} ?`)) {
-      await this.memberFacade.kickMember(member.id, 'Kick via interface');
+      await this.memberFacade.kickMember(member.id);
     }
-  }
-
-  /**
-   * Ban un membre
-   * TODO: Ajouter confirmation + options
-   */
-  async banMember(member: GuildMemberDTO): Promise<void> {
-    if (confirm(`Bannir ${member.displayName} ?`)) {
-      await this.memberFacade.banMember(
-        member.id,
-        { delete_message_seconds: 604800 }, // 7 jours
-        'Ban via interface'
-      );
-    }
-  }
-
-  // ============================================
-  // HELPERS POUR LE TEMPLATE
-  // ============================================
-
-  /**
-   * Retourne la couleur de tag selon le status
-   */
-  getMemberStatusSeverity(member: GuildMemberDTO): 'success' | 'info' | 'warn' | 'danger' {
-    if (member.isTimedOut) return 'danger';
-    if (member.isMuted) return 'warn';
-    if (member.isPending) return 'info';
-    return 'success';
-  }
-
-  /**
-   * Retourne le label de status
-   */
-  getMemberStatusLabel(member: GuildMemberDTO): string {
-    if (member.isTimedOut) return 'Timeout';
-    if (member.isMuted) return 'Muted';
-    if (member.isDeafened) return 'Deafened';
-    if (member.isPending) return 'En attente';
-    return 'Actif';
-  }
-
-  /**
-   * Formatte la date de join
-   */
-  formatJoinDate(dateString: string): string {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-  }
-
-  /**
-   * Retourne le nombre de jours depuis le join
-   */
-  getDaysSinceJoin(dateString: string): number {
-    const joinDate = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - joinDate.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   }
 }

@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SelectButtonModule } from 'primeng/selectbutton';
@@ -6,6 +6,7 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { TagModule } from 'primeng/tag';
 import { StatisticsFacadeService } from '@services/statistics/statistics-facade.service';
 import { MemberFacadeService } from '@services/member/member-facade.service';
+import { GuildMemberDTO } from '@my-project/shared-types';
 import { 
   formatNumber, 
   formatDuration,
@@ -18,14 +19,31 @@ interface CategoryOption {
   icon: string;
 }
 
+interface LeaderboardEntryWithMember {
+  rank: number;
+  userId: string;
+  score: number;
+  totalMessages: number;
+  totalVoiceMinutes: number;
+  totalReactions: number;
+  badge?: 'gold' | 'silver' | 'bronze';
+  member?: GuildMemberDTO; // Données enrichies du membre
+}
+
 /**
  * 🏆 Widget affichant le leaderboard (top 10 membres)
  * 
  * - Affichage en liste avec ranks
  * - Badges gold/silver/bronze pour le top 3
- * - Avatars Discord
+ * - Avatars Discord réels (via memberFacade)
+ * - Noms d'utilisateur réels (displayName)
  * - Stats détaillées (messages, voice, reactions)
  * - Sélecteur de catégorie
+ * 
+ * Architecture:
+ * - Attend que les membres soient chargés avant d'afficher
+ * - Utilise getMemberById() pour enrichir chaque entrée
+ * - Fallback vers "Unknown User" si membre non trouvé
  */
 @Component({
   selector: 'app-leaderboard-widget',
@@ -42,9 +60,9 @@ interface CategoryOption {
       <div class="card">
         <!-- Header avec sélecteur de catégorie -->
         <div class="flex justify-between items-center mb-6">
-          <h2 class="text-xl font-semibold text-surface-900 dark:text-surface-0">
-            🏆 Top Members
-          </h2>
+          <div class="font-semibold text-xl mb-4">
+            Top Members
+          </div>
           
           <p-selectButton
             [options]="categoryOptions"
@@ -52,7 +70,7 @@ interface CategoryOption {
             (onChange)="onCategoryChange()"
             optionLabel="label"
             optionValue="value"
-            [disabled]="statsFacade.isLoadingLeaderboard()"
+            [disabled]="isLoading()"
           >
             <ng-template #item let-option>
               <i class="pi" [ngClass]="option.icon"></i>
@@ -60,7 +78,7 @@ interface CategoryOption {
           </p-selectButton>
         </div>
 
-        @if (statsFacade.isLoadingLeaderboard()) {
+        @if (isLoading()) {
           <!-- Loading skeletons -->
           <div class="space-y-4">
             @for (i of [1,2,3,4,5]; track i) {
@@ -73,10 +91,10 @@ interface CategoryOption {
               </div>
             }
           </div>
-        } @else if (statsFacade.leaderboard(); as leaderboard) {
-          <!-- Liste du leaderboard -->
+        } @else if (enrichedLeaderboard(); as entries) {
+          <!-- Liste du leaderboard enrichie -->
           <ul class="list-none p-0 m-0">
-            @for (entry of leaderboard.entries; track entry.userId; let isLast = $last) {
+            @for (entry of entries; track entry.userId; let isLast = $last) {
               <li 
                 class="flex items-center gap-4 p-4 transition-all duration-200 hover:bg-surface-50 dark:hover:bg-surface-800 rounded-lg cursor-pointer"
                 [class.border-b]="!isLast"
@@ -102,8 +120,8 @@ interface CategoryOption {
                 <!-- Avatar -->
                 <div class="relative">
                   <img 
-                    [src]="getMemberAvatar(entry.userId)" 
-                    [alt]="'User ' + entry.userId"
+                    [src]="getMemberAvatar(entry)" 
+                    [alt]="getMemberDisplayName(entry)"
                     class="w-12 h-12 rounded-full object-cover border-2"
                     [class]="getAvatarBorderClass(entry.badge)"
                     (error)="onAvatarError($event)"
@@ -118,7 +136,7 @@ interface CategoryOption {
                 <!-- Username et stats -->
                 <div class="flex-1 min-w-0">
                   <div class="font-semibold text-surface-900 dark:text-surface-0 truncate mb-1">
-                    User #{{ entry.userId.slice(-4) }}
+                    {{ getMemberDisplayName(entry) }}
                   </div>
                   <div class="flex flex-wrap gap-3 text-sm text-muted-color">
                     <span class="flex items-center gap-1">
@@ -150,7 +168,7 @@ interface CategoryOption {
           </ul>
 
           <!-- Message si leaderboard vide -->
-          @if (leaderboard.entries.length === 0) {
+          @if (entries.length === 0) {
             <div class="text-center py-8 text-muted-color">
               <i class="pi pi-users text-4xl mb-4"></i>
               <p>No active members yet</p>
@@ -200,6 +218,45 @@ export class LeaderboardWidgetComponent implements OnInit, OnDestroy {
   // Catégorie sélectionnée
   protected selectedCategory: 'messages' | 'voice' | 'reactions' | 'overall' = 'messages';
 
+  // ============================================
+  // COMPUTED SIGNALS
+  // ============================================
+
+  /**
+   * Indique si on est en train de charger (leaderboard OU membres)
+   */
+  protected isLoading = computed(() => {
+    return this.statsFacade.isLoadingLeaderboard() || this.memberFacade.isLoading();
+  });
+
+  /**
+   * Leaderboard enrichi avec les données des membres
+   * Attend que les membres soient chargés pour enrichir les données
+   */
+  protected enrichedLeaderboard = computed<LeaderboardEntryWithMember[]>(() => {
+    const leaderboard = this.statsFacade.leaderboard();
+    
+    // Pas de leaderboard disponible
+    if (!leaderboard) {
+      return [];
+    }
+
+    // Pas de membres chargés, on ne peut pas enrichir
+    if (this.memberFacade.isLoading()) {
+      return [];
+    }
+
+    // Enrichir chaque entrée avec les données du membre
+    return leaderboard.entries.map(entry => ({
+      ...entry,
+      member: this.memberFacade.getMemberById(entry.userId)
+    }));
+  });
+
+  // ============================================
+  // LIFECYCLE HOOKS
+  // ============================================
+
   async ngOnInit(): Promise<void> {
     await this.loadLeaderboard();
   }
@@ -207,6 +264,10 @@ export class LeaderboardWidgetComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     // Cleanup si nécessaire
   }
+
+  // ============================================
+  // MÉTHODES DE CHARGEMENT
+  // ============================================
 
   /**
    * Charge le leaderboard
@@ -233,13 +294,48 @@ export class LeaderboardWidgetComponent implements OnInit, OnDestroy {
     await this.loadLeaderboard();
   }
 
+  // ============================================
+  // MÉTHODES D'AFFICHAGE DES MEMBRES
+  // ============================================
+
   /**
-   * Retourne l'URL de l'avatar Discord d'un membre
+   * Retourne le displayName du membre (ou fallback)
    */
-  protected getMemberAvatar(userId: string): string {
-    // Format Discord avatar URL
-    // Par défaut, on retourne un placeholder
-    return `https://cdn.discordapp.com/embed/avatars/${parseInt(userId) % 5}.png`;
+  protected getMemberDisplayName(entry: LeaderboardEntryWithMember): string {
+    if (entry.member) {
+      return entry.member.displayName;
+    }
+    
+    // Fallback si membre non trouvé
+    return `Unknown User #${entry.userId.slice(-4)}`;
+  }
+
+  /**
+   * Retourne l'URL de l'avatar du membre (ou fallback)
+   */
+  protected getMemberAvatar(entry: LeaderboardEntryWithMember): string {
+    if (entry.member) {
+      // Priorité à l'avatar de guild si disponible
+      return entry.member.guildAvatarUrl || entry.member.avatarUrl;
+    }
+    
+    // Fallback vers un avatar par défaut Discord
+    return this.getDefaultAvatarUrl(entry.userId);
+  }
+
+  /**
+   * Génère une URL d'avatar par défaut Discord
+   * Utilise le nouveau système (user_id >> 22) % 6
+   */
+  private getDefaultAvatarUrl(userId: string): string {
+    try {
+      // Nouveau système Discord: (user_id >> 22) % 6
+      const index = Number((BigInt(userId) >> 22n) % 6n);
+      return `https://cdn.discordapp.com/embed/avatars/${index}.png`;
+    } catch {
+      // Fallback si conversion échoue
+      return `https://cdn.discordapp.com/embed/avatars/0.png`;
+    }
   }
 
   /**
@@ -249,6 +345,10 @@ export class LeaderboardWidgetComponent implements OnInit, OnDestroy {
     // Fallback vers un avatar par défaut
     event.target.src = `https://cdn.discordapp.com/embed/avatars/0.png`;
   }
+
+  // ============================================
+  // MÉTHODES DE STYLE ET FORMATAGE
+  // ============================================
 
   /**
    * Retourne la classe CSS pour le badge

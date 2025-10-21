@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { ChartModule } from 'primeng/chart';
 import { debounceTime, Subscription } from 'rxjs';
-import { LayoutService } from '../../services/layout.service';
+import { LayoutService } from '../../../services/layout.service';
 
 @Component({
     standalone: true,
