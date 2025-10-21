@@ -4,16 +4,26 @@
 // export * from './dtos/user.dto';  // ← Ajouté plus tard
 // export * from './enums/user-role.enum';  // ← Ajouté plus tard
 
-export * from './dtos/auth/auth.dto'
-export * from './dtos/discord.dto';
-export * from './dtos/events/botEvent.dto';
+/*
+	DTO utilisé par l'application
+*/
+export * from './dtos/app/auth/auth.dto'
+export * from './dtos/app/app-discord.dto';
+export * from './dtos/app/events/botEvent.dto';
+export * from './dtos/app/stats/stats-response.dto';
+
+
+/*
+	DTO raw api discord 
+*/
 export * from './dtos/discord/user.dto';
 export * from './dtos/discord/guild.dto';
 export * from './dtos/discord/channel.dto';
 export * from './dtos/discord/message.dto';
 export * from './dtos/discord/role.dto';
 export * from './dtos/discord/member.dto';
-export * from './dtos/stats/stats-response.dto';
+
+
 export * from './enums/eventTypes.enum';
 
 // Pour l'instant, on peut mettre un placeholder

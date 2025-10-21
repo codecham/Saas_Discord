@@ -1,0 +1,325 @@
+<!-- apps/sakai/src/app/features/members/members.component.html -->
+
+<div class="card">
+  <!-- ============================================ -->
+  <!-- TOOLBAR -->
+  <!-- ============================================ -->
+  <p-toolbar styleClass="mb-4">
+    <ng-template pTemplate="left">
+      <div class="flex items-center gap-2">
+        <i class="pi pi-users text-2xl"></i>
+        <div>
+          <div class="font-semibold text-xl">Membres</div>
+          <div class="text-sm text-500">
+            {{ memberFacade.loadedCount() }} / {{ memberFacade.totalMembers() }} membres chargés
+          </div>
+        </div>
+      </div>
+    </ng-template>
+
+    <ng-template pTemplate="right">
+      <button
+        pButton
+        pRipple
+        label="Rafraîchir"
+        icon="pi pi-refresh"
+        class="p-button-outlined"
+        [loading]="memberFacade.isLoading()"
+        (click)="refresh()"
+      ></button>
+    </ng-template>
+  </p-toolbar>
+
+  <!-- ============================================ -->
+  <!-- BARRE DE RECHERCHE & FILTRES -->
+  <!-- ============================================ -->
+  <div class="mb-4">
+    <!-- Recherche -->
+    <div class="mb-3">
+      <p-iconField iconPosition="left" class="w-full">
+        <p-inputIcon styleClass="pi pi-search" />
+        <input
+          pInputText
+          type="text"
+          [ngModel]="searchValue()"
+          (ngModelChange)="onSearchChange($event)"
+          placeholder="Rechercher un membre..."
+          class="w-full"
+        />
+      </p-iconField>
+      @if (searchValue()) {
+        <small class="text-500 mt-1 block">
+          {{ memberFacade.filteredMembers().length }} résultat(s)
+        </small>
+      }
+    </div>
+
+    <!-- Filtres rapides -->
+    <div class="flex flex-wrap gap-2">
+      <button
+        pButton
+        pRipple
+        [label]="'Tous (' + memberFacade.members().length + ')'"
+        icon="pi pi-users"
+        [class.p-button-primary]="activeFilter() === 'all'"
+        [class.p-button-outlined]="activeFilter() !== 'all'"
+        (click)="filterAll()"
+      ></button>
+
+      <button
+        pButton
+        pRipple
+        [label]="'Admins (' + memberFacade.admins().length + ')'"
+        icon="pi pi-shield"
+        [class.p-button-success]="activeFilter() === 'admins'"
+        [class.p-button-outlined]="activeFilter() !== 'admins'"
+        [disabled]="memberFacade.admins().length === 0"
+        (click)="filterAdmins()"
+      ></button>
+
+      <button
+        pButton
+        pRipple
+        [label]="'Modérateurs (' + memberFacade.moderators().length + ')'"
+        icon="pi pi-star"
+        [class.p-button-info]="activeFilter() === 'moderators'"
+        [class.p-button-outlined]="activeFilter() !== 'moderators'"
+        [disabled]="memberFacade.moderators().length === 0"
+        (click)="filterModerators()"
+      ></button>
+
+      <button
+        pButton
+        pRipple
+        [label]="'Bots (' + memberFacade.bots().length + ')'"
+        icon="pi pi-box"
+        [class.p-button-secondary]="activeFilter() === 'bots'"
+        [class.p-button-outlined]="activeFilter() !== 'bots'"
+        [disabled]="memberFacade.bots().length === 0"
+        (click)="filterBots()"
+      ></button>
+
+      <button
+        pButton
+        pRipple
+        [label]="'Timeout (' + memberFacade.timedOutMembers().length + ')'"
+        icon="pi pi-clock"
+        [class.p-button-warning]="activeFilter() === 'timedout'"
+        [class.p-button-outlined]="activeFilter() !== 'timedout'"
+        [disabled]="memberFacade.timedOutMembers().length === 0"
+        (click)="filterTimedOut()"
+      ></button>
+
+      <button
+        pButton
+        pRipple
+        [label]="'Mutés (' + memberFacade.mutedMembers().length + ')'"
+        icon="pi pi-volume-off"
+        [class.p-button-danger]="activeFilter() === 'muted'"
+        [class.p-button-outlined]="activeFilter() !== 'muted'"
+        [disabled]="memberFacade.mutedMembers().length === 0"
+        (click)="filterMuted()"
+      ></button>
+    </div>
+  </div>
+
+  <!-- ============================================ -->
+  <!-- LOADING STATE -->
+  <!-- ============================================ -->
+  @if (memberFacade.isLoading()) {
+    <div class="flex flex-col gap-3">
+      @for (i of [1,2,3,4,5]; track i) {
+        <div class="flex items-center gap-3 p-3 border-round surface-border border-1">
+          <p-skeleton shape="circle" size="3rem"></p-skeleton>
+          <div class="flex-1">
+            <p-skeleton width="60%" height="1.5rem" styleClass="mb-2"></p-skeleton>
+            <p-skeleton width="40%" height="1rem"></p-skeleton>
+          </div>
+          <p-skeleton width="6rem" height="2rem"></p-skeleton>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ============================================ -->
+  <!-- TABLE -->
+  <!-- ============================================ -->
+  @if (!memberFacade.isLoading()) {
+    <p-table
+      #dt
+      [value]="displayedMembers()"
+      [rows]="50"
+      [paginator]="true"
+      [rowsPerPageOptions]="[25, 50, 100, 200]"
+      [globalFilterFields]="['username', 'displayName', 'nickname']"
+      [loading]="false"
+      responsiveLayout="scroll"
+      styleClass="p-datatable-sm"
+      currentPageReportTemplate="Affichage de {first} à {last} sur {totalRecords} membres"
+      [showCurrentPageReport]="true"
+    >
+      <!-- Header -->
+      <ng-template pTemplate="header">
+        <tr>
+          <th style="width: 4rem"></th>
+          <th pSortableColumn="username" style="min-width: 12rem">
+            Utilisateur <p-sortIcon field="username"></p-sortIcon>
+          </th>
+          <th pSortableColumn="nickname" style="min-width: 10rem">
+            Pseudo <p-sortIcon field="nickname"></p-sortIcon>
+          </th>
+          <th>Badges</th>
+          <th>Rôles</th>
+          <th pSortableColumn="joinedAt" style="min-width: 10rem">
+            Rejoint le <p-sortIcon field="joinedAt"></p-sortIcon>
+          </th>
+          <th>Statut</th>
+          <th style="width: 8rem">Actions</th>
+        </tr>
+      </ng-template>
+
+      <!-- Body -->
+      <ng-template pTemplate="body" let-member>
+        <tr class="cursor-pointer hover:surface-hover" (click)="viewMemberDetails(member)">
+          <!-- Avatar -->
+          <td>
+            <p-avatar
+              [image]="member.avatarUrl"
+              shape="circle"
+              size="large"
+            ></p-avatar>
+          </td>
+
+          <!-- Utilisateur -->
+          <td>
+            <div class="font-semibold">{{ member.displayName }}</div>
+            <div class="text-sm text-500">@{{ member.username }}</div>
+          </td>
+
+          <!-- Pseudo serveur -->
+          <td>
+            @if (member.nickname) {
+              <span>{{ member.nickname }}</span>
+            } @else {
+              <span class="text-500 italic">-</span>
+            }
+          </td>
+
+          <!-- Badges -->
+          <td>
+            <div class="flex gap-1 flex-wrap">
+              @if (member.isOwner) {
+                <p-chip
+                  label="Owner"
+                  icon="pi pi-crown"
+                  styleClass="bg-yellow-100 text-yellow-900"
+                ></p-chip>
+              }
+              @if (member.isAdmin && !member.isOwner) {
+                <p-chip
+                  label="Admin"
+                  icon="pi pi-shield"
+                  styleClass="bg-green-100 text-green-900"
+                ></p-chip>
+              }
+              @if (member.isModerator && !member.isAdmin) {
+                <p-chip
+                  label="Modo"
+                  icon="pi pi-star"
+                  styleClass="bg-blue-100 text-blue-900"
+                ></p-chip>
+              }
+              @if (member.isBot) {
+                <p-chip
+                  label="Bot"
+                  icon="pi pi-box"
+                  styleClass="bg-purple-100 text-purple-900"
+                ></p-chip>
+              }
+            </div>
+          </td>
+
+          <!-- Rôles -->
+          <td>
+            <p-badge [value]="member.roles.length.toString()"></p-badge>
+            <span class="ml-2 text-500">rôle(s)</span>
+          </td>
+
+          <!-- Date de join -->
+          <td>
+            <div>{{ formatJoinDate(member.joinedAt) }}</div>
+            <div class="text-sm text-500">il y a {{ getDaysSinceJoin(member.joinedAt) }}j</div>
+          </td>
+
+          <!-- Statut -->
+          <td>
+            <p-tag
+              [value]="getMemberStatusLabel(member)"
+              [severity]="getMemberStatusSeverity(member)"
+            ></p-tag>
+          </td>
+
+          <!-- Actions -->
+          <td>
+            <button
+              pButton
+              pRipple
+              icon="pi pi-ellipsis-v"
+              class="p-button-text p-button-rounded"
+              (click)="showMemberActions($event, member); $event.stopPropagation()"
+              [pTooltip]="'Actions'"
+            ></button>
+          </td>
+        </tr>
+      </ng-template>
+
+      <!-- Empty message -->
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="8" class="text-center py-4">
+            @if (activeFilter() !== 'all') {
+              <p>Aucun membre ne correspond à ce filtre.</p>
+              <button pButton pRipple label="Réinitialiser les filtres" class="mt-2" (click)="filterAll()"></button>
+            } @else if (searchValue()) {
+              <p>Aucun membre trouvé pour "{{ searchValue() }}"</p>
+              <button pButton pRipple label="Effacer la recherche" class="mt-2" (click)="clearSearch()"></button>
+            } @else {
+              <p>Aucun membre</p>
+            }
+          </td>
+        </tr>
+      </ng-template>
+    </p-table>
+  }
+
+  <!-- ============================================ -->
+  <!-- LOADING MORE -->
+  <!-- ============================================ -->
+  @if (memberFacade.isLoadingMore()) {
+    <div class="text-center py-4">
+      <i class="pi pi-spin pi-spinner text-2xl"></i>
+      <p class="mt-2 text-500">Chargement de membres supplémentaires...</p>
+    </div>
+  }
+
+  <!-- ============================================ -->
+  <!-- ERROR STATE -->
+  <!-- ============================================ -->
+  @if (memberFacade.error()) {
+    <div class="p-4 bg-red-50 border-round border-red-200 border-1">
+      <div class="flex items-center gap-2 text-red-900">
+        <i class="pi pi-exclamation-triangle"></i>
+        <span>{{ memberFacade.error() }}</span>
+      </div>
+    </div>
+  }
+</div>
+
+<!-- ============================================ -->
+<!-- MENU CONTEXTUEL -->
+<!-- ============================================ -->
+<p-menu
+  #menu
+  [model]="memberActions()"
+  [popup]="true"
+></p-menu>

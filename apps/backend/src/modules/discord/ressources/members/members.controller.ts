@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import {
   Controller,
   Get,
@@ -16,6 +15,7 @@ import {
 import { MembersService } from './members.service';
 import { DiscordExceptionFilter } from '../../common/filters/discord-exception.filter';
 import { DiscordResponseInterceptor } from '../../common/interceptors/discord-response.interceptor';
+import { MemberListResponseDTO } from '@my-project/shared-types';
 
 /**
  * Controller pour les endpoints liés aux membres des guilds Discord
@@ -35,10 +35,10 @@ export class MembersController {
     @Param('guildId') guildId: string,
     @Query('limit') limit?: number,
     @Query('after') after?: string,
-  ) {
+  ): Promise<MemberListResponseDTO> {
+    // ← Type de retour corrigé
     return this.membersService.listGuildMembers(guildId, { limit, after });
   }
-
   /**
    * GET /discord/guilds/:guildId/members/search
    * Recherche des membres dans une guild

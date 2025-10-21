@@ -1,0 +1,164 @@
+// apps/sakai/src/app/features/members/members.component.scss
+
+:host {
+  ::ng-deep {
+    // Table row hover effect
+    .p-datatable .p-datatable-tbody > tr:hover {
+      background-color: var(--surface-hover);
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    // Avatar dans le table
+    .p-avatar {
+      border: 2px solid var(--surface-border);
+    }
+
+    // Chips plus compacts
+    .p-chip {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+    }
+
+    // Tags plus visibles
+    .p-tag {
+      font-weight: 500;
+    }
+
+    // Filtres actifs
+    .p-button-primary,
+    .p-button-success,
+    .p-button-info,
+    .p-button-secondary,
+    .p-button-warning,
+    .p-button-danger {
+      &:not(.p-button-outlined) {
+        font-weight: 600;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+    }
+
+    // Toolbar responsive
+    .p-toolbar {
+      flex-wrap: wrap;
+      gap: 1rem;
+
+      .p-toolbar-group-left,
+      .p-toolbar-group-right {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+    }
+
+    // Search input plus grand
+    .p-iconfield {
+      .p-inputtext {
+        padding-left: 2.5rem;
+      }
+    }
+
+    // Pagination plus lisible
+    .p-paginator {
+      .p-paginator-current {
+        font-weight: 500;
+      }
+    }
+
+    // Menu contextuel
+    .p-menu {
+      .p-menuitem-link {
+        &.text-orange-500 {
+          .p-menuitem-text,
+          .p-menuitem-icon {
+            color: var(--orange-500);
+          }
+        }
+
+        &.text-red-500 {
+          .p-menuitem-text,
+          .p-menuitem-icon {
+            color: var(--red-500);
+          }
+        }
+      }
+    }
+
+    // Loading skeletons
+    .p-skeleton {
+      background: linear-gradient(90deg, var(--surface-200) 25%, var(--surface-300) 50%, var(--surface-200) 75%);
+      background-size: 200% 100%;
+      animation: loading 1.5s ease-in-out infinite;
+    }
+
+    @keyframes loading {
+      0% {
+        background-position: 200% 0;
+      }
+      100% {
+        background-position: -200% 0;
+      }
+    }
+
+    // Responsive adjustments
+    @media (max-width: 768px) {
+      .p-datatable {
+        font-size: 0.875rem;
+
+        .p-avatar {
+          width: 2rem;
+          height: 2rem;
+        }
+
+        .p-chip {
+          font-size: 0.625rem;
+          padding: 0.125rem 0.375rem;
+        }
+      }
+
+      // Cacher certaines colonnes sur mobile
+      .p-datatable-tbody > tr > td:nth-child(4), // Badges
+      .p-datatable-tbody > tr > td:nth-child(7)  // Statut
+      {
+        display: none;
+      }
+
+      .p-datatable-thead > tr > th:nth-child(4),
+      .p-datatable-thead > tr > th:nth-child(7) {
+        display: none;
+      }
+    }
+  }
+}
+
+// Custom colors for badges
+.bg-yellow-100 {
+  background-color: rgba(255, 193, 7, 0.1);
+}
+
+.text-yellow-900 {
+  color: #ff6f00;
+}
+
+.bg-green-100 {
+  background-color: rgba(76, 175, 80, 0.1);
+}
+
+.text-green-900 {
+  color: #2e7d32;
+}
+
+.bg-blue-100 {
+  background-color: rgba(33, 150, 243, 0.1);
+}
+
+.text-blue-900 {
+  color: #1565c0;
+}
+
+.bg-purple-100 {
+  background-color: rgba(156, 39, 176, 0.1);
+}
+
+.text-purple-900 {
+  color: #6a1b9a;
+}

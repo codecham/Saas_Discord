@@ -57,13 +57,13 @@ export const appRoutes: Routes = [
                     {
                         path: '',
                         loadComponent: () => import('./app/features/members/members.component')
-                            .then(m => m.MemberListComponent)
+                            .then(m => m.MembersComponent)
                     },
-                    {
-                        path: ':userId/stats',
-                        loadComponent: () => import('./app/features/member-stats/member-stats.component')
-                            .then(m => m.MemberStatsComponent)
-                    }
+                    // {
+                    //     path: ':userId/stats',
+                    //     loadComponent: () => import('./app/features/member-stats/member-stats.component')
+                    //         .then(m => m.MemberStatsComponent)
+                    // }
                 ]
             },
             {

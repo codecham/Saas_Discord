@@ -1,5 +1,5 @@
 // packages/shared-types/src/dtos/gateway.dto.ts
-import { EventType } from "../../enums/eventTypes.enum";
+import { EventType } from "../../../enums/eventTypes.enum";
 
 export interface BotEventDto {
   type: EventType;           // Type d'événement

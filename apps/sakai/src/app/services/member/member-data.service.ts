@@ -1,276 +1,467 @@
 // apps/sakai/src/app/services/member/member-data.service.ts
 import { Injectable, signal, computed } from '@angular/core';
-import { DiscordGuildMemberDTO } from '@my-project/shared-types';
+import { GuildMemberDTO, MemberListResponseDTO } from '@my-project/shared-types';
 
 /**
  * Service de gestion de l'état des membres
- * Utilise des signals Angular pour la réactivité
+ * Utilise des signals Angular + Map pour performance O(1)
+ * 
+ * Architecture:
+ * - Map<userId, GuildMemberDTO> pour accès rapide
+ * - Computed signals pour données dérivées (admins, moderators, etc.)
+ * - Cache par guild pour éviter les rechargements
  */
 @Injectable({
   providedIn: 'root'
 })
 export class MemberDataService {
+  
   // ============================================
-  // SIGNALS DE BASE
+  // SIGNALS PRIVÉS - État interne
   // ============================================
 
   /**
-   * Liste des membres chargés
+   * Map des membres par ID (accès O(1))
+   * Utilisé en interne pour la performance
    */
-  private _members = signal<DiscordGuildMemberDTO[]>([]);
-  readonly members = this._members.asReadonly();
+  private readonly _membersMap = signal<Map<string, GuildMemberDTO>>(new Map());
 
   /**
-   * Membre actuellement sélectionné/consulté
+   * ID du membre actuellement sélectionné
    */
-  private _selectedMember = signal<DiscordGuildMemberDTO | null>(null);
-  readonly selectedMember = this._selectedMember.asReadonly();
+  private readonly _selectedMemberId = signal<string | null>(null);
 
   /**
-   * État de chargement de la liste
+   * Métadonnées de pagination depuis le backend
    */
-  private _isLoading = signal<boolean>(false);
-  readonly isLoading = this._isLoading.asReadonly();
+  private readonly _totalMembers = signal<number>(0);
+  private readonly _hasMore = signal<boolean>(false);
+  private readonly _nextCursor = signal<string | undefined>(undefined);
 
   /**
-   * État de chargement des détails d'un membre
+   * États de chargement
    */
-  private _isLoadingMemberDetails = signal<boolean>(false);
-  readonly isLoadingMemberDetails = this._isLoadingMemberDetails.asReadonly();
+  private readonly _isLoading = signal<boolean>(false);
+  private readonly _isLoadingMore = signal<boolean>(false);
+  private readonly _isLoadingMemberDetails = signal<boolean>(false);
+  private readonly _error = signal<string | null>(null);
 
   /**
-   * Erreur éventuelle
+   * Recherche locale
    */
-  private _error = signal<string | null>(null);
-  readonly error = this._error.asReadonly();
-
-  /**
-   * Terme de recherche actuel
-   */
-  private _searchQuery = signal<string>('');
-  readonly searchQuery = this._searchQuery.asReadonly();
+  private readonly _searchQuery = signal<string>('');
 
   // ============================================
   // CACHE PAR GUILD
   // ============================================
 
   /**
+   * Guild actuellement chargée
+   */
+  private currentGuildId: string | null = null;
+
+  /**
    * Cache des membres par guild
-   * Map<guildId, membres[]>
+   * Map<guildId, Map<userId, GuildMemberDTO>>
    */
-  private memberCache = new Map<string, DiscordGuildMemberDTO[]>();
+  private readonly memberCache = new Map<string, Map<string, GuildMemberDTO>>();
+
+  /**
+   * Timestamps du cache pour invalidation
+   * Map<guildId, timestamp>
+   */
+  private readonly cacheTimestamps = new Map<string, number>();
+
+  /**
+   * TTL du cache en millisecondes (5 minutes)
+   */
+  private readonly CACHE_TTL = 5 * 60 * 1000;
 
   // ============================================
-  // SIGNALS COMPUTED
+  // SIGNALS PUBLICS (READONLY)
   // ============================================
 
   /**
-   * Nombre total de membres chargés
+   * Array de tous les membres (pour affichage liste)
    */
-  readonly totalMembers = computed(() => this._members().length);
+  readonly members = computed(() => 
+    Array.from(this._membersMap().values())
+  );
 
   /**
-   * Membres filtrés selon la recherche
+   * Membre actuellement sélectionné
+   */
+  readonly selectedMember = computed(() => {
+    const id = this._selectedMemberId();
+    return id ? this._membersMap().get(id) || null : null;
+  });
+
+  /**
+   * Métadonnées de pagination
+   */
+  readonly totalMembers = this._totalMembers.asReadonly();
+  readonly hasMore = this._hasMore.asReadonly();
+  readonly nextCursor = this._nextCursor.asReadonly();
+
+  /**
+   * États de chargement
+   */
+  readonly isLoading = this._isLoading.asReadonly();
+  readonly isLoadingMore = this._isLoadingMore.asReadonly();
+  readonly isLoadingMemberDetails = this._isLoadingMemberDetails.asReadonly();
+  readonly error = this._error.asReadonly();
+
+  /**
+   * Recherche
+   */
+  readonly searchQuery = this._searchQuery.asReadonly();
+
+  // ============================================
+  // COMPUTED SIGNALS - Données dérivées
+  // ============================================
+
+  /**
+   * Nombre de membres chargés localement
+   */
+  readonly loadedCount = computed(() => this._membersMap().size);
+
+  /**
+   * Indique si un membre est sélectionné
+   */
+  readonly hasMemberSelected = computed(() => this._selectedMemberId() !== null);
+
+  /**
+   * Membres filtrés selon la recherche locale
    */
   readonly filteredMembers = computed(() => {
     const query = this._searchQuery().toLowerCase().trim();
     
     if (!query) {
-      return this._members();
+      return this.members();
     }
 
-    return this._members().filter(member => {
-      const username = member.user?.username?.toLowerCase() || '';
-      const globalName = member.user?.global_name?.toLowerCase() || '';
-      const nick = member.nick?.toLowerCase() || '';
-      
-      return username.includes(query) || 
-             globalName.includes(query) || 
-             nick.includes(query);
+    return this.members().filter(member => {
+      // Recherche dans displayName et username
+      return member.displayName.toLowerCase().includes(query) ||
+             member.username.toLowerCase().includes(query);
     });
   });
 
   /**
-   * Indique si un membre est sélectionné
+   * Membres avec statut admin
    */
-  readonly hasMemberSelected = computed(() => this._selectedMember() !== null);
+  readonly admins = computed(() => 
+    this.members().filter(m => m.isAdmin)
+  );
 
   /**
-   * Membres avec un rôle spécifique
+   * Membres avec statut modérateur
    */
-  membersWithRole(roleId: string) {
-    return computed(() => 
-      this._members().filter(member => member.roles.includes(roleId))
-    );
-  }
+  readonly moderators = computed(() => 
+    this.members().filter(m => m.isModerator)
+  );
+
+  /**
+   * Propriétaire du serveur
+   */
+  readonly owner = computed(() => 
+    this.members().find(m => m.isOwner) || null
+  );
 
   /**
    * Membres en timeout
    */
-  readonly timedOutMembers = computed(() => {
-    return this._members().filter(member => {
-      if (!member.communication_disabled_until) return false;
-      return new Date(member.communication_disabled_until) > new Date();
+  readonly timedOutMembers = computed(() => 
+    this.members().filter(m => m.isTimedOut)
+  );
+
+  /**
+   * Membres muted (vocal)
+   */
+  readonly mutedMembers = computed(() => 
+    this.members().filter(m => m.isMuted)
+  );
+
+  /**
+   * Membres deafened (vocal)
+   */
+  readonly deafenedMembers = computed(() => 
+    this.members().filter(m => m.isDeafened)
+  );
+
+  /**
+   * Bots
+   */
+  readonly bots = computed(() => 
+    this.members().filter(m => m.isBot)
+  );
+
+  /**
+   * Membres humains (pas bots)
+   */
+  readonly humans = computed(() => 
+    this.members().filter(m => !m.isBot)
+  );
+
+  /**
+   * Membres en attente (pending screening)
+   */
+  readonly pendingMembers = computed(() => 
+    this.members().filter(m => m.isPending)
+  );
+
+  // ============================================
+  // MÉTHODES PUBLIQUES - Setters
+  // ============================================
+
+  /**
+   * Définir la liste complète des membres depuis une response backend
+   */
+  setMembersFromResponse(response: MemberListResponseDTO, guildId: string): void {
+    const map = new Map<string, GuildMemberDTO>();
+    
+    response.members.forEach(member => {
+      map.set(member.id, member);
     });
-  });
-
-  /**
-   * Membres mutés
-   */
-  readonly mutedMembers = computed(() => {
-    return this._members().filter(member => member.mute);
-  });
-
-  /**
-   * Membres deafened
-   */
-  readonly deafenedMembers = computed(() => {
-    return this._members().filter(member => member.deaf);
-  });
-
-  // ============================================
-  // MÉTHODES PUBLIQUES - SETTERS
-  // ============================================
-
-  /**
-   * Définit la liste des membres
-   */
-  setMembers(members: DiscordGuildMemberDTO[]): void {
-    this._members.set(members);
+    
+    this._membersMap.set(map);
+    this._totalMembers.set(response.total);
+    this._hasMore.set(response.hasMore);
+    this._nextCursor.set(response.nextCursor);
+    
+    // Mettre en cache
+    this.memberCache.set(guildId, map);
+    this.cacheTimestamps.set(guildId, Date.now());
+    this.currentGuildId = guildId;
   }
 
   /**
-   * Ajoute des membres à la liste existante (pour pagination)
+   * Ajouter des membres (pour lazy loading / pagination)
    */
-  addMembers(members: DiscordGuildMemberDTO[]): void {
-    this._members.update(current => [...current, ...members]);
-  }
-
-  /**
-   * Définit un membre comme sélectionné
-   */
-  setSelectedMember(member: DiscordGuildMemberDTO | null): void {
-    this._selectedMember.set(member);
-  }
-
-  /**
-   * Met à jour un membre dans la liste
-   */
-  updateMember(updatedMember: DiscordGuildMemberDTO): void {
-    this._members.update(members => 
-      members.map(m => 
-        m.user?.id === updatedMember.user?.id ? updatedMember : m
-      )
-    );
-
-    // Si c'est le membre sélectionné, le mettre à jour aussi
-    if (this._selectedMember()?.user?.id === updatedMember.user?.id) {
-      this._selectedMember.set(updatedMember);
+  addMembers(members: GuildMemberDTO[]): void {
+    const map = new Map(this._membersMap());
+    
+    members.forEach(member => {
+      map.set(member.id, member);
+    });
+    
+    this._membersMap.set(map);
+    
+    // Mettre à jour le cache
+    if (this.currentGuildId) {
+      this.memberCache.set(this.currentGuildId, map);
     }
   }
 
   /**
-   * Retire un membre de la liste (après kick/ban)
+   * Mettre à jour un membre spécifique
+   */
+  updateMember(member: GuildMemberDTO): void {
+    const map = new Map(this._membersMap());
+    map.set(member.id, member);
+    this._membersMap.set(map);
+    
+    // Mettre à jour le cache
+    if (this.currentGuildId) {
+      this.memberCache.set(this.currentGuildId, map);
+    }
+  }
+
+  /**
+   * Supprimer un membre (après kick/ban)
    */
   removeMember(userId: string): void {
-    this._members.update(members => 
-      members.filter(m => m.user?.id !== userId)
-    );
-
-    // Si c'était le membre sélectionné, le désélectionner
-    if (this._selectedMember()?.user?.id === userId) {
-      this._selectedMember.set(null);
+    const map = new Map(this._membersMap());
+    map.delete(userId);
+    this._membersMap.set(map);
+    
+    // Mettre à jour le cache
+    if (this.currentGuildId) {
+      this.memberCache.set(this.currentGuildId, map);
+    }
+    
+    // Désélectionner si c'était le membre sélectionné
+    if (this._selectedMemberId() === userId) {
+      this._selectedMemberId.set(null);
     }
   }
 
+  // ============================================
+  // MÉTHODES PUBLIQUES - Getters
+  // ============================================
+
   /**
-   * Définit l'état de chargement
+   * Récupérer un membre par ID (O(1))
    */
-  setLoading(loading: boolean): void {
-    this._isLoading.set(loading);
+  getMemberById(userId: string): GuildMemberDTO | undefined {
+    return this._membersMap().get(userId);
   }
 
   /**
-   * Définit l'état de chargement des détails
+   * Récupérer plusieurs membres par IDs
    */
-  setLoadingMemberDetails(loading: boolean): void {
-    this._isLoadingMemberDetails.set(loading);
+  getMembersByIds(userIds: string[]): GuildMemberDTO[] {
+    return userIds
+      .map(id => this._membersMap().get(id))
+      .filter((member): member is GuildMemberDTO => member !== undefined);
   }
 
   /**
-   * Définit une erreur
+   * Récupérer les membres avec un rôle spécifique
    */
-  setError(error: string | null): void {
-    this._error.set(error);
+  getMembersWithRole(roleId: string): GuildMemberDTO[] {
+    return this.members().filter(m => m.roles.includes(roleId));
   }
 
   /**
-   * Définit le terme de recherche
+   * Compte le nombre de membres avec un rôle
+   */
+  countMembersWithRole(roleId: string): number {
+    return this.getMembersWithRole(roleId).length;
+  }
+
+  // ============================================
+  // MÉTHODES PUBLIQUES - Navigation
+  // ============================================
+
+  /**
+   * Sélectionner un membre pour affichage détail
+   */
+  selectMember(userId: string | null): void {
+    this._selectedMemberId.set(userId);
+  }
+
+  /**
+   * Désélectionner le membre actuel
+   */
+  deselectMember(): void {
+    this._selectedMemberId.set(null);
+  }
+
+  // ============================================
+  // MÉTHODES PUBLIQUES - Recherche
+  // ============================================
+
+  /**
+   * Définir la query de recherche
    */
   setSearchQuery(query: string): void {
     this._searchQuery.set(query);
   }
 
+  /**
+   * Clear la recherche
+   */
+  clearSearch(): void {
+    this._searchQuery.set('');
+  }
+
   // ============================================
-  // GESTION DU CACHE
+  // MÉTHODES PUBLIQUES - Cache
   // ============================================
 
   /**
-   * Sauvegarde les membres dans le cache pour une guild
+   * Charger depuis le cache (si disponible et valide)
+   * Retourne true si chargé depuis cache, false sinon
    */
-  cacheMembers(guildId: string, members: DiscordGuildMemberDTO[]): void {
-    this.memberCache.set(guildId, members);
+  loadFromCache(guildId: string): boolean {
+    // Vérifier si cache existe
+    const cached = this.memberCache.get(guildId);
+    if (!cached) {
+      return false;
+    }
+
+    // Vérifier si cache est expiré
+    const timestamp = this.cacheTimestamps.get(guildId);
+    if (timestamp && Date.now() - timestamp > this.CACHE_TTL) {
+      // Cache expiré, le supprimer
+      this.memberCache.delete(guildId);
+      this.cacheTimestamps.delete(guildId);
+      return false;
+    }
+
+    // Cache valide, charger
+    this._membersMap.set(cached);
+    this.currentGuildId = guildId;
+    return true;
   }
 
   /**
-   * Récupère les membres depuis le cache
+   * Invalider le cache d'une guild
    */
-  getCachedMembers(guildId: string): DiscordGuildMemberDTO[] | undefined {
-    return this.memberCache.get(guildId);
-  }
-
-  /**
-   * Vérifie si des membres sont en cache pour une guild
-   */
-  hasCachedMembers(guildId: string): boolean {
-    return this.memberCache.has(guildId);
-  }
-
-  /**
-   * Vide le cache pour une guild spécifique
-   */
-  clearCacheForGuild(guildId: string): void {
+  invalidateCache(guildId: string): void {
     this.memberCache.delete(guildId);
+    this.cacheTimestamps.delete(guildId);
   }
 
   /**
-   * Vide tout le cache
+   * Invalider tout le cache
    */
-  clearAllCache(): void {
+  invalidateAllCache(): void {
     this.memberCache.clear();
+    this.cacheTimestamps.clear();
   }
 
   // ============================================
-  // RESET
+  // MÉTHODES PUBLIQUES - États
+  // ============================================
+
+  setLoading(loading: boolean): void {
+    this._isLoading.set(loading);
+  }
+
+  setLoadingMore(loading: boolean): void {
+    this._isLoadingMore.set(loading);
+  }
+
+  setLoadingMemberDetails(loading: boolean): void {
+    this._isLoadingMemberDetails.set(loading);
+  }
+
+  setError(error: string | null): void {
+    this._error.set(error);
+  }
+
+  setTotalMembers(total: number): void {
+    this._totalMembers.set(total);
+  }
+
+  setHasMore(hasMore: boolean): void {
+    this._hasMore.set(hasMore);
+  }
+
+  setNextCursor(cursor: string | undefined): void {
+    this._nextCursor.set(cursor);
+  }
+
+  // ============================================
+  // MÉTHODES PUBLIQUES - Reset
   // ============================================
 
   /**
-   * Réinitialise toutes les données
+   * Clear tout l'état (changement de serveur)
    */
-  reset(): void {
-    this._members.set([]);
-    this._selectedMember.set(null);
+  clearAll(): void {
+    this._membersMap.set(new Map());
+    this._selectedMemberId.set(null);
+    this._totalMembers.set(0);
+    this._hasMore.set(false);
+    this._nextCursor.set(undefined);
     this._isLoading.set(false);
+    this._isLoadingMore.set(false);
     this._isLoadingMemberDetails.set(false);
     this._error.set(null);
     this._searchQuery.set('');
+    this.currentGuildId = null;
   }
 
   /**
-   * Réinitialise uniquement la sélection
+   * Reset uniquement les états de chargement et erreurs
    */
-  resetSelection(): void {
-    this._selectedMember.set(null);
-    this._searchQuery.set('');
+  resetStates(): void {
+    this._isLoading.set(false);
+    this._isLoadingMore.set(false);
+    this._isLoadingMemberDetails.set(false);
+    this._error.set(null);
   }
 }
