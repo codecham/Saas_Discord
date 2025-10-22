@@ -1,3 +1,4 @@
+// apps/sakai/src/app/services/member/member-facade.service.ts
 import { Injectable, inject, effect } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { MemberApiService } from './member-api.service';
@@ -14,18 +15,15 @@ import {
  * Service Facade pour la gestion des membres
  * Interface publique pour les composants
  * 
+ * ✅ VERSION COMPLÈTE avec toutes les actions de modération
+ * 
  * Responsabilités:
  * - Auto-loading au changement de serveur
  * - Orchestration entre API et Data services
  * - Gestion du cache
  * - Lazy loading des membres restants
+ * - Actions de modération (kick, ban, timeout, etc.)
  * - Méthodes utilitaires pour les components
- * 
- * Architecture:
- * - Écoute selectedGuildId$ du GuildFacade
- * - Charge automatiquement les membres
- * - Utilise le cache quand possible
- * - Expose des signals readonly aux components
  */
 @Injectable({
   providedIn: 'root'
@@ -109,9 +107,6 @@ export class MemberFacadeService {
    * Charge tous les membres d'une guild
    * Appelé automatiquement au changement de serveur (si pas en cache)
    * Peut aussi être appelé manuellement pour forcer le refresh
-   * 
-   * @param guildId - ID de la guild (optionnel, utilise selectedGuildId si absent)
-   * @param forceRefresh - Forcer le rechargement même si en cache
    */
   async loadAllMembers(guildId?: string, forceRefresh: boolean = false): Promise<void> {
     const targetGuildId = guildId || this.guildFacade.selectedGuildId();
@@ -140,7 +135,6 @@ export class MemberFacadeService {
         this.memberApi.getMembers(targetGuildId, 1000)
       );
 
-      console.log(`[MemberFacade] Response from backend: ${JSON.stringify(response)}`);
       console.log(`[MemberFacade] ${response.loadedCount} membres chargés`);
 
       this.memberData.setMembersFromResponse(response, targetGuildId);
@@ -162,14 +156,8 @@ export class MemberFacadeService {
 
   /**
    * Charge les membres restants en arrière-plan (lazy loading)
-   * Ne bloque pas l'UI
-   * 
-   * @param guildId - ID de la guild
-   * @param cursor - Cursor pour pagination
    */
   private async loadRemainingMembersInBackground(guildId: string, cursor?: string): Promise<void> {
-    if (!cursor) return;
-
     try {
       this.memberData.setLoadingMore(true);
 
@@ -177,54 +165,16 @@ export class MemberFacadeService {
         this.memberApi.getMembers(guildId, 1000, cursor)
       );
 
-      console.log(`[MemberFacade] ${response.loadedCount} membres supplémentaires chargés`);
-
+      // Ajouter les membres supplémentaires
       this.memberData.addMembers(response.members);
-      this.memberData.setHasMore(response.hasMore);
-      this.memberData.setNextCursor(response.nextCursor);
 
-      // Récursif si encore plus de membres
+      // Continue si encore plus de membres
       if (response.hasMore && response.nextCursor) {
         await this.loadRemainingMembersInBackground(guildId, response.nextCursor);
-      } else {
-        console.log('[MemberFacade] Tous les membres chargés');
       }
 
     } catch (error) {
       console.error('[MemberFacade] Erreur lazy loading:', error);
-      // Ne pas throw, c'est en background
-    } finally {
-      this.memberData.setLoadingMore(false);
-    }
-  }
-
-  /**
-   * Charge plus de membres manuellement (pagination infinie UI)
-   * Pour scroll infini ou bouton "Charger plus"
-   */
-  async loadMoreMembers(): Promise<void> {
-    const cursor = this.memberData.nextCursor();
-    const guildId = this.guildFacade.selectedGuildId();
-    
-    if (!cursor || !guildId || !this.memberData.hasMore()) {
-      console.log('[MemberFacade] Pas de membres supplémentaires à charger');
-      return;
-    }
-
-    try {
-      this.memberData.setLoadingMore(true);
-      
-      const response = await firstValueFrom(
-        this.memberApi.getMembers(guildId, 100, cursor)
-      );
-      
-      this.memberData.addMembers(response.members);
-      this.memberData.setHasMore(response.hasMore);
-      this.memberData.setNextCursor(response.nextCursor);
-      
-    } catch (error) {
-      const message = this.errorHandler.handleError(error, 'Chargement des membres');
-      this.memberData.setError(message.message);
       throw error;
     } finally {
       this.memberData.setLoadingMore(false);
@@ -237,9 +187,7 @@ export class MemberFacadeService {
   async refresh(): Promise<void> {
     const guildId = this.guildFacade.selectedGuildId();
     if (guildId) {
-      // Invalider le cache
       this.memberData.invalidateCache(guildId);
-      // Recharger
       await this.loadAllMembers(guildId, true);
     }
   }
@@ -250,19 +198,14 @@ export class MemberFacadeService {
 
   /**
    * Sélectionne un membre pour affichage détail
-   * Charge les détails si pas déjà en cache
-   * 
-   * @param userId - ID de l'utilisateur
    */
   async selectMember(userId: string): Promise<void> {
     const guildId = this.guildFacade.selectedGuildId();
     if (!guildId) return;
 
-    // Vérifier si déjà en cache
     let member = this.memberData.getMemberById(userId);
 
     if (!member) {
-      // Charger depuis l'API
       try {
         this.memberData.setLoadingMemberDetails(true);
         
@@ -295,7 +238,7 @@ export class MemberFacadeService {
   // ============================================
 
   /**
-   * Définit la query de recherche locale (filtre les membres chargés)
+   * Définit la query de recherche locale
    */
   setSearchQuery(query: string): void {
     this.memberData.setSearchQuery(query);
@@ -309,11 +252,7 @@ export class MemberFacadeService {
   }
 
   /**
-   * Recherche des membres via l'API Discord (recherche serveur)
-   * Utile pour les très gros serveurs où tous les membres ne sont pas chargés
-   * 
-   * @param query - Terme de recherche
-   * @param limit - Nombre de résultats max
+   * Recherche des membres via l'API Discord
    */
   async searchMembersOnServer(query: string, limit: number = 100): Promise<GuildMemberDTO[]> {
     const guildId = this.guildFacade.selectedGuildId();
@@ -326,9 +265,7 @@ export class MemberFacadeService {
         this.memberApi.searchMembers(guildId, query, limit)
       );
 
-      // Ajouter les résultats au cache local
       this.memberData.addMembers(results);
-
       return results;
 
     } catch (error) {
@@ -341,30 +278,18 @@ export class MemberFacadeService {
   // MÉTHODES UTILITAIRES
   // ============================================
 
-  /**
-   * Récupère un membre par ID (O(1))
-   */
   getMemberById(userId: string): GuildMemberDTO | undefined {
     return this.memberData.getMemberById(userId);
   }
 
-  /**
-   * Récupère plusieurs membres par IDs
-   */
   getMembersByIds(userIds: string[]): GuildMemberDTO[] {
     return this.memberData.getMembersByIds(userIds);
   }
 
-  /**
-   * Obtient les membres avec un rôle spécifique
-   */
   getMembersWithRole(roleId: string): GuildMemberDTO[] {
     return this.memberData.getMembersWithRole(roleId);
   }
 
-  /**
-   * Compte le nombre de membres avec un rôle
-   */
   countMembersWithRole(roleId: string): number {
     return this.memberData.countMembersWithRole(roleId);
   }
@@ -399,13 +324,17 @@ export class MemberFacadeService {
   /**
    * Ban un membre du serveur
    */
-  async banMember(userId: string, data: CreateGuildBanDTO = {}, reason?: string): Promise<void> {
+  async banMember(userId: string, reason?: string, deleteMessageDays?: number): Promise<void> {
     const guildId = this.guildFacade.selectedGuildId();
     if (!guildId) return;
 
     try {
+      const banData: CreateGuildBanDTO = {
+        delete_message_days: deleteMessageDays
+      };
+
       await firstValueFrom(
-        this.memberApi.banMember(guildId, userId, data, reason)
+        this.memberApi.banMember(guildId, userId, banData, reason)
       );
 
       // Supprimer du cache local
@@ -420,21 +349,25 @@ export class MemberFacadeService {
   }
 
   /**
-   * Timeout un membre
+   * Timeout un membre (mute temporaire)
+   * 
+   * @param userId - ID de l'utilisateur
+   * @param duration - Durée en ISO 8601 (ex: "PT1H" = 1 heure) ou date ISO complète
+   * @param reason - Raison du timeout (optionnel)
    */
-  async timeoutMember(userId: string, until: string, reason?: string): Promise<void> {
+  async timeoutMember(userId: string, duration: string, reason?: string): Promise<void> {
     const guildId = this.guildFacade.selectedGuildId();
     if (!guildId) return;
 
     try {
       const updatedMember = await firstValueFrom(
-        this.memberApi.timeoutMember(guildId, userId, until, reason)
+        this.memberApi.timeoutMember(guildId, userId, duration, reason)
       );
 
       // Mettre à jour dans le cache
       this.memberData.updateMember(updatedMember);
 
-      console.log(`[MemberFacade] Membre ${userId} timeout jusqu'à ${until}`);
+      console.log(`[MemberFacade] Membre ${userId} timeout jusqu'à ${duration}`);
 
     } catch (error) {
       this.errorHandler.handleError(error, 'Timeout du membre');
@@ -457,7 +390,7 @@ export class MemberFacadeService {
       // Mettre à jour dans le cache
       this.memberData.updateMember(updatedMember);
 
-      console.log(`[MemberFacade] Timeout retiré pour membre ${userId}`);
+      console.log(`[MemberFacade] Timeout retiré pour ${userId}`);
 
     } catch (error) {
       this.errorHandler.handleError(error, 'Retrait du timeout');
@@ -468,7 +401,7 @@ export class MemberFacadeService {
   /**
    * Change le pseudo d'un membre
    */
-  async changeNickname(userId: string, nickname: string | null, reason?: string): Promise<void> {
+  async changeNickname(userId: string, nickname: string, reason?: string): Promise<void> {
     const guildId = this.guildFacade.selectedGuildId();
     if (!guildId) return;
 
@@ -477,7 +410,6 @@ export class MemberFacadeService {
         this.memberApi.changeNickname(guildId, userId, nickname, reason)
       );
 
-      // Mettre à jour dans le cache
       this.memberData.updateMember(updatedMember);
 
       console.log(`[MemberFacade] Pseudo de ${userId} changé en "${nickname}"`);
@@ -500,7 +432,6 @@ export class MemberFacadeService {
         this.memberApi.setMemberRoles(guildId, userId, roleIds, reason)
       );
 
-      // Mettre à jour dans le cache
       this.memberData.updateMember(updatedMember);
 
       console.log(`[MemberFacade] Rôles de ${userId} mis à jour`);
