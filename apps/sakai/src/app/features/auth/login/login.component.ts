@@ -33,7 +33,7 @@ import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
                                     />
                                 </g>
                             </svg>
-                            <div class="text-surface-900 dark:text-surface-0 text-3xl font-medium mb-4">Welcome to PrimeLand!</div>
+                            <div class="text-surface-900 dark:text-surface-0 text-3xl font-medium mb-4">Welcome to Chrona</div>
                             <span class="text-muted-color font-medium">Sign in with Discord to continue</span>
                         </div>
 

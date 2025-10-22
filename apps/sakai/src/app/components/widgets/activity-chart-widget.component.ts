@@ -5,7 +5,7 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { debounceTime, Subscription } from 'rxjs';
 import { LayoutService } from '@app/services/layout.service';
 import { StatisticsFacadeService } from '@services/statistics/statistics-facade.service';
-import { formatDuration } from '@services/statistics/statistics.models';
+import { ActivityTimelineDto, formatDuration } from '@services/statistics/statistics.models';
 
 /**
  * 📈 Widget affichant le graphique d'activité (line chart)
@@ -105,11 +105,13 @@ export class ActivityChartWidgetComponent implements OnInit, OnDestroy {
    * Initialise ou met à jour la configuration du chart
    */
   private initChart(): void {
-    const timeline = this.statsFacade.activityTimeline();
+    const timeline: ActivityTimelineDto | null = this.statsFacade.activityTimeline();
     
     if (!timeline) {
       return;
     }
+    const datapoint = timeline.dataPoints;
+    console.log(`[Activity-chart-widget]: timeline = ${datapoint}`);
 
     // Récupérer les couleurs du thème
     const documentStyle = getComputedStyle(document.documentElement);

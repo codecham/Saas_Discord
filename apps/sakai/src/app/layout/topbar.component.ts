@@ -37,7 +37,7 @@ import { MenuModule } from 'primeng/menu';
                         />
                     </g>
                 </svg>
-                <span>SAKAI</span>
+                <span>CHRONA</span>
             </a>
         </div>
 
