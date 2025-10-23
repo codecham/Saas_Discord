@@ -21,6 +21,7 @@ import { DividerModule } from 'primeng/divider';
 import { MemberFacadeService } from '@app/services/member/member-facade.service';
 import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
 import { GuildMemberDTO } from '@my-project/shared-types';
+import { MemberRolesComponent } from '@app/components/member-roles.component';
 import { 
   MemberActionModalsComponent,
   KickMemberAction,
@@ -59,7 +60,8 @@ import {
     SkeletonModule,
     ToastModule,
     DividerModule,
-    MemberActionModalsComponent
+    MemberActionModalsComponent,
+    MemberRolesComponent
   ],
   providers: [MessageService],
   template: `
@@ -299,15 +301,9 @@ import {
 
                   <!-- Roles -->
                   <td>
-                    <div class="flex flex-wrap gap-1">
-                      @for (roleId of member.roles.slice(0, 3); track roleId) {
-                        <p-tag [value]="roleId" severity="secondary" styleClass="text-xs" />
-                      }
-                      @if (member.roles.length > 3) {
-                        <p-tag [value]="'+' + (member.roles.length - 3)" severity="secondary" styleClass="text-xs" />
-                      }
-                    </div>
+                    <app-member-roles [roleIds]="member.roles" [maxDisplay]="3" />
                   </td>
+
 
                   <!-- Join Date -->
                   <td>{{ formatDate(member.joinedAt) }}</td>
