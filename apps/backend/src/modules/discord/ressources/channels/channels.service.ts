@@ -1,49 +1,127 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { DiscordApiService } from '../../core/discord-api.service';
 import { DISCORD_ENDPOINTS } from '../../common/constants/discord-endpoints.constant';
+import { ChannelTransformer } from '../../transformers/channel.transformer';
 import {
   DiscordChannelDTO,
   DiscordMessageDTO,
+  DiscordRoleDTO,
+  GuildChannelDTO,
   ModifyChannelDTO,
   CreateMessageDTO,
   EditMessageDTO,
   EditChannelPermissionsDTO,
-  BulkDeleteMessagesDTO,
 } from '@my-project/shared-types';
 
 /**
  * Service pour gérer les channels Discord
+ * Utilise le ChannelTransformer pour enrichir les données
  */
 @Injectable()
 export class ChannelsService {
-  constructor(private readonly discordApi: DiscordApiService) {}
+  private readonly logger = new Logger(ChannelsService.name);
+
+  constructor(
+    private readonly discordApi: DiscordApiService,
+    private readonly channelTransformer: ChannelTransformer,
+  ) {}
 
   /**
-   * Récupère les informations d'un channel
+   * Récupère les informations d'un channel ENRICHI
+   * Retourne GuildChannelDTO avec données computed
    */
-  async getChannel(channelId: string): Promise<DiscordChannelDTO> {
-    return this.discordApi.get<DiscordChannelDTO>(
+  async getChannel(channelId: string): Promise<GuildChannelDTO> {
+    // 1. Fetch channel depuis Discord API
+    const rawChannel = await this.discordApi.get<DiscordChannelDTO>(
       DISCORD_ENDPOINTS.CHANNEL(channelId),
       {
         rateLimitKey: `channel:${channelId}`,
       },
     );
+
+    // 2. Si le channel n'a pas de guild_id, retourner tel quel (DM channel)
+    if (!rawChannel.guild_id) {
+      this.logger.warn(`Channel ${channelId} has no guild_id (DM channel?)`);
+      // On retourne quand même quelque chose mais non enrichi
+      return this.channelTransformer.transform(rawChannel, 'unknown');
+    }
+
+    // 3. Fetch roles et autres channels de la guild pour enrichissement
+    try {
+      const [rawRoles, allRawChannels] = await Promise.all([
+        this.discordApi.get<DiscordRoleDTO[]>(
+          DISCORD_ENDPOINTS.GUILD_ROLES(rawChannel.guild_id),
+          { rateLimitKey: `guild:${rawChannel.guild_id}:roles` },
+        ),
+        this.discordApi.get<DiscordChannelDTO[]>(
+          DISCORD_ENDPOINTS.GUILD_CHANNELS(rawChannel.guild_id),
+          { rateLimitKey: `guild:${rawChannel.guild_id}:channels` },
+        ),
+      ]);
+
+      // 4. Transform avec contexte complet
+      return this.channelTransformer.transform(
+        rawChannel,
+        rawChannel.guild_id,
+        rawRoles,
+        allRawChannels,
+      );
+    } catch (error) {
+      // Si on ne peut pas fetch le contexte, transformer quand même
+      this.logger.warn(
+        `Could not fetch guild context for channel ${channelId}:`,
+        error,
+      );
+      return this.channelTransformer.transform(rawChannel, rawChannel.guild_id);
+    }
   }
 
   /**
-   * Modifie un channel
+   * Modifie un channel et retourne les données enrichies
    */
   async modifyChannel(
     channelId: string,
     data: ModifyChannelDTO,
-  ): Promise<DiscordChannelDTO> {
-    return this.discordApi.patch<DiscordChannelDTO>(
+  ): Promise<GuildChannelDTO> {
+    // 1. Modifier via API Discord
+    const rawChannel = await this.discordApi.patch<DiscordChannelDTO>(
       DISCORD_ENDPOINTS.CHANNEL(channelId),
       data,
       {
         rateLimitKey: `channel:${channelId}:modify`,
       },
     );
+
+    // 2. Retourner enrichi
+    if (!rawChannel.guild_id) {
+      return this.channelTransformer.transform(rawChannel, 'unknown');
+    }
+
+    try {
+      const [rawRoles, allRawChannels] = await Promise.all([
+        this.discordApi.get<DiscordRoleDTO[]>(
+          DISCORD_ENDPOINTS.GUILD_ROLES(rawChannel.guild_id),
+          { rateLimitKey: `guild:${rawChannel.guild_id}:roles` },
+        ),
+        this.discordApi.get<DiscordChannelDTO[]>(
+          DISCORD_ENDPOINTS.GUILD_CHANNELS(rawChannel.guild_id),
+          { rateLimitKey: `guild:${rawChannel.guild_id}:channels` },
+        ),
+      ]);
+
+      return this.channelTransformer.transform(
+        rawChannel,
+        rawChannel.guild_id,
+        rawRoles,
+        allRawChannels,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Could not fetch guild context after modifying channel ${channelId}:`,
+        error,
+      );
+      return this.channelTransformer.transform(rawChannel, rawChannel.guild_id);
+    }
   }
 
   /**
@@ -137,25 +215,24 @@ export class ChannelsService {
   }
 
   /**
-   * Supprime plusieurs messages en une seule fois (bulk delete)
+   * Supprime plusieurs messages en bulk
    */
-  async bulkDeleteMessages(
-    channelId: string,
-    messageIds: string[],
-  ): Promise<void> {
-    const data: BulkDeleteMessagesDTO = { messages: messageIds };
-
-    return this.discordApi.post(
-      `${DISCORD_ENDPOINTS.CHANNEL_MESSAGES(channelId)}/bulk-delete`,
-      data,
-      {
-        rateLimitKey: `channel:${channelId}:messages:bulk-delete`,
-      },
-    );
-  }
+  // async bulkDeleteMessages(
+  //   channelId: string,
+  //   messageIds: string[],
+  // ): Promise<void> {
+  //   const data: BulkDeleteMessagesDTO = { messages: messageIds };
+  //   return this.discordApi.post(
+  //     DISCORD_ENDPOINTS.CHANNEL_BULK_DELETE(channelId),
+  //     data,
+  //     {
+  //       rateLimitKey: `channel:${channelId}:messages:bulk-delete`,
+  //     },
+  //   );
+  // }
 
   /**
-   * Modifie les permissions d'un channel pour un rôle ou utilisateur
+   * Modifie les permissions d'un channel
    */
   async editChannelPermissions(
     channelId: string,
@@ -166,13 +243,13 @@ export class ChannelsService {
       DISCORD_ENDPOINTS.CHANNEL_PERMISSIONS(channelId, overwriteId),
       data,
       {
-        rateLimitKey: `channel:${channelId}:permissions:${overwriteId}:edit`,
+        rateLimitKey: `channel:${channelId}:permissions:${overwriteId}`,
       },
     );
   }
 
   /**
-   * Supprime les permissions d'un channel pour un rôle ou utilisateur
+   * Supprime les permissions d'un channel
    */
   async deleteChannelPermission(
     channelId: string,
@@ -209,38 +286,38 @@ export class ChannelsService {
   }
 
   /**
-   * Épingle un message dans un channel
-   */
-  async pinMessage(channelId: string, messageId: string): Promise<void> {
-    return this.discordApi.put(
-      DISCORD_ENDPOINTS.CHANNEL_PIN(channelId, messageId),
-      undefined,
-      {
-        rateLimitKey: `channel:${channelId}:pin`,
-      },
-    );
-  }
-
-  /**
-   * Désépingle un message dans un channel
-   */
-  async unpinMessage(channelId: string, messageId: string): Promise<void> {
-    return this.discordApi.delete(
-      DISCORD_ENDPOINTS.CHANNEL_PIN(channelId, messageId),
-      {
-        rateLimitKey: `channel:${channelId}:unpin`,
-      },
-    );
-  }
-
-  /**
-   * Récupère les messages épinglés d'un channel
+   * Récupère les messages épinglés
    */
   async getPinnedMessages(channelId: string): Promise<DiscordMessageDTO[]> {
     return this.discordApi.get<DiscordMessageDTO[]>(
       DISCORD_ENDPOINTS.CHANNEL_PINS(channelId),
       {
         rateLimitKey: `channel:${channelId}:pins`,
+      },
+    );
+  }
+
+  /**
+   * Épingle un message
+   */
+  async pinMessage(channelId: string, messageId: string): Promise<void> {
+    return this.discordApi.put(
+      DISCORD_ENDPOINTS.CHANNEL_PIN(channelId, messageId),
+      {},
+      {
+        rateLimitKey: `channel:${channelId}:pins:add`,
+      },
+    );
+  }
+
+  /**
+   * Désépingle un message
+   */
+  async unpinMessage(channelId: string, messageId: string): Promise<void> {
+    return this.discordApi.delete(
+      DISCORD_ENDPOINTS.CHANNEL_PIN(channelId, messageId),
+      {
+        rateLimitKey: `channel:${channelId}:pins:remove`,
       },
     );
   }
@@ -255,7 +332,7 @@ export class ChannelsService {
   }
 
   /**
-   * Crée un webhook dans un channel
+   * Crée un webhook
    */
   async createWebhook(channelId: string, data: any): Promise<any> {
     return this.discordApi.post(
@@ -268,12 +345,12 @@ export class ChannelsService {
   }
 
   /**
-   * Commence à taper dans un channel (typing indicator)
+   * Envoie un typing indicator
    */
   async triggerTypingIndicator(channelId: string): Promise<void> {
     return this.discordApi.post(
-      `${DISCORD_ENDPOINTS.CHANNEL(channelId)}/typing`,
-      undefined,
+      DISCORD_ENDPOINTS.CHANNEL_PINS(channelId),
+      {},
       {
         rateLimitKey: `channel:${channelId}:typing`,
       },

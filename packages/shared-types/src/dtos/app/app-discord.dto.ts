@@ -144,3 +144,123 @@ export interface MemberStatsDTO {
   firstSeenAt: string;           // ISO date
   lastActiveAt: string;          // ISO date
 }
+
+
+// ============================================
+// GUILD CHANNEL - DTO enrichi
+// ============================================
+
+/**
+ * Permission overwrite enrichie avec informations supplémentaires
+ */
+export interface ChannelPermissionOverwriteDTO {
+  id: string;                    // Role ID ou User ID
+  type: number;                  // 0 = Role, 1 = Member
+  allow: string;                 // Bitfield des permissions autorisées
+  deny: string;                  // Bitfield des permissions refusées
+  
+  // Computed (enrichi au backend)
+  targetName?: string;           // Nom du role/membre
+  targetType: 'role' | 'member'; // Type lisible
+}
+
+/**
+ * Channel d'une guild - DTO enrichi et optimisé
+ * Transformé depuis DiscordChannelDTO au backend
+ * 
+ * Changements vs DTO Discord:
+ * - Catégorisation (isText, isVoice, isCategory, etc.)
+ * - Permissions enrichies avec noms
+ * - URLs précomputées
+ * - Champs computed (categoryPath, isLocked, hasActiveThreads, etc.)
+ */
+export interface GuildChannelDTO {
+  // ===== Identifiants =====
+  id: string;
+  guildId: string;
+  
+  // ===== Informations de base =====
+  name: string;
+  type: number;                  // DiscordChannelType enum
+  position: number;
+  
+  // ===== Hiérarchie =====
+  parentId?: string;             // ID de la catégorie parente
+  parentName?: string;           // Nom de la catégorie (computed)
+  categoryPath?: string;         // Chemin complet ex: "Général / canaux-textuels"
+  
+  // ===== Permissions =====
+  permissionOverwrites: ChannelPermissionOverwriteDTO[];
+  
+  // ===== Propriétés Text Channels =====
+  topic?: string;                // Description du channel
+  nsfw: boolean;                 // Channel NSFW
+  rateLimitPerUser?: number;     // Slowmode en secondes
+  lastMessageId?: string;
+  lastPinTimestamp?: string;     // ISO date
+  
+  // ===== Propriétés Voice Channels =====
+  bitrate?: number;              // Qualité audio (bps)
+  userLimit?: number;            // Limite d'utilisateurs (0 = illimité)
+  rtcRegion?: string;            // Région voice
+  videoQualityMode?: number;     // 1 = auto, 2 = 720p
+  
+  // ===== Propriétés Forum Channels =====
+  defaultAutoArchiveDuration?: number;
+  defaultReactionEmoji?: string;
+  defaultSortOrder?: number;
+  defaultForumLayout?: number;
+  
+  // ===== Propriétés Thread Channels =====
+  threadMetadata?: {
+    archived: boolean;
+    autoArchiveDuration: number;
+    archiveTimestamp?: string;
+    locked: boolean;
+    invitable?: boolean;
+  };
+  messageCount?: number;
+  memberCount?: number;
+  totalMessageSent?: number;
+  
+  // ===== Flags =====
+  flags?: number;
+  
+  // ===== Computed - Catégorisation =====
+  isText: boolean;               // Text, Announcement, Forum
+  isVoice: boolean;              // Voice, Stage
+  isCategory: boolean;
+  isThread: boolean;             // Public, Private, Announcement Thread
+  isForum: boolean;
+  isAnnouncement: boolean;
+  isStage: boolean;
+  
+  // ===== Computed - États =====
+  isLocked: boolean;             // Channel verrouillé (permissions)
+  isPrivate: boolean;            // @everyone ne peut pas voir
+  hasSlowmode: boolean;          // rateLimitPerUser > 0
+  hasActiveThreads?: boolean;    // Pour les channels de texte
+  
+  // ===== Computed - Stats (optionnel) =====
+  activeThreadCount?: number;
+  archivedThreadCount?: number;
+  
+  // ===== Métadonnées =====
+  createdAt?: string;            // ISO date (snowflake decode)
+}
+
+/**
+ * Response pour la liste des channels
+ */
+export interface ChannelListResponseDTO {
+  channels: GuildChannelDTO[];
+  
+  // Métadonnées
+  total: number;
+  categories: number;
+  textChannels: number;
+  voiceChannels: number;
+  threads: number;
+  
+  timestamp: string;             // ISO date - Quand les données ont été récupérées
+}

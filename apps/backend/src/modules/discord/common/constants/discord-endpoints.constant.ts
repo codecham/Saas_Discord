@@ -3,6 +3,8 @@
  * Documentation: https://discord.com/developers/docs/reference
  */
 
+// import { channel } from "diagnostics_channel";
+
 export const DISCORD_ENDPOINTS = {
   // Guilds
   GUILD: (guildId: string) => `/guilds/${guildId}`,

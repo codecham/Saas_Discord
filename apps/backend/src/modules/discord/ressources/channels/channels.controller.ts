@@ -95,14 +95,14 @@ export class ChannelsController {
    * POST /discord/channels/:channelId/messages/bulk-delete
    * Supprime plusieurs messages en une seule fois
    */
-  @Post(':channelId/messages/bulk-delete')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async bulkDeleteMessages(
-    @Param('channelId') channelId: string,
-    @Body('messages') messageIds: string[],
-  ) {
-    return this.channelsService.bulkDeleteMessages(channelId, messageIds);
-  }
+  // @Post(':channelId/messages/bulk-delete')
+  // @HttpCode(HttpStatus.NO_CONTENT)
+  // async bulkDeleteMessages(
+  //   @Param('channelId') channelId: string,
+  //   @Body('messages') messageIds: string[],
+  // ) {
+  //   return this.channelsService.bulkDeleteMessages(channelId, messageIds);
+  // }
 
   /**
    * GET /discord/channels/:channelId/messages/:messageId
