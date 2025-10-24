@@ -7,6 +7,9 @@ import {
   UseFilters,
   UseInterceptors,
   UseGuards,
+  Post,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { GuildsService } from './guilds.service';
 import { DiscordExceptionFilter } from '../../common/filters/discord-exception.filter';
@@ -61,25 +64,25 @@ export class GuildsController {
    * GET /discord/guilds/:guildId/channels
    * Récupère tous les channels d'une guild
    */
-  // @Get(':guildId/channels')
-  // @UseGuards(GuildAdminGuard)
-  // async getGuildChannels(@Param('guildId') guildId: string) {
-  //   return this.guildsService.getGuildChannels(guildId);
-  // }
+  @Get(':guildId/channels')
+  @UseGuards(GuildAdminGuard)
+  async getGuildChannels(@Param('guildId') guildId: string) {
+    return this.guildsService.getGuildChannels(guildId);
+  }
 
-  // /**
-  //  * POST /discord/guilds/:guildId/channels
-  //  * Crée un nouveau channel dans une guild
-  //  */
-  // @Post(':guildId/channels')
-  // @HttpCode(HttpStatus.CREATED)
-  // @UseGuards(GuildAdminGuard)
-  // async createGuildChannel(
-  //   @Param('guildId') guildId: string,
-  //   @Body() data: any, // Utiliser CreateChannelDTO depuis /packages
-  // ) {
-  //   return this.guildsService.createGuildChannel(guildId, data);
-  // }
+  /**
+   * POST /discord/guilds/:guildId/channels
+   * Crée un nouveau channel dans une guild
+   */
+  @Post(':guildId/channels')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(GuildAdminGuard)
+  async createGuildChannel(
+    @Param('guildId') guildId: string,
+    @Body() data: any, // Utiliser CreateChannelDTO depuis /packages
+  ) {
+    return this.guildsService.createGuildChannel(guildId, data);
+  }
 
   // /**
   //  * GET /discord/guilds/:guildId/members
