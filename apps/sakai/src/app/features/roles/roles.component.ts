@@ -1,4 +1,4 @@
-import { Component, ViewChild, computed, inject } from '@angular/core';
+import { Component, ViewChild, computed, inject, signal, model } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Table, TableModule } from 'primeng/table';
@@ -12,13 +12,14 @@ import { RippleModule } from 'primeng/ripple';
 import { SkeletonModule } from 'primeng/skeleton';
 import { ChipModule } from 'primeng/chip';
 import { ToastModule } from 'primeng/toast';
+import { TabsModule } from 'primeng/tabs';
 import { MessageService } from 'primeng/api';
 import { RoleFacadeService } from '@app/services/role/role-facade.service';
 import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
 import { GuildRoleDTO } from '@my-project/shared-types';
 
 /**
- * Composant de gestion des rôles
+ * Composant de gestion des rôles - Version moderne et professionnelle
  * Affiche la liste des rôles avec leurs informations et actions
  */
 @Component({
@@ -37,21 +38,22 @@ import { GuildRoleDTO } from '@my-project/shared-types';
     RippleModule,
     SkeletonModule,
     ChipModule,
-    ToastModule
+    ToastModule,
+    TabsModule
   ],
   providers: [MessageService],
   template: `
     <div class="grid">
+      <!-- Header -->
       <div class="col-span-12">
-        <!-- Header -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
           <div>
-            <h1 class="font-semibold text-3xl m-0">Rôles</h1>
+            <h1 class="font-semibold text-3xl m-0">Rôles & Permissions</h1>
             @if (guildFacade.selectedGuild(); as guild) {
               <p class="text-muted-color text-sm mt-1">
                 {{ guild.name }}
                 @if (!roleFacade.isLoading()) {
-                  <span> · {{ roleFacade.totalRoles() }} rôle{{ roleFacade.totalRoles() > 1 ? 's' : '' }}</span>
+                  <span> · Hiérarchie de {{ roleFacade.totalRoles() }} rôle{{ roleFacade.totalRoles() > 1 ? 's' : '' }}</span>
                 }
               </p>
             }
@@ -75,197 +77,365 @@ import { GuildRoleDTO } from '@my-project/shared-types';
           </div>
         </div>
 
-        <!-- Card -->
-        <div class="card">
-          <!-- Toolbar avec recherche -->
-          <div class="flex flex-col sm:flex-row gap-4 mb-4">
-            <!-- Barre de recherche -->
-            <p-iconfield iconPosition="left" class="flex-1">
-              <p-inputicon styleClass="pi pi-search" />
-              <input
-                pInputText
-                type="text"
-                [(ngModel)]="searchValue"
-                (input)="onSearch($event)"
-                placeholder="Rechercher un rôle..."
-                class="w-full"
-                [disabled]="roleFacade.isLoading()"
-              />
-            </p-iconfield>
-
-            <!-- Chips de filtrage rapide -->
-            <div class="flex gap-2 items-center flex-wrap">
-              <p-chip
-                label="Admin"
-                [removable]="false"
-                styleClass="cursor-pointer"
-                (click)="filterByCategory('admin')"
-              />
-              <p-chip
-                label="Managés"
-                [removable]="false"
-                styleClass="cursor-pointer"
-                (click)="filterByCategory('managed')"
-              />
-              <p-chip
-                label="Hoisted"
-                [removable]="false"
-                styleClass="cursor-pointer"
-                (click)="filterByCategory('hoisted')"
-              />
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <!-- Total Roles -->
+          <div class="col-span-1">
+            <div class="card mb-0 h-full">
+              <div class="flex justify-between mb-3">
+                <div>
+                  <span class="block text-muted-color font-medium mb-3">Total Rôles</span>
+                  <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">
+                    {{ roleFacade.totalRoles() }}
+                  </div>
+                </div>
+                <div class="flex items-center justify-center bg-blue-100 dark:bg-blue-400/10 rounded-lg" 
+                     style="width:2.5rem;height:2.5rem">
+                  <i class="pi pi-tags text-blue-500 text-xl"></i>
+                </div>
+              </div>
+              <span class="text-muted-color text-sm">Hiérarchie complète</span>
             </div>
           </div>
 
-          <!-- Skeleton Loading -->
-          @if (roleFacade.isLoading()) {
-            @for (i of [1,2,3,4,5]; track i) {
-              <div class="flex items-center gap-4 p-4 border-b border-surface">
-                <p-skeleton shape="circle" size="2.5rem" />
-                <div class="flex-1">
-                  <p-skeleton width="60%" height="1.5rem" styleClass="mb-2" />
-                  <p-skeleton width="40%" height="1rem" />
+          <!-- Admin Roles -->
+          <div class="col-span-1">
+            <div class="card mb-0 h-full">
+              <div class="flex justify-between mb-3">
+                <div>
+                  <span class="block text-muted-color font-medium mb-3">Rôles Admin</span>
+                  <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">
+                    {{ roleFacade.adminRoles().length }}
+                  </div>
                 </div>
-                <p-skeleton width="6rem" height="2rem" />
+                <div class="flex items-center justify-center bg-orange-100 dark:bg-orange-400/10 rounded-lg" 
+                     style="width:2.5rem;height:2.5rem">
+                  <i class="pi pi-shield text-orange-500 text-xl"></i>
+                </div>
               </div>
-            }
-          }
+              <span class="text-muted-color text-sm">Permissions élevées</span>
+            </div>
+          </div>
 
-          <!-- Table -->
-          @if (!roleFacade.isLoading()) {
-            <p-table
-              #dt
-              [value]="displayedRoles()"
-              [rows]="25"
-              [paginator]="true"
-              [rowsPerPageOptions]="[25, 50, 100]"
-              [globalFilterFields]="['name']"
-              responsiveLayout="scroll"
-              styleClass="p-datatable-gridlines"
-              [rowHover]="true"
-              currentPageReportTemplate="Affichage de {first} à {last} sur {totalRecords} rôles"
-              [showCurrentPageReport]="true"
-            >
-              <!-- Header -->
-              <ng-template pTemplate="header">
-                <tr>
-                  <th style="width: 3rem"></th>
-                  <th pSortableColumn="name" style="min-width: 12rem">
-                    Nom du rôle <p-sortIcon field="name" />
-                  </th>
-                  <th pSortableColumn="memberCount" style="min-width: 8rem">
-                    Membres <p-sortIcon field="memberCount" />
-                  </th>
-                  <th pSortableColumn="position" style="min-width: 8rem">
-                    Position <p-sortIcon field="position" />
-                  </th>
-                  <th>Propriétés</th>
-                  <th style="width: 10rem">Actions</th>
-                </tr>
-              </ng-template>
+          <!-- Managed Roles -->
+          <div class="col-span-1">
+            <div class="card mb-0 h-full">
+              <div class="flex justify-between mb-3">
+                <div>
+                  <span class="block text-muted-color font-medium mb-3">Rôles Managés</span>
+                  <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">
+                    {{ roleFacade.managedRoles().length }}
+                  </div>
+                </div>
+                <div class="flex items-center justify-center bg-purple-100 dark:bg-purple-400/10 rounded-lg" 
+                     style="width:2.5rem;height:2.5rem">
+                  <i class="pi pi-lock text-purple-500 text-xl"></i>
+                </div>
+              </div>
+              <span class="text-muted-color text-sm">Bots & intégrations</span>
+            </div>
+          </div>
 
-              <!-- Body -->
-              <ng-template pTemplate="body" let-role>
-                <tr [class.opacity-50]="role.isEveryone">
-                  <!-- Couleur -->
-                  <td>
-                    <div
-                      class="w-8 h-8 rounded-full border-2 border-surface"
-                      [style.background-color]="role.colorHex"
-                      [pTooltip]="role.colorHex"
-                    ></div>
-                  </td>
+          <!-- Assignable Roles -->
+          <div class="col-span-1">
+            <div class="card mb-0 h-full">
+              <div class="flex justify-between mb-3">
+                <div>
+                  <span class="block text-muted-color font-medium mb-3">Assignables</span>
+                  <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">
+                    {{ roleFacade.assignableRoles().length }}
+                  </div>
+                </div>
+                <div class="flex items-center justify-center bg-green-100 dark:bg-green-400/10 rounded-lg" 
+                     style="width:2.5rem;height:2.5rem">
+                  <i class="pi pi-check-circle text-green-500 text-xl"></i>
+                </div>
+              </div>
+              <span class="text-muted-color text-sm">Modifiables manuellement</span>
+            </div>
+          </div>
+        </div>
 
-                  <!-- Nom -->
-                  <td>
-                    <div class="flex items-center gap-2">
-                      @if (role.icon && role.iconUrl) {
-                        <img [src]="role.iconUrl" [alt]="role.name" class="w-5 h-5" />
-                      }
-                      <span class="font-semibold">{{ role.name }}</span>
-                      @if (role.isEveryone) {
-                        <p-tag value="@everyone" severity="secondary" />
-                      }
-                    </div>
-                  </td>
+        <!-- Main Content Card -->
+        <div class="card">
+          <!-- Tabs for different views -->
+          <p-tabs [(value)]="activeTab">
+            <p-tablist>
+              <p-tab 
+                value="0"
+                class="flex items-center gap-2">
+                <i class="pi pi-list"></i>
+                <span>Tous les rôles</span>
+              </p-tab>
+              <p-tab 
+                value="1"
+                class="flex items-center gap-2">
+                <i class="pi pi-sitemap"></i>
+                <span>Hiérarchie</span>
+              </p-tab>
+              <p-tab 
+                value="2"
+                class="flex items-center gap-2">
+                <i class="pi pi-key"></i>
+                <span>Permissions</span>
+              </p-tab>
+            </p-tablist>
 
-                  <!-- Nombre de membres -->
-                  <td>
-                    @if (role.memberCount !== undefined) {
-                      <span class="text-muted-color">
-                        {{ role.memberCount }} membre{{ role.memberCount > 1 ? 's' : '' }}
-                      </span>
-                    } @else {
-                      <span class="text-muted-color">N/A</span>
+            <p-tabpanels>
+              <!-- Tab: Tous les rôles -->
+              <p-tabpanel value="0">
+                <!-- Toolbar avec recherche -->
+                <div class="flex flex-col sm:flex-row gap-4 mb-4 pt-4">
+                  <!-- Barre de recherche -->
+                  <p-iconfield iconPosition="left" class="flex-1">
+                    <p-inputicon styleClass="pi pi-search" />
+                    <input
+                      pInputText
+                      type="text"
+                      [(ngModel)]="searchValue"
+                      (input)="onSearch($event)"
+                      placeholder="Rechercher un rôle par nom..."
+                      class="w-full"
+                      [disabled]="roleFacade.isLoading()"
+                    />
+                  </p-iconfield>
+
+                  <!-- Quick filters -->
+                  <div class="flex gap-2 items-center flex-wrap">
+                    <p-button
+                      label="Admin"
+                      icon="pi pi-shield"
+                      [outlined]="activeFilter() !== 'admin'"
+                      [severity]="activeFilter() === 'admin' ? 'danger' : 'secondary'"
+                      size="small"
+                      (onClick)="setFilter('admin')"
+                    />
+                    <p-button
+                      label="Managés"
+                      icon="pi pi-lock"
+                      [outlined]="activeFilter() !== 'managed'"
+                      [severity]="activeFilter() === 'managed' ? 'info' : 'secondary'"
+                      size="small"
+                      (onClick)="setFilter('managed')"
+                    />
+                    <p-button
+                      label="Hoisted"
+                      icon="pi pi-eye"
+                      [outlined]="activeFilter() !== 'hoisted'"
+                      [severity]="activeFilter() === 'hoisted' ? 'success' : 'secondary'"
+                      size="small"
+                      (onClick)="setFilter('hoisted')"
+                    />
+                    @if (activeFilter()) {
+                      <p-button
+                        icon="pi pi-times"
+                        [text]="true"
+                        [rounded]="true"
+                        size="small"
+                        (onClick)="clearFilter()"
+                        pTooltip="Réinitialiser les filtres"
+                      />
                     }
-                  </td>
+                  </div>
+                </div>
 
-                  <!-- Position -->
-                  <td>
-                    <p-tag [value]="role.position.toString()" severity="info" />
-                  </td>
-
-                  <!-- Propriétés -->
-                  <td>
-                    <div class="flex gap-1 flex-wrap">
-                      @if (role.isAdmin) {
-                        <p-chip label="Admin" icon="pi pi-shield" styleClass="text-xs" />
-                      }
-                      @if (role.isManaged) {
-                        <p-chip label="Managé" icon="pi pi-lock" styleClass="text-xs" />
-                      }
-                      @if (role.isHoisted) {
-                        <p-chip label="Hoisted" icon="pi pi-eye" styleClass="text-xs" />
-                      }
-                      @if (role.isMentionable) {
-                        <p-chip label="Mentionnable" icon="pi pi-at" styleClass="text-xs" />
-                      }
+                <!-- Skeleton Loading -->
+                @if (roleFacade.isLoading()) {
+                  @for (i of [1,2,3,4,5]; track i) {
+                    <div class="flex items-center gap-4 p-4 border-b border-surface">
+                      <p-skeleton shape="circle" size="2.5rem" />
+                      <div class="flex-1">
+                        <p-skeleton width="60%" height="1.5rem" styleClass="mb-2" />
+                        <p-skeleton width="40%" height="1rem" />
+                      </div>
+                      <p-skeleton width="6rem" height="2rem" />
                     </div>
-                  </td>
+                  }
+                }
 
-                  <!-- Actions -->
-                  <td>
-                    <div class="flex gap-2">
-                      <p-button
-                        icon="pi pi-pencil"
-                        [outlined]="true"
-                        [rounded]="true"
-                        size="small"
-                        pTooltip="Modifier"
-                        tooltipPosition="top"
-                        (onClick)="editRole(role)"
-                        [disabled]="role.isEveryone || role.isManaged"
-                      />
-                      <p-button
-                        icon="pi pi-trash"
-                        [outlined]="true"
-                        [rounded]="true"
-                        size="small"
-                        severity="danger"
-                        pTooltip="Supprimer"
-                        tooltipPosition="top"
-                        (onClick)="deleteRole(role)"
-                        [disabled]="role.isEveryone || role.isManaged"
-                      />
-                    </div>
-                  </td>
-                </tr>
-              </ng-template>
+                <!-- Table -->
+                @if (!roleFacade.isLoading()) {
+                  <p-table
+                    #dt
+                    [value]="displayedRoles()"
+                    [rows]="25"
+                    [paginator]="true"
+                    [rowsPerPageOptions]="[25, 50, 100]"
+                    [globalFilterFields]="['name']"
+                    [tableStyle]="{ 'min-width': '50rem' }"
+                    styleClass="p-datatable-sm"
+                    currentPageReportTemplate="{first} à {last} sur {totalRecords} rôles"
+                    [showCurrentPageReport]="true"
+                  >
+                    <!-- Column: Couleur & Nom -->
+                    <ng-template pTemplate="header">
+                      <tr>
+                        <th pSortableColumn="name" style="width: 40%">
+                          <div class="flex items-center gap-2">
+                            Rôle
+                            <p-sortIcon field="name" />
+                          </div>
+                        </th>
+                        <th pSortableColumn="position" style="width: 20%">
+                          <div class="flex items-center gap-2">
+                            Position
+                            <p-sortIcon field="position" />
+                          </div>
+                        </th>
+                        <th style="width: 15%">Type</th>
+                        <th style="width: 15%">Membres</th>
+                        <th style="width: 10%">Actions</th>
+                      </tr>
+                    </ng-template>
 
-              <!-- Empty -->
-              <ng-template pTemplate="emptymessage">
-                <tr>
-                  <td colspan="6" class="text-center py-8">
-                    <i class="pi pi-info-circle text-4xl text-muted-color mb-3"></i>
-                    <p class="text-muted-color">Aucun rôle trouvé</p>
-                  </td>
-                </tr>
-              </ng-template>
-            </p-table>
-          }
+                    <ng-template pTemplate="body" let-role>
+                      <tr>
+                        <!-- Nom + Couleur -->
+                        <td>
+                          <div class="flex items-center gap-3">
+                            <div
+                              class="role-color-badge"
+                              [style.background]="getRoleGradient(role.colorHex)"
+                              [style.border-color]="role.colorHex || '#6b7280'"
+                              [pTooltip]="role.colorHex || 'Aucune couleur'"
+                              tooltipPosition="top"
+                            ></div>
+                            <div class="flex flex-col">
+                              <span class="font-semibold text-surface-900 dark:text-surface-0">
+                                {{ role.name }}
+                              </span>
+                              @if (role.isManaged) {
+                                <span class="text-xs text-muted-color flex items-center gap-1 mt-1">
+                                  <i class="pi pi-lock" style="font-size: 0.625rem"></i>
+                                  Géré par une intégration
+                                </span>
+                              }
+                            </div>
+                          </div>
+                        </td>
+
+                        <!-- Position -->
+                        <td>
+                          <div class="flex items-center gap-2">
+                            <p-chip 
+                              [label]="'#' + role.position" 
+                              styleClass="text-xs"
+                            />
+                            @if (role.isHoisted) {
+                              <i 
+                                class="pi pi-eye text-green-500" 
+                                pTooltip="Affiché séparément"
+                                tooltipPosition="top"
+                              ></i>
+                            }
+                          </div>
+                        </td>
+
+                        <!-- Type -->
+                        <td>
+                          @if (isAdminRole(role)) {
+                            <p-tag severity="danger" value="Administrateur" icon="pi pi-shield" />
+                          } @else if (role.isManaged) {
+                            <p-tag severity="info" value="Managé" icon="pi pi-lock" />
+                          } @else {
+                            <p-tag severity="secondary" value="Standard" />
+                          }
+                        </td>
+
+                        <!-- Membres (placeholder) -->
+                        <td>
+                          <span class="text-muted-color">-</span>
+                        </td>
+
+                        <!-- Actions -->
+                        <td>
+                          <div class="flex gap-2">
+                            <p-button
+                              icon="pi pi-pencil"
+                              [text]="true"
+                              [rounded]="true"
+                              severity="secondary"
+                              size="small"
+                              (onClick)="editRole(role)"
+                              pTooltip="Éditer"
+                              tooltipPosition="top"
+                            />
+                            @if (!role.isManaged && !role.isEveryone) {
+                              <p-button
+                                icon="pi pi-trash"
+                                [text]="true"
+                                [rounded]="true"
+                                severity="danger"
+                                size="small"
+                                (onClick)="deleteRole(role)"
+                                pTooltip="Supprimer"
+                                tooltipPosition="top"
+                              />
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    </ng-template>
+
+                    <!-- Empty state -->
+                    <ng-template pTemplate="emptymessage">
+                      <tr>
+                        <td colspan="5" class="text-center py-8">
+                          <div class="flex flex-col items-center gap-3">
+                            <i class="pi pi-inbox text-4xl text-muted-color"></i>
+                            <div>
+                              <h3 class="text-lg font-semibold mb-1">Aucun rôle trouvé</h3>
+                              <p class="text-muted-color text-sm">
+                                @if (searchValue) {
+                                  Aucun rôle ne correspond à votre recherche
+                                } @else {
+                                  Ce serveur n'a pas encore de rôles
+                                }
+                              </p>
+                            </div>
+                            @if (!searchValue) {
+                              <p-button
+                                label="Créer un rôle"
+                                icon="pi pi-plus"
+                                [outlined]="true"
+                                (onClick)="createRole()"
+                              />
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    </ng-template>
+                  </p-table>
+                }
+              </p-tabpanel>
+
+              <!-- Tab: Hiérarchie -->
+              <p-tabpanel value="1">
+                <div class="text-center py-12">
+                  <i class="pi pi-sitemap text-6xl text-muted-color mb-4"></i>
+                  <h3 class="text-xl font-semibold mb-2">Vue Hiérarchique</h3>
+                  <p class="text-muted-color mb-6">
+                    Visualisez et organisez vos rôles par drag & drop
+                  </p>
+                  <p-button label="Bientôt disponible" icon="pi pi-clock" [disabled]="true" />
+                </div>
+              </p-tabpanel>
+
+              <!-- Tab: Permissions -->
+              <p-tabpanel value="2">
+                <div class="text-center py-12">
+                  <i class="pi pi-key text-6xl text-muted-color mb-4"></i>
+                  <h3 class="text-xl font-semibold mb-2">Matrice de Permissions</h3>
+                  <p class="text-muted-color mb-6">Vue d'ensemble des permissions par rôle</p>
+                  <p-button label="Bientôt disponible" icon="pi pi-clock" [disabled]="true" />
+                </div>
+              </p-tabpanel>
+            </p-tabpanels>
+          </p-tabs>
 
           <!-- Error -->
           @if (roleFacade.error()) {
-            <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div class="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg mt-4">
               <div class="flex items-center gap-3">
                 <i class="pi pi-exclamation-triangle text-red-500 text-xl"></i>
                 <div class="flex-1">
@@ -301,6 +471,52 @@ import { GuildRoleDTO } from '@my-project/shared-types';
     ::ng-deep .p-datatable .p-datatable-thead > tr > th {
       padding: 1rem 1rem !important;
     }
+
+    .role-color-badge {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 0.75rem;
+      border: 2px solid;
+      box-shadow: 
+        0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 2px 4px -1px rgba(0, 0, 0, 0.06),
+        inset 0 2px 4px 0 rgba(255, 255, 255, 0.1);
+      transition: transform 0.2s ease;
+    }
+
+    .role-color-badge:hover {
+      transform: scale(1.1) rotate(5deg);
+    }
+
+    /* Style des tabs - Version moderne */
+    ::ng-deep .p-tabs .p-tablist {
+      background: transparent;
+      border-bottom: 1px solid var(--surface-border);
+      padding: 0;
+    }
+
+    ::ng-deep .p-tabs .p-tab {
+      padding: 1rem 1.5rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      color: var(--text-color-secondary);
+    }
+
+    ::ng-deep .p-tabs .p-tab:hover {
+      color: var(--primary-color);
+      background: var(--surface-hover);
+    }
+
+    ::ng-deep .p-tabs .p-tab[aria-selected="true"] {
+      color: var(--primary-color);
+      border-bottom-color: var(--primary-color);
+    }
+
+    ::ng-deep .p-tabs .p-tabpanels {
+      padding: 0;
+      background: transparent;
+    }
   `]
 })
 export class RolesComponent {
@@ -311,13 +527,92 @@ export class RolesComponent {
   private messageService = inject(MessageService);
 
   searchValue = '';
+  activeTab = '0'; // String simple pour le two-way binding avec PrimeNG
+  private filterSignal = signal<'admin' | 'managed' | 'hoisted' | ''>('');
+
+  activeFilter = computed(() => this.filterSignal());
 
   /**
    * Computed des rôles affichés (filtrés)
    */
   displayedRoles = computed(() => {
+    const filter = this.filterSignal();
+    
+    // Appliquer le filtre actif
+    if (filter === 'admin') {
+      return this.roleFacade.adminRoles();
+    } else if (filter === 'managed') {
+      return this.roleFacade.managedRoles();
+    } else if (filter === 'hoisted') {
+      return this.roleFacade.hoistedRoles();
+    }
+
+    // Par défaut, retourner les rôles filtrés par la recherche
     return this.roleFacade.filteredRoles();
   });
+
+  /**
+   * Active un filtre
+   */
+  setFilter(filter: 'admin' | 'managed' | 'hoisted'): void {
+    if (this.filterSignal() === filter) {
+      this.filterSignal.set('');
+    } else {
+      this.filterSignal.set(filter);
+    }
+  }
+
+  /**
+   * Réinitialise le filtre
+   */
+  clearFilter(): void {
+    this.filterSignal.set('');
+  }
+
+  /**
+   * Vérifie si un rôle a les permissions administrateur
+   */
+  isAdminRole(role: GuildRoleDTO): boolean {
+    if (role.permissions === '8') return true;
+    const permissions = Number(role.permissions);
+    return (permissions & 8) === 8;
+  }
+
+  /**
+   * Génère un dégradé pour le badge de couleur
+   */
+  getRoleGradient(hexColor: string | undefined): string {
+    // Valeur par défaut si pas de couleur
+    if (!hexColor || hexColor === '#000000') {
+      return 'linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)';
+    }
+    
+    // Créer un dégradé avec la couleur
+    const lighter = this.adjustColorBrightness(hexColor, 20);
+    return `linear-gradient(135deg, ${hexColor} 0%, ${lighter} 100%)`;
+  }
+
+  /**
+   * Ajuste la luminosité d'une couleur
+   */
+  private adjustColorBrightness(hex: string, percent: number): string {
+    // Validation de la couleur
+    if (!hex || !hex.startsWith('#')) {
+      return '#6b7280'; // Couleur par défaut grise
+    }
+    
+    const num = parseInt(hex.replace('#', ''), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = (num >> 16) + amt;
+    const G = (num >> 8 & 0x00FF) + amt;
+    const B = (num & 0x0000FF) + amt;
+    return '#' + (
+      0x1000000 +
+      (R < 255 ? (R < 1 ? 0 : R) : 255) * 0x10000 +
+      (G < 255 ? (G < 1 ? 0 : G) : 255) * 0x100 +
+      (B < 255 ? (B < 1 ? 0 : B) : 255)
+    ).toString(16).slice(1);
+  }
 
   /**
    * Recherche dans les rôles
@@ -328,20 +623,6 @@ export class RolesComponent {
   }
 
   /**
-   * Filtrage rapide par catégorie
-   */
-  filterByCategory(category: 'admin' | 'managed' | 'hoisted'): void {
-    // Cette fonctionnalité nécessiterait d'ajouter des computed supplémentaires
-    // dans le data service pour filtrer par catégorie
-    // Pour l'instant, on peut juste afficher un message
-    this.messageService.add({
-      severity: 'info',
-      summary: 'Filtre',
-      detail: `Filtrage par ${category} - Fonctionnalité à venir`
-    });
-  }
-
-  /**
    * Rafraîchit la liste des rôles
    */
   async refreshRoles(): Promise<void> {
@@ -349,7 +630,8 @@ export class RolesComponent {
     this.messageService.add({
       severity: 'success',
       summary: 'Succès',
-      detail: 'Liste des rôles rafraîchie'
+      detail: 'Liste des rôles rafraîchie',
+      life: 3000
     });
   }
 
@@ -357,11 +639,11 @@ export class RolesComponent {
    * Crée un nouveau rôle
    */
   async createRole(): Promise<void> {
-    // TODO: Ouvrir un modal pour créer un rôle
     this.messageService.add({
       severity: 'info',
       summary: 'À venir',
-      detail: 'Modal de création de rôle - Fonctionnalité à venir'
+      detail: 'Modal de création de rôle - Fonctionnalité à venir',
+      life: 3000
     });
   }
 
@@ -369,12 +651,12 @@ export class RolesComponent {
    * Édite un rôle
    */
   editRole(role: GuildRoleDTO): void {
-    // TODO: Ouvrir un modal pour éditer le rôle
     this.roleFacade.selectRole(role);
     this.messageService.add({
       severity: 'info',
       summary: 'À venir',
-      detail: `Édition de ${role.name} - Fonctionnalité à venir`
+      detail: `Édition de ${role.name} - Fonctionnalité à venir`,
+      life: 3000
     });
   }
 
@@ -382,7 +664,6 @@ export class RolesComponent {
    * Supprime un rôle
    */
   async deleteRole(role: GuildRoleDTO): Promise<void> {
-    // TODO: Ouvrir un modal de confirmation
     const confirmed = confirm(`Êtes-vous sûr de vouloir supprimer le rôle "${role.name}" ?`);
     
     if (confirmed) {
@@ -392,7 +673,8 @@ export class RolesComponent {
         this.messageService.add({
           severity: 'success',
           summary: 'Succès',
-          detail: `Le rôle "${role.name}" a été supprimé`
+          detail: `Le rôle "${role.name}" a été supprimé`,
+          life: 3000
         });
       }
     }
