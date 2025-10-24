@@ -1,7 +1,7 @@
-import { Component, ViewChild, computed, inject } from '@angular/core';
+import { Component, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Table, TableModule } from 'primeng/table';
+import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { InputTextModule } from 'primeng/inputtext';
 import { TagModule } from 'primeng/tag';
@@ -23,15 +23,16 @@ import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
 import { GuildChannelDTO, DiscordChannelType } from '@my-project/shared-types';
 
 /**
- * 🎨 Composant de gestion des channels - Design moderne et professionnel
+ * 🎨 Composant de gestion des channels
+ * Layout inspiré de members/roles avec cards stats + tableau
  * 
  * Features:
- * - Liste des channels avec groupement par catégorie
- * - Filtres par type et recherche
- * - Sidebar de détails avec tabs (Overview, Permissions, Settings)
- * - Actions CRUD (Create, Edit, Delete, Clone)
- * - Support complet de tous les types de channels
- * - Design responsive et accessible
+ * - Cards stats en haut (Total, Text, Voice, Categories)
+ * - Tableau avec tous les channels
+ * - Filtres avancés (recherche, type, catégorie)
+ * - Sidebar détails avec tabs
+ * - Actions CRUD
+ * - Responsive mobile
  */
 @Component({
   selector: 'app-channels',
@@ -58,317 +59,342 @@ import { GuildChannelDTO, DiscordChannelType } from '@my-project/shared-types';
   ],
   providers: [MessageService],
   template: `
-    <div class="grid">
+    <p-toast />
+
+    <div class="grid grid-cols-12 gap-4 md:gap-6">
       <!-- ============================================ -->
-      <!-- HEADER AVEC STATS -->
+      <!-- HEADER -->
       <!-- ============================================ -->
       <div class="col-span-12">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 class="font-semibold text-3xl m-0">Channels & Catégories</h1>
             @if (guildFacade.selectedGuild(); as guild) {
               <p class="text-muted-color text-sm mt-1">
                 {{ guild.name }}
                 @if (!channelFacade.isLoading()) {
-                  <span> · {{ channelFacade.totalChannels() }} channel{{ channelFacade.totalChannels() > 1 ? 's' : '' }}</span>
+                  · {{ channelFacade.totalChannels() }} channel{{ channelFacade.totalChannels() > 1 ? 's' : '' }}
                 }
               </p>
             }
           </div>
 
           <div class="flex gap-2">
-            <button 
-              pButton 
-              icon="pi pi-refresh" 
-              label="Actualiser" 
+            <p-button
+              label="Créer un channel"
+              icon="pi pi-plus"
+              (onClick)="createChannel()"
+              [disabled]="channelFacade.isLoading()"
+            />
+            <p-button
+              icon="pi pi-refresh"
               [outlined]="true"
               [loading]="channelFacade.isLoading()"
-              (click)="refreshChannels()"
-              pTooltip="Recharger les channels"
-              tooltipPosition="bottom">
-            </button>
-            
-            <button 
-              pButton 
-              icon="pi pi-plus" 
-              label="Nouveau channel" 
-              severity="primary"
-              (click)="openCreateChannelModal()"
-              pTooltip="Créer un nouveau channel"
-              tooltipPosition="bottom">
-            </button>
+              (onClick)="refreshChannels()"
+              pTooltip="Rafraîchir"
+              tooltipPosition="bottom"
+            />
           </div>
         </div>
-
-        <!-- STATS CARDS -->
-        @if (!channelFacade.isLoading()) {
-          <div class="grid mb-4">
-            <div class="col-span-6 md:col-span-3 lg:col-span-2">
-              <div class="surface-card p-3 rounded border border-surface">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-muted-color text-sm">Catégories</span>
-                  <i class="pi pi-folder text-lg text-blue-500"></i>
-                </div>
-                <div class="text-2xl font-semibold">{{ channelFacade.stats().categories }}</div>
-              </div>
-            </div>
-
-            <div class="col-span-6 md:col-span-3 lg:col-span-2">
-              <div class="surface-card p-3 rounded border border-surface">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-muted-color text-sm">Texte</span>
-                  <i class="pi pi-hashtag text-lg text-green-500"></i>
-                </div>
-                <div class="text-2xl font-semibold">{{ channelFacade.stats().text }}</div>
-              </div>
-            </div>
-
-            <div class="col-span-6 md:col-span-3 lg:col-span-2">
-              <div class="surface-card p-3 rounded border border-surface">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-muted-color text-sm">Vocal</span>
-                  <i class="pi pi-volume-up text-lg text-orange-500"></i>
-                </div>
-                <div class="text-2xl font-semibold">{{ channelFacade.stats().voice }}</div>
-              </div>
-            </div>
-
-            <div class="col-span-6 md:col-span-3 lg:col-span-2">
-              <div class="surface-card p-3 rounded border border-surface">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-muted-color text-sm">Forums</span>
-                  <i class="pi pi-comments text-lg text-purple-500"></i>
-                </div>
-                <div class="text-2xl font-semibold">{{ channelFacade.stats().forums }}</div>
-              </div>
-            </div>
-
-            <div class="col-span-6 md:col-span-3 lg:col-span-2">
-              <div class="surface-card p-3 rounded border border-surface">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-muted-color text-sm">Threads</span>
-                  <i class="pi pi-list text-lg text-cyan-500"></i>
-                </div>
-                <div class="text-2xl font-semibold">{{ channelFacade.stats().threads }}</div>
-              </div>
-            </div>
-
-            <div class="col-span-6 md:col-span-3 lg:col-span-2">
-              <div class="surface-card p-3 rounded border border-surface">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-muted-color text-sm">Privés</span>
-                  <i class="pi pi-lock text-lg text-red-500"></i>
-                </div>
-                <div class="text-2xl font-semibold">{{ channelFacade.stats().private }}</div>
-              </div>
-            </div>
-          </div>
-        }
       </div>
 
       <!-- ============================================ -->
-      <!-- FILTRES -->
+      <!-- STATS CARDS -->
+      <!-- ============================================ -->
+      <div class="col-span-12 sm:col-span-6 lg:col-span-3">
+        <div class="card mb-0">
+          <div class="flex justify-between mb-3">
+            <div>
+              <span class="block text-muted-color font-medium mb-3">Total Channels</span>
+              <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">
+                {{ channelFacade.stats().total }}
+              </div>
+            </div>
+            <div class="flex items-center justify-center bg-blue-100 dark:bg-blue-400/10 rounded-lg" 
+                 style="width:2.5rem;height:2.5rem">
+              <i class="pi pi-hashtag text-blue-500 text-xl"></i>
+            </div>
+          </div>
+          <span class="text-muted-color">Tous types confondus</span>
+        </div>
+      </div>
+
+      <div class="col-span-12 sm:col-span-6 lg:col-span-3">
+        <div class="card mb-0">
+          <div class="flex justify-between mb-3">
+            <div>
+              <span class="block text-muted-color font-medium mb-3">Channels Texte</span>
+              <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">
+                {{ channelFacade.stats().text }}
+              </div>
+            </div>
+            <div class="flex items-center justify-center bg-green-100 dark:bg-green-400/10 rounded-lg" 
+                 style="width:2.5rem;height:2.5rem">
+              <i class="pi pi-comment text-green-500 text-xl"></i>
+            </div>
+          </div>
+          <span class="text-muted-color">
+            @if (channelFacade.stats().announcements > 0) {
+              dont {{ channelFacade.stats().announcements }} annonce{{ channelFacade.stats().announcements > 1 ? 's' : '' }}
+            } @else {
+              Messages et discussions
+            }
+          </span>
+        </div>
+      </div>
+
+      <div class="col-span-12 sm:col-span-6 lg:col-span-3">
+        <div class="card mb-0">
+          <div class="flex justify-between mb-3">
+            <div>
+              <span class="block text-muted-color font-medium mb-3">Channels Vocaux</span>
+              <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">
+                {{ channelFacade.stats().voice }}
+              </div>
+            </div>
+            <div class="flex items-center justify-center bg-purple-100 dark:bg-purple-400/10 rounded-lg" 
+                 style="width:2.5rem;height:2.5rem">
+              <i class="pi pi-volume-up text-purple-500 text-xl"></i>
+            </div>
+          </div>
+          <span class="text-muted-color">
+            @if (channelFacade.stats().stages > 0) {
+              dont {{ channelFacade.stats().stages }} stage{{ channelFacade.stats().stages > 1 ? 's' : '' }}
+            } @else {
+              Vocal et stages
+            }
+          </span>
+        </div>
+      </div>
+
+      <div class="col-span-12 sm:col-span-6 lg:col-span-3">
+        <div class="card mb-0">
+          <div class="flex justify-between mb-3">
+            <div>
+              <span class="block text-muted-color font-medium mb-3">Catégories</span>
+              <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">
+                {{ channelFacade.stats().categories }}
+              </div>
+            </div>
+            <div class="flex items-center justify-center bg-orange-100 dark:bg-orange-400/10 rounded-lg" 
+                 style="width:2.5rem;height:2.5rem">
+              <i class="pi pi-folder text-orange-500 text-xl"></i>
+            </div>
+          </div>
+          <span class="text-muted-color">Organisation serveur</span>
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- MAIN CONTENT CARD WITH TABLE -->
       <!-- ============================================ -->
       <div class="col-span-12">
-        <div class="surface-card p-4 rounded border border-surface">
-          <div class="grid gap-3">
+        <div class="card">
+          <!-- Filtres et recherche -->
+          <div class="flex flex-col md:flex-row gap-4 mb-4">
             <!-- Recherche -->
-            <div class="col-span-12 md:col-span-4">
-              <p-iconfield iconPosition="left" class="w-full">
-                <p-inputicon styleClass="pi pi-search" />
-                <input 
-                  pInputText 
-                  type="text" 
-                  placeholder="Rechercher un channel..." 
-                  class="w-full"
-                  [ngModel]="channelFacade.searchQuery()"
-                  (ngModelChange)="channelFacade.setSearchQuery($event)" />
-              </p-iconfield>
-            </div>
+            <p-iconfield iconPosition="left" class="flex-1">
+              <p-inputicon styleClass="pi pi-search" />
+              <input 
+                pInputText 
+                type="text" 
+                [(ngModel)]="searchQuery"
+                (ngModelChange)="onSearchChange($event)"
+                placeholder="Rechercher un channel..." 
+                class="w-full"
+              />
+            </p-iconfield>
 
-            <!-- Filtre par type -->
-            <div class="col-span-12 md:col-span-4">
-              <p-select 
-                [options]="channelTypeOptions"
-                [(ngModel)]="selectedTypeFilter"
-                (ngModelChange)="onTypeFilterChange($event)"
-                placeholder="Tous les types"
-                optionLabel="label"
-                optionValue="value"
-                [style]="{'width': '100%'}">
-              </p-select>
-            </div>
+            <!-- Filtre Type -->
+            <p-select
+              [(ngModel)]="selectedTypeFilter"
+              [options]="channelTypeOptions"
+              (onChange)="onTypeFilterChange($event.value)"
+              placeholder="Type de channel"
+              [style]="{'min-width': '200px'}"
+            />
 
-            <!-- Filtre par catégorie -->
-            <div class="col-span-12 md:col-span-4">
-              <p-select 
-                [options]="categoryOptions()"
-                [(ngModel)]="selectedCategoryFilter"
-                (ngModelChange)="onCategoryFilterChange($event)"
-                placeholder="Toutes les catégories"
-                optionLabel="label"
-                optionValue="value"
-                [style]="{'width': '100%'}">
-              </p-select>
-            </div>
-          </div>
+            <!-- Filtre Catégorie -->
+            <p-select
+              [(ngModel)]="selectedCategoryFilter"
+              [options]="categoryOptions()"
+              (onChange)="onCategoryFilterChange($event.value)"
+              placeholder="Catégorie"
+              [style]="{'min-width': '200px'}"
+            />
 
-          <!-- Résultats du filtre -->
-          @if (channelFacade.filteredCount() !== channelFacade.totalChannels()) {
-            <div class="mt-3 flex items-center justify-between">
-              <p class="text-sm text-muted-color">
-                {{ channelFacade.filteredCount() }} résultat{{ channelFacade.filteredCount() > 1 ? 's' : '' }} 
-                sur {{ channelFacade.totalChannels() }}
-              </p>
-              <button 
-                pButton 
-                label="Réinitialiser les filtres" 
+            @if (hasActiveFilters()) {
+              <p-button
+                label="Réinitialiser"
                 icon="pi pi-filter-slash"
-                [text]="true"
-                size="small"
-                (click)="clearFilters()">
-              </button>
-            </div>
-          }
-        </div>
-      </div>
-
-      <!-- ============================================ -->
-      <!-- LISTE DES CHANNELS -->
-      <!-- ============================================ -->
-      <div class="col-span-12">
-        @if (channelFacade.isLoading()) {
-          <!-- SKELETON LOADING -->
-          <div class="surface-card p-4 rounded border border-surface">
-            @for (i of [1,2,3,4,5]; track i) {
-              <div class="flex items-center gap-3 mb-3 pb-3 border-b border-surface last:border-0">
-                <p-skeleton shape="circle" size="3rem"></p-skeleton>
-                <div class="flex-1">
-                  <p-skeleton width="60%" height="1.5rem" class="mb-2"></p-skeleton>
-                  <p-skeleton width="40%" height="1rem"></p-skeleton>
-                </div>
-                <p-skeleton width="8rem" height="2rem"></p-skeleton>
-              </div>
+                [outlined]="true"
+                (onClick)="clearFilters()"
+              />
             }
           </div>
-        } @else {
-          <!-- CHANNELS GROUPÉS PAR CATÉGORIE -->
-          <div class="space-y-4">
-            @for (group of channelFacade.channelsGroupedByCategory(); track group.category?.id || 'no-category') {
-              <div class="surface-card rounded border border-surface overflow-hidden">
-                <!-- Header de la catégorie -->
-                <div class="bg-surface-50 dark:bg-surface-800 px-4 py-3 border-b border-surface">
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                      <i class="pi pi-folder text-lg" [class]="group.category ? 'text-blue-500' : 'text-muted-color'"></i>
-                      <h3 class="font-semibold text-lg m-0">
-                        {{ group.category?.name || 'Sans catégorie' }}
-                      </h3>
-                      <p-chip 
-                        [label]="group.channels.length.toString()" 
-                        [style]="{'min-width': '2rem'}"
-                        styleClass="text-xs">
-                      </p-chip>
-                    </div>
-                    @if (group.category) {
-                      <button 
-                        pButton 
-                        icon="pi pi-ellipsis-v" 
-                        [text]="true"
-                        [rounded]="true"
-                        size="small"
-                        (click)="openCategoryMenu($event, group.category!)"
-                        pTooltip="Actions de la catégorie"
-                        tooltipPosition="left">
-                      </button>
-                    }
-                  </div>
-                </div>
 
-                <!-- Liste des channels dans la catégorie -->
-                <div class="p-2">
-                  @for (channel of group.channels; track channel.id) {
-                    <div 
-                      class="flex items-center gap-3 p-3 rounded hover:bg-surface-50 dark:hover:bg-surface-800 cursor-pointer transition-colors"
-                      [class.bg-primary-50]="channelFacade.selectedChannel()?.id === channel.id"
-                      [class.dark:bg-primary-900]="channelFacade.selectedChannel()?.id === channel.id"
-                      (click)="selectChannel(channel)">
-                      
-                      <!-- Icône du type de channel -->
+          <!-- Message si filtres actifs -->
+          @if (hasActiveFilters()) {
+            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+              <div class="flex items-center gap-2">
+                <i class="pi pi-info-circle text-blue-500"></i>
+                <span class="text-sm">
+                  {{ channelFacade.filteredCount() }} channel{{ channelFacade.filteredCount() > 1 ? 's' : '' }} 
+                  sur {{ channelFacade.totalChannels() }}
+                </span>
+              </div>
+            </div>
+          }
+
+          <!-- Tableau -->
+          @if (channelFacade.isLoading()) {
+            <!-- Skeleton Loading -->
+            <div class="space-y-3">
+              @for (i of [1,2,3,4,5]; track i) {
+                <div class="flex items-center gap-3 p-3 border border-surface rounded">
+                  <p-skeleton shape="circle" size="3rem" />
+                  <div class="flex-1">
+                    <p-skeleton width="60%" height="1.5rem" class="mb-2" />
+                    <p-skeleton width="40%" height="1rem" />
+                  </div>
+                  <p-skeleton width="8rem" height="2rem" />
+                </div>
+              }
+            </div>
+          } @else if (channelFacade.filteredChannels().length === 0) {
+            <!-- Empty State -->
+            <div class="text-center py-12">
+              <i class="pi pi-inbox text-6xl text-muted-color mb-4"></i>
+              <p class="text-xl font-medium mb-2">Aucun channel trouvé</p>
+              <p class="text-muted-color">
+                @if (hasActiveFilters()) {
+                  Essayez de modifier vos filtres
+                } @else {
+                  Ce serveur n'a pas encore de channels
+                }
+              </p>
+              @if (hasActiveFilters()) {
+                <p-button
+                  label="Réinitialiser les filtres"
+                  icon="pi pi-filter-slash"
+                  [outlined]="true"
+                  (onClick)="clearFilters()"
+                  class="mt-4"
+                />
+              }
+            </div>
+          } @else {
+            <!-- Tableau avec données -->
+            <p-table 
+              [value]="channelFacade.filteredChannels()" 
+              [tableStyle]="{'min-width': '60rem'}"
+              styleClass="p-datatable-sm"
+              [paginator]="channelFacade.filteredChannels().length > 10"
+              [rows]="10"
+              [rowsPerPageOptions]="[10, 25, 50]"
+              [globalFilterFields]="['name', 'topic', 'categoryPath']"
+              responsiveLayout="scroll">
+              
+              <ng-template pTemplate="header">
+                <tr>
+                  <th style="width: 50%">Channel</th>
+                  <th style="width: 15%">Type</th>
+                  <th style="width: 20%">Catégorie</th>
+                  <th style="width: 15%">Actions</th>
+                </tr>
+              </ng-template>
+
+              <ng-template pTemplate="body" let-channel>
+                <tr class="hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors">
+                  <!-- Channel Info -->
+                  <td>
+                    <div class="flex items-center gap-3">
                       <div class="flex items-center justify-center w-10 h-10 rounded-full bg-surface-100 dark:bg-surface-700">
                         <i [class]="getChannelIcon(channel)" class="text-lg"></i>
                       </div>
-
-                      <!-- Informations du channel -->
                       <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-2 mb-1">
-                          <h4 class="font-semibold text-base m-0 truncate">
-                            {{ channel.name }}
-                          </h4>
-                          
-                          <!-- Badges -->
+                          <span class="font-medium truncate">{{ channel.name }}</span>
                           @if (channel.nsfw) {
-                            <p-chip label="NSFW" severity="danger" styleClass="text-xs py-1 px-2"></p-chip>
+                            <p-chip label="NSFW" styleClass="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400" />
                           }
                           @if (channel.isLocked) {
-                            <i class="pi pi-lock text-red-500" pTooltip="Channel verrouillé"></i>
+                            <i class="pi pi-lock text-orange-500" pTooltip="Channel verrouillé"></i>
                           }
                           @if (channel.isPrivate) {
-                            <i class="pi pi-eye-slash text-orange-500" pTooltip="Channel privé"></i>
-                          }
-                          @if (channel.hasSlowmode) {
-                            <i class="pi pi-clock text-blue-500" pTooltip="Slowmode actif"></i>
+                            <i class="pi pi-eye-slash text-blue-500" pTooltip="Channel privé"></i>
                           }
                         </div>
-                        
                         @if (channel.topic) {
                           <p class="text-sm text-muted-color truncate m-0">{{ channel.topic }}</p>
-                        } @else {
-                          <p class="text-sm text-muted-color italic m-0">Aucune description</p>
+                        }
+                        @if (channel.hasSlowmode) {
+                          <p class="text-xs text-blue-500 mt-1">
+                            <i class="pi pi-clock"></i> Slowmode: {{ channel.rateLimitPerUser }}s
+                          </p>
                         }
                       </div>
+                    </div>
+                  </td>
 
-                      <!-- Tag du type -->
-                      <p-tag 
-                        [value]="getChannelTypeLabel(channel)" 
-                        [severity]="getChannelTypeSeverity(channel)"
-                        styleClass="text-xs">
-                      </p-tag>
+                  <!-- Type -->
+                  <td>
+                    <p-tag 
+                      [value]="getChannelTypeLabel(channel)" 
+                      [severity]="getChannelTypeSeverity(channel)"
+                    />
+                  </td>
 
-                      <!-- Actions -->
-                      <button 
-                        pButton 
-                        icon="pi pi-ellipsis-v" 
-                        [text]="true"
+                  <!-- Catégorie -->
+                  <td>
+                    @if (channel.isCategory) {
+                      <span class="text-muted-color italic">-</span>
+                    } @else if (channel.categoryPath) {
+                      <span class="text-sm">{{ channel.categoryPath }}</span>
+                    } @else {
+                      <span class="text-muted-color">Sans catégorie</span>
+                    }
+                  </td>
+
+                  <!-- Actions -->
+                  <td>
+                    <div class="flex gap-2">
+                      <p-button
+                        icon="pi pi-eye"
+                        [outlined]="true"
                         [rounded]="true"
                         size="small"
-                        (click)="openChannelMenu($event, channel); $event.stopPropagation()"
-                        pTooltip="Actions"
-                        tooltipPosition="left">
-                      </button>
+                        (onClick)="viewChannel(channel)"
+                        pTooltip="Voir détails"
+                        tooltipPosition="top"
+                      />
+                      <p-button
+                        icon="pi pi-pencil"
+                        [outlined]="true"
+                        [rounded]="true"
+                        size="small"
+                        severity="secondary"
+                        (onClick)="editChannel(channel)"
+                        pTooltip="Modifier"
+                        tooltipPosition="top"
+                      />
+                      <p-button
+                        icon="pi pi-trash"
+                        [outlined]="true"
+                        [rounded]="true"
+                        size="small"
+                        severity="danger"
+                        (onClick)="deleteChannel(channel)"
+                        pTooltip="Supprimer"
+                        tooltipPosition="top"
+                      />
                     </div>
-                  }
-                </div>
-              </div>
-            }
-
-            <!-- Message si aucun résultat -->
-            @if (channelFacade.filteredCount() === 0) {
-              <div class="surface-card p-8 rounded border border-surface text-center">
-                <i class="pi pi-inbox text-6xl text-muted-color mb-3"></i>
-                <h3 class="font-semibold text-xl mb-2">Aucun channel trouvé</h3>
-                <p class="text-muted-color mb-4">Essayez de modifier vos filtres de recherche</p>
-                <button 
-                  pButton 
-                  label="Réinitialiser les filtres" 
-                  icon="pi pi-filter-slash"
-                  severity="secondary"
-                  (click)="clearFilters()">
-                </button>
-              </div>
-            }
-          </div>
-        }
+                  </td>
+                </tr>
+              </ng-template>
+            </p-table>
+          }
+        </div>
       </div>
     </div>
 
@@ -380,7 +406,7 @@ import { GuildChannelDTO, DiscordChannelType } from '@my-project/shared-types';
       position="right" 
       [style]="{'width': '450px'}"
       [dismissible]="true"
-      (onHide)="channelFacade.clearSelection()">
+      (onHide)="onCloseDetails()">
       
       @if (channelFacade.selectedChannel(); as channel) {
         <!-- Header -->
@@ -396,253 +422,296 @@ import { GuildChannelDTO, DiscordChannelType } from '@my-project/shared-types';
           </div>
         </ng-template>
 
-        <!-- Content avec tabs -->
-        <p-tabs value="0">
-          <!-- TAB: OVERVIEW -->
-          <p-tabpanel header="Aperçu" value="0">
-            <p-scrollpanel [style]="{'height': 'calc(100vh - 200px)'}">
-              <div class="space-y-4">
-                <!-- Informations générales -->
-                <div class="surface-card p-3 rounded border border-surface">
-                  <h4 class="font-semibold text-sm mb-3 flex items-center gap-2">
-                    <i class="pi pi-info-circle"></i>
-                    Informations générales
-                  </h4>
-                  
-                  <div class="space-y-2">
-                    <div class="flex justify-between text-sm">
-                      <span class="text-muted-color">ID:</span>
-                      <code class="text-xs bg-surface-100 dark:bg-surface-700 px-2 py-1 rounded">{{ channel.id }}</code>
-                    </div>
-                    <div class="flex justify-between text-sm">
-                      <span class="text-muted-color">Type:</span>
-                      <span class="font-medium">{{ getChannelTypeLabel(channel) }}</span>
-                    </div>
-                    <div class="flex justify-between text-sm">
-                      <span class="text-muted-color">Position:</span>
-                      <span class="font-medium">{{ channel.position }}</span>
-                    </div>
-                    @if (channel.categoryPath) {
-                      <div class="flex justify-between text-sm">
-                        <span class="text-muted-color">Catégorie:</span>
-                        <span class="font-medium">{{ channel.categoryPath }}</span>
-                      </div>
-                    }
-                    @if (channel.createdAt) {
-                      <div class="flex justify-between text-sm">
-                        <span class="text-muted-color">Créé le:</span>
-                        <span class="font-medium">{{ channel.createdAt | date:'short' }}</span>
-                      </div>
-                    }
-                  </div>
-                </div>
+        <!-- Tabs Content -->
+        <p-tabs value="overview">
+          <p-tablist>
+            <p-tab value="overview">
+              <div class="flex items-center gap-2">
+                <i class="pi pi-info-circle"></i>
+                <span>Aperçu</span>
+              </div>
+            </p-tab>
+            <p-tab value="permissions">
+              <div class="flex items-center gap-2">
+                <i class="pi pi-lock"></i>
+                <span>Permissions</span>
+              </div>
+            </p-tab>
+            <p-tab value="settings">
+              <div class="flex items-center gap-2">
+                <i class="pi pi-cog"></i>
+                <span>Paramètres</span>
+              </div>
+            </p-tab>
+          </p-tablist>
 
-                <!-- Description -->
-                @if (channel.topic) {
-                  <div class="surface-card p-3 rounded border border-surface">
-                    <h4 class="font-semibold text-sm mb-2">Description</h4>
-                    <p class="text-sm m-0">{{ channel.topic }}</p>
-                  </div>
-                }
-
-                <!-- Propriétés text channel -->
-                @if (channel.isText) {
-                  <div class="surface-card p-3 rounded border border-surface">
+          <p-tabpanels>
+            <!-- TAB: OVERVIEW -->
+            <p-tabpanel value="overview">
+              <p-scrollpanel [style]="{'height': 'calc(100vh - 220px)'}">
+                <div class="space-y-4">
+                  <!-- Informations générales -->
+                  <div class="surface-card p-4 rounded-lg border border-surface">
                     <h4 class="font-semibold text-sm mb-3 flex items-center gap-2">
-                      <i class="pi pi-hashtag"></i>
-                      Paramètres du channel texte
+                      <i class="pi pi-info-circle text-primary-500"></i>
+                      Informations générales
                     </h4>
                     
-                    <div class="space-y-2">
-                      <div class="flex justify-between items-center text-sm">
-                        <span class="text-muted-color">NSFW:</span>
+                    <div class="space-y-3">
+                      <div class="flex justify-between items-start text-sm">
+                        <span class="text-muted-color">ID:</span>
+                        <code class="text-xs bg-surface-100 dark:bg-surface-700 px-2 py-1 rounded">{{ channel.id }}</code>
+                      </div>
+                      
+                      <div class="flex justify-between items-start text-sm">
+                        <span class="text-muted-color">Type:</span>
                         <p-tag 
-                          [value]="channel.nsfw ? 'Oui' : 'Non'" 
-                          [severity]="channel.nsfw ? 'danger' : 'success'">
-                        </p-tag>
+                          [value]="getChannelTypeLabel(channel)" 
+                          [severity]="getChannelTypeSeverity(channel)"
+                        />
                       </div>
-                      @if (channel.rateLimitPerUser) {
-                        <div class="flex justify-between items-center text-sm">
-                          <span class="text-muted-color">Slowmode:</span>
-                          <span class="font-medium">{{ channel.rateLimitPerUser }}s</span>
+
+                      @if (channel.categoryPath) {
+                        <div class="flex justify-between items-start text-sm">
+                          <span class="text-muted-color">Catégorie:</span>
+                          <span class="font-medium">{{ channel.categoryPath }}</span>
+                        </div>
+                      }
+
+                      <div class="flex justify-between items-start text-sm">
+                        <span class="text-muted-color">Position:</span>
+                        <span class="font-medium">{{ channel.position }}</span>
+                      </div>
+
+                      @if (channel.topic) {
+                        <p-divider />
+                        <div class="text-sm">
+                          <span class="text-muted-color block mb-2">Description:</span>
+                          <p class="m-0 text-surface-700 dark:text-surface-300">{{ channel.topic }}</p>
                         </div>
                       }
                     </div>
                   </div>
-                }
 
-                <!-- Propriétés voice channel -->
-                @if (channel.isVoice) {
-                  <div class="surface-card p-3 rounded border border-surface">
+                  <!-- Flags et états -->
+                  <div class="surface-card p-4 rounded-lg border border-surface">
                     <h4 class="font-semibold text-sm mb-3 flex items-center gap-2">
-                      <i class="pi pi-volume-up"></i>
-                      Paramètres du channel vocal
+                      <i class="pi pi-flag text-orange-500"></i>
+                      États et restrictions
                     </h4>
                     
-                    <div class="space-y-2">
-                      @if (channel.bitrate) {
-                        <div class="flex justify-between text-sm">
-                          <span class="text-muted-color">Bitrate:</span>
-                          <span class="font-medium">{{ channel.bitrate / 1000 }} kbps</span>
-                        </div>
+                    <div class="flex flex-wrap gap-2">
+                      @if (channel.nsfw) {
+                        <p-chip label="NSFW" icon="pi pi-exclamation-triangle" styleClass="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400" />
                       }
-                      @if (channel.userLimit) {
-                        <div class="flex justify-between text-sm">
-                          <span class="text-muted-color">Limite d'utilisateurs:</span>
-                          <span class="font-medium">{{ channel.userLimit === 0 ? 'Illimité' : channel.userLimit }}</span>
-                        </div>
+                      @if (channel.isLocked) {
+                        <p-chip label="Verrouillé" icon="pi pi-lock" styleClass="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400" />
                       }
-                      @if (channel.rtcRegion) {
-                        <div class="flex justify-between text-sm">
-                          <span class="text-muted-color">Région:</span>
-                          <span class="font-medium">{{ channel.rtcRegion }}</span>
-                        </div>
+                      @if (channel.isPrivate) {
+                        <p-chip label="Privé" icon="pi pi-eye-slash" styleClass="bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" />
+                      }
+                      @if (channel.hasSlowmode) {
+                        <p-chip 
+                          [label]="'Slowmode ' + channel.rateLimitPerUser + 's'" 
+                          icon="pi pi-clock"
+                          styleClass="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400" 
+                        />
+                      }
+                      @if (!channel.nsfw && !channel.isLocked && !channel.isPrivate && !channel.hasSlowmode) {
+                        <span class="text-muted-color text-sm">Aucune restriction active</span>
                       }
                     </div>
                   </div>
-                }
 
-                <!-- États -->
-                <div class="surface-card p-3 rounded border border-surface">
-                  <h4 class="font-semibold text-sm mb-3 flex items-center gap-2">
-                    <i class="pi pi-shield"></i>
-                    États et restrictions
-                  </h4>
-                  
-                  <div class="flex flex-wrap gap-2">
-                    @if (channel.isLocked) {
-                      <p-chip label="Verrouillé" icon="pi pi-lock" severity="danger"></p-chip>
-                    }
-                    @if (channel.isPrivate) {
-                      <p-chip label="Privé" icon="pi pi-eye-slash" severity="warn"></p-chip>
-                    }
-                    @if (channel.hasSlowmode) {
-                      <p-chip label="Slowmode" icon="pi pi-clock" severity="info"></p-chip>
-                    }
-                    @if (!channel.isLocked && !channel.isPrivate && !channel.hasSlowmode) {
-                      <p-chip label="Aucune restriction" icon="pi pi-check-circle" severity="success"></p-chip>
-                    }
-                  </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="flex flex-col gap-2">
-                  <button 
-                    pButton 
-                    label="Modifier le channel" 
-                    icon="pi pi-pencil"
-                    severity="primary"
-                    [outlined]="true"
-                    class="w-full"
-                    (click)="editChannel(channel)">
-                  </button>
-                  <button 
-                    pButton 
-                    label="Cloner le channel" 
-                    icon="pi pi-copy"
-                    severity="secondary"
-                    [outlined]="true"
-                    class="w-full"
-                    (click)="cloneChannel(channel)">
-                  </button>
-                  <button 
-                    pButton 
-                    label="Supprimer" 
-                    icon="pi pi-trash"
-                    severity="danger"
-                    [outlined]="true"
-                    class="w-full"
-                    (click)="deleteChannel(channel)">
-                  </button>
-                </div>
-              </div>
-            </p-scrollpanel>
-          </p-tabpanel>
-
-          <!-- TAB: PERMISSIONS -->
-          <p-tabpanel header="Permissions" value="1">
-            <p-scrollpanel [style]="{'height': 'calc(100vh - 200px)'}">
-              <div class="space-y-3">
-                <div class="flex items-center justify-between mb-3">
-                  <h4 class="font-semibold text-sm m-0">Permissions du channel</h4>
-                  <button 
-                    pButton 
-                    icon="pi pi-plus" 
-                    label="Ajouter"
-                    size="small"
-                    [outlined]="true"
-                    pTooltip="Ajouter une permission"
-                    (click)="addPermissionOverwrite(channel)">
-                  </button>
-                </div>
-
-                @for (overwrite of channel.permissionOverwrites; track overwrite.id) {
-                  <div class="surface-card p-3 rounded border border-surface">
-                    <div class="flex items-center justify-between mb-2">
-                      <div class="flex items-center gap-2">
-                        <i [class]="overwrite.targetType === 'role' ? 'pi pi-users' : 'pi pi-user'"></i>
-                        <span class="font-medium text-sm">{{ overwrite.targetName || overwrite.id }}</span>
+                  <!-- Stats spécifiques selon type -->
+                  @if (channel.isText || channel.isForum) {
+                    <div class="surface-card p-4 rounded-lg border border-surface">
+                      <h4 class="font-semibold text-sm mb-3 flex items-center gap-2">
+                        <i class="pi pi-chart-bar text-green-500"></i>
+                        Statistiques
+                      </h4>
+                      
+                      <div class="space-y-2 text-sm">
+                        @if (channel.defaultAutoArchiveDuration) {
+                          <div class="flex justify-between">
+                            <span class="text-muted-color">Auto-archivage:</span>
+                            <span class="font-medium">{{ channel.defaultAutoArchiveDuration }} min</span>
+                          </div>
+                        }
                       </div>
-                      <button 
-                        pButton 
-                        icon="pi pi-trash" 
-                        [text]="true"
-                        [rounded]="true"
-                        size="small"
-                        severity="danger"
-                        (click)="removePermissionOverwrite(channel, overwrite.id)">
-                      </button>
                     </div>
-                    <div class="text-xs text-muted-color">
-                      <div>Allow: <code>{{ overwrite.allow }}</code></div>
-                      <div>Deny: <code>{{ overwrite.deny }}</code></div>
-                    </div>
-                  </div>
-                } @empty {
-                  <div class="text-center py-4">
-                    <i class="pi pi-shield text-4xl text-muted-color mb-2"></i>
-                    <p class="text-sm text-muted-color m-0">Aucune permission personnalisée</p>
-                  </div>
-                }
-              </div>
-            </p-scrollpanel>
-          </p-tabpanel>
+                  }
 
-          <!-- TAB: PARAMÈTRES -->
-          <p-tabpanel header="Paramètres" value="2">
-            <p-scrollpanel [style]="{'height': 'calc(100vh - 200px)'}">
-              <div class="text-center py-8">
-                <i class="pi pi-wrench text-5xl text-muted-color mb-3"></i>
-                <p class="text-muted-color mb-4">Paramètres avancés</p>
-                <p class="text-xs text-muted-color">Cette fonctionnalité sera implémentée prochainement</p>
-              </div>
-            </p-scrollpanel>
-          </p-tabpanel>
+                  @if (channel.isVoice || channel.isStage) {
+                    <div class="surface-card p-4 rounded-lg border border-surface">
+                      <h4 class="font-semibold text-sm mb-3 flex items-center gap-2">
+                        <i class="pi pi-volume-up text-purple-500"></i>
+                        Configuration vocale
+                      </h4>
+                      
+                      <div class="space-y-2 text-sm">
+                        @if (channel.bitrate) {
+                          <div class="flex justify-between">
+                            <span class="text-muted-color">Bitrate:</span>
+                            <span class="font-medium">{{ (channel.bitrate / 1000).toFixed(0) }} kbps</span>
+                          </div>
+                        }
+                        @if (channel.userLimit) {
+                          <div class="flex justify-between">
+                            <span class="text-muted-color">Limite utilisateurs:</span>
+                            <span class="font-medium">{{ channel.userLimit }}</span>
+                          </div>
+                        } @else {
+                          <div class="flex justify-between">
+                            <span class="text-muted-color">Limite utilisateurs:</span>
+                            <span class="font-medium">Illimité</span>
+                          </div>
+                        }
+                        @if (channel.rtcRegion) {
+                          <div class="flex justify-between">
+                            <span class="text-muted-color">Région:</span>
+                            <span class="font-medium">{{ channel.rtcRegion }}</span>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+
+                  <!-- Actions -->
+                  <div class="flex gap-2">
+                    <p-button
+                      label="Modifier"
+                      icon="pi pi-pencil"
+                      [outlined]="true"
+                      class="flex-1"
+                      (onClick)="editChannel(channel)"
+                    />
+                    <p-button
+                      label="Supprimer"
+                      icon="pi pi-trash"
+                      [outlined]="true"
+                      severity="danger"
+                      class="flex-1"
+                      (onClick)="deleteChannel(channel)"
+                    />
+                  </div>
+                </div>
+              </p-scrollpanel>
+            </p-tabpanel>
+
+            <!-- TAB: PERMISSIONS -->
+            <p-tabpanel value="permissions">
+              <p-scrollpanel [style]="{'height': 'calc(100vh - 220px)'}">
+                <div class="space-y-4">
+                  <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                    <div class="flex gap-2">
+                      <i class="pi pi-info-circle text-blue-500 mt-0.5"></i>
+                      <div class="text-sm text-blue-700 dark:text-blue-300">
+                        <p class="m-0 font-medium mb-1">Permissions du channel</p>
+                        <p class="m-0">Gérez les autorisations spécifiques pour ce channel.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  @if (channel.permissionOverwrites && channel.permissionOverwrites.length > 0) {
+                    <div class="space-y-2">
+                      @for (overwrite of channel.permissionOverwrites; track overwrite.id) {
+                        <div class="surface-card p-3 rounded border border-surface">
+                          <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                              <i [class]="overwrite.type === 0 ? 'pi pi-users' : 'pi pi-user'" class="text-muted-color"></i>
+                              <span class="font-medium text-sm">{{ overwrite.type === 0 ? 'Rôle' : 'Membre' }}</span>
+                            </div>
+                            <p-button
+                              icon="pi pi-pencil"
+                              [text]="true"
+                              [rounded]="true"
+                              size="small"
+                              (onClick)="editPermissions(channel, overwrite)"
+                            />
+                          </div>
+                          <div class="text-xs text-muted-color">
+                            <span class="block">Allow: {{ overwrite.allow }}</span>
+                            <span class="block">Deny: {{ overwrite.deny }}</span>
+                          </div>
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <div class="text-center py-8 text-muted-color">
+                      <i class="pi pi-lock text-4xl mb-3"></i>
+                      <p class="text-sm">Aucune permission personnalisée</p>
+                    </div>
+                  }
+
+                  <p-button
+                    label="Ajouter une permission"
+                    icon="pi pi-plus"
+                    [outlined]="true"
+                    class="w-full"
+                    (onClick)="addPermission(channel)"
+                  />
+                </div>
+              </p-scrollpanel>
+            </p-tabpanel>
+
+            <!-- TAB: SETTINGS -->
+            <p-tabpanel value="settings">
+              <p-scrollpanel [style]="{'height': 'calc(100vh - 220px)'}">
+                <div class="space-y-4">
+                  <div class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-3">
+                    <div class="flex gap-2">
+                      <i class="pi pi-exclamation-triangle text-orange-500 mt-0.5"></i>
+                      <div class="text-sm text-orange-700 dark:text-orange-300">
+                        <p class="m-0 font-medium mb-1">Zone dangereuse</p>
+                        <p class="m-0">Les actions ci-dessous sont irréversibles.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="space-y-3">
+                    <div class="surface-card p-4 rounded border border-surface">
+                      <div class="flex justify-between items-start mb-3">
+                        <div class="flex-1">
+                          <h4 class="font-medium text-sm m-0 mb-1">Dupliquer le channel</h4>
+                          <p class="text-xs text-muted-color m-0">Créer une copie avec les mêmes paramètres</p>
+                        </div>
+                      </div>
+                      <p-button
+                        label="Dupliquer"
+                        icon="pi pi-copy"
+                        [outlined]="true"
+                        size="small"
+                        class="w-full"
+                        (onClick)="cloneChannel(channel)"
+                      />
+                    </div>
+
+                    <div class="surface-card p-4 rounded border border-red-200 dark:border-red-800">
+                      <div class="flex justify-between items-start mb-3">
+                        <div class="flex-1">
+                          <h4 class="font-medium text-sm m-0 mb-1 text-red-600 dark:text-red-400">Supprimer le channel</h4>
+                          <p class="text-xs text-muted-color m-0">Cette action est définitive et irréversible</p>
+                        </div>
+                      </div>
+                      <p-button
+                        label="Supprimer définitivement"
+                        icon="pi pi-trash"
+                        severity="danger"
+                        size="small"
+                        class="w-full"
+                        (onClick)="deleteChannel(channel)"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </p-scrollpanel>
+            </p-tabpanel>
+          </p-tabpanels>
         </p-tabs>
       }
     </p-drawer>
-
-    <!-- TOAST MESSAGES -->
-    <p-toast />
-  `,
-  styles: [`
-    :host ::ng-deep {
-      .p-scrollpanel {
-        .p-scrollpanel-content {
-          padding-right: 1rem;
-        }
-      }
-
-      .p-chip {
-        font-weight: 500;
-      }
-
-      code {
-        font-family: 'Courier New', monospace;
-        font-size: 0.875rem;
-      }
-    }
-  `]
+  `
 })
 export class ChannelsComponent {
   readonly channelFacade = inject(ChannelFacadeService);
@@ -651,21 +720,22 @@ export class ChannelsComponent {
 
   // États locaux
   showChannelDetails = false;
+  searchQuery = '';
   selectedTypeFilter: DiscordChannelType | 'all' = 'all';
   selectedCategoryFilter: string | 'all' | 'no-category' = 'all';
 
   // Options pour les filtres
   channelTypeOptions = [
     { label: 'Tous les types', value: 'all' },
-    { label: 'Texte', value: DiscordChannelType.GUILD_TEXT },
-    { label: 'Vocal', value: DiscordChannelType.GUILD_VOICE },
-    { label: 'Catégorie', value: DiscordChannelType.GUILD_CATEGORY },
-    { label: 'Annonces', value: DiscordChannelType.GUILD_ANNOUNCEMENT },
-    { label: 'Forum', value: DiscordChannelType.GUILD_FORUM },
-    { label: 'Stage', value: DiscordChannelType.GUILD_STAGE_VOICE },
+    { label: '💬 Texte', value: DiscordChannelType.GUILD_TEXT },
+    { label: '🔊 Vocal', value: DiscordChannelType.GUILD_VOICE },
+    { label: '📁 Catégorie', value: DiscordChannelType.GUILD_CATEGORY },
+    { label: '📢 Annonces', value: DiscordChannelType.GUILD_ANNOUNCEMENT },
+    { label: '💭 Forum', value: DiscordChannelType.GUILD_FORUM },
+    { label: '🎤 Stage', value: DiscordChannelType.GUILD_STAGE_VOICE },
   ];
 
-  // Options de catégories (computed)
+  // Options de catégories (computed depuis le facade)
   categoryOptions = computed(() => {
     const categories = this.channelFacade.categories();
     return [
@@ -675,23 +745,64 @@ export class ChannelsComponent {
     ];
   });
 
+  // Helper pour savoir si des filtres sont actifs
+  hasActiveFilters = computed(() => {
+    return this.searchQuery !== '' || 
+           this.selectedTypeFilter !== 'all' || 
+           this.selectedCategoryFilter !== 'all';
+  });
+
   // ============================================
-  // ACTIONS
+  // ACTIONS PRINCIPALES
   // ============================================
 
   refreshChannels(): void {
     void this.channelFacade.refreshChannels();
   }
 
-  selectChannel(channel: GuildChannelDTO): void {
+  createChannel(): void {
+    this.messageService.add({
+      severity: 'info',
+      summary: 'Fonctionnalité à venir',
+      detail: 'La création de channels sera bientôt disponible'
+    });
+  }
+
+  viewChannel(channel: GuildChannelDTO): void {
     this.channelFacade.selectChannel(channel);
     this.showChannelDetails = true;
   }
 
-  clearFilters(): void {
-    this.channelFacade.clearFilters();
-    this.selectedTypeFilter = 'all';
-    this.selectedCategoryFilter = 'all';
+  editChannel(channel: GuildChannelDTO): void {
+    this.messageService.add({
+      severity: 'info',
+      summary: 'Fonctionnalité à venir',
+      detail: `Édition de ${channel.name} bientôt disponible`
+    });
+  }
+
+  deleteChannel(channel: GuildChannelDTO): void {
+    this.messageService.add({
+      severity: 'warn',
+      summary: 'Confirmation requise',
+      detail: `Suppression de ${channel.name} (à implémenter)`
+    });
+  }
+
+  cloneChannel(channel: GuildChannelDTO): void {
+    this.messageService.add({
+      severity: 'info',
+      summary: 'Fonctionnalité à venir',
+      detail: `Duplication de ${channel.name} bientôt disponible`
+    });
+  }
+
+  // ============================================
+  // FILTRES
+  // ============================================
+
+  onSearchChange(query: string): void {
+    this.channelFacade.setSearchQuery(query);
   }
 
   onTypeFilterChange(type: DiscordChannelType | 'all'): void {
@@ -702,109 +813,73 @@ export class ChannelsComponent {
     this.channelFacade.setSelectedCategory(categoryId);
   }
 
+  clearFilters(): void {
+    this.searchQuery = '';
+    this.selectedTypeFilter = 'all';
+    this.selectedCategoryFilter = 'all';
+    this.channelFacade.clearFilters();
+  }
+
   // ============================================
-  // MODALS & ACTIONS (À IMPLÉMENTER)
+  // PERMISSIONS
   // ============================================
 
-  openCreateChannelModal(): void {
-    // TODO: Ouvrir modal de création
+  editPermissions(channel: GuildChannelDTO, overwrite: any): void {
     this.messageService.add({
       severity: 'info',
       summary: 'Fonctionnalité à venir',
-      detail: 'La création de channel sera disponible prochainement'
+      detail: 'Édition des permissions bientôt disponible'
     });
   }
 
-  editChannel(channel: GuildChannelDTO): void {
-    // TODO: Ouvrir modal d'édition
+  addPermission(channel: GuildChannelDTO): void {
     this.messageService.add({
       severity: 'info',
       summary: 'Fonctionnalité à venir',
-      detail: `Édition du channel "${channel.name}" sera disponible prochainement`
-    });
-  }
-
-  async cloneChannel(channel: GuildChannelDTO): Promise<void> {
-    const result = await this.channelFacade.cloneChannel(channel.id);
-    if (result) {
-      this.messageService.add({
-        severity: 'success',
-        summary: 'Channel cloné',
-        detail: `Le channel "${result.name}" a été créé avec succès`
-      });
-    }
-  }
-
-  deleteChannel(channel: GuildChannelDTO): void {
-    // TODO: Confirmation modal puis suppression
-    this.messageService.add({
-      severity: 'warn',
-      summary: 'Fonctionnalité à venir',
-      detail: 'La suppression de channel nécessite une confirmation'
-    });
-  }
-
-  openChannelMenu(event: Event, channel: GuildChannelDTO): void {
-    // TODO: Menu contextuel avec actions
-    console.log('Channel menu:', channel);
-  }
-
-  openCategoryMenu(event: Event, category: GuildChannelDTO): void {
-    // TODO: Menu contextuel pour catégorie
-    console.log('Category menu:', category);
-  }
-
-  addPermissionOverwrite(channel: GuildChannelDTO): void {
-    // TODO: Modal pour ajouter permission
-    this.messageService.add({
-      severity: 'info',
-      summary: 'Fonctionnalité à venir',
-      detail: 'L\'ajout de permissions sera disponible prochainement'
-    });
-  }
-
-  removePermissionOverwrite(channel: GuildChannelDTO, overwriteId: string): void {
-    // TODO: Confirmation puis suppression
-    this.messageService.add({
-      severity: 'info',
-      summary: 'Fonctionnalité à venir',
-      detail: 'La suppression de permissions sera disponible prochainement'
+      detail: 'Ajout de permissions bientôt disponible'
     });
   }
 
   // ============================================
-  // HELPERS
+  // SIDEBAR
+  // ============================================
+
+  onCloseDetails(): void {
+    this.channelFacade.clearSelection();
+    this.showChannelDetails = false;
+  }
+
+  // ============================================
+  // HELPERS UI
   // ============================================
 
   getChannelIcon(channel: GuildChannelDTO): string {
     if (channel.isCategory) return 'pi pi-folder text-blue-500';
-    if (channel.isText) return 'pi pi-hashtag text-green-500';
-    if (channel.isVoice) return 'pi pi-volume-up text-orange-500';
-    if (channel.isForum) return 'pi pi-comments text-purple-500';
-    if (channel.isAnnouncement) return 'pi pi-megaphone text-red-500';
+    if (channel.isText) return 'pi pi-comment text-green-500';
+    if (channel.isVoice) return 'pi pi-volume-up text-purple-500';
+    if (channel.isAnnouncement) return 'pi pi-megaphone text-orange-500';
+    if (channel.isForum) return 'pi pi-comments text-indigo-500';
     if (channel.isStage) return 'pi pi-microphone text-pink-500';
-    if (channel.isThread) return 'pi pi-list text-cyan-500';
-    return 'pi pi-question-circle text-muted-color';
+    return 'pi pi-hashtag text-gray-500';
   }
 
   getChannelTypeLabel(channel: GuildChannelDTO): string {
     if (channel.isCategory) return 'Catégorie';
-    if (channel.isText) return 'Texte';
-    if (channel.isVoice) return 'Vocal';
+    if (channel.isAnnouncement) return 'Annonce';
     if (channel.isForum) return 'Forum';
-    if (channel.isAnnouncement) return 'Annonces';
     if (channel.isStage) return 'Stage';
-    if (channel.isThread) return 'Thread';
-    return 'Inconnu';
+    if (channel.isVoice) return 'Vocal';
+    if (channel.isText) return 'Texte';
+    return 'Autre';
   }
 
   getChannelTypeSeverity(channel: GuildChannelDTO): 'success' | 'info' | 'warn' | 'danger' | 'secondary' | 'contrast' | undefined {
     if (channel.isCategory) return 'info';
-    if (channel.isText) return 'success';
-    if (channel.isVoice) return 'warn';
+    if (channel.isAnnouncement) return 'warn';
     if (channel.isForum) return 'secondary';
-    if (channel.isAnnouncement) return 'danger';
-    if (channel.isStage) return 'contrast';
+    if (channel.isStage) return 'danger';
+    if (channel.isVoice) return 'contrast';
+    if (channel.isText) return 'success';
     return undefined;
   }
 }

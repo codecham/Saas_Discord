@@ -19,7 +19,7 @@ export class AppMenuComponent {
     model: MenuItem[] = [];
 
     ngOnInit() {
-        this.model = this.devModel;
+        this.model = this.prodModel;
     }
 
 
@@ -27,7 +27,7 @@ export class AppMenuComponent {
             {
                 label: 'Home',
                 items: [
-                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/dashboard'] },
+                    { label: 'Dashboard', icon: 'pi pi-objects-column', routerLink: ['/dashboard'] },
                 ]
             },
             {
@@ -40,8 +40,8 @@ export class AppMenuComponent {
                 label: 'Server',
                 items: [
                     { label: 'Members', icon: 'pi pi-fw pi-users', routerLink: ['/members'] },
-                    { label: 'Channels', icon: 'pi pi-fw pi-hashtag', routerLink: ['/channels'] },
                     { label: 'Roles', icon: 'pi pi-fw pi-id-card', routerLink: ['/roles'] },
+                    { label: 'Channels', icon: 'pi pi-fw pi-hashtag', routerLink: ['/channels'] },
                 ]
             },
             {
@@ -177,11 +177,11 @@ export class AppMenuComponent {
         ];
     
 
-    selectedServerModel: MenuItem[] = [
+    prodModel: MenuItem[] = [
             {
                 label: 'Home',
                 items: [
-                    { label: 'Dashboard', icon: 'pi pi-fw pi-home', routerLink: ['/dashboard'] },
+                    { label: 'Dashboard', icon: 'pi pi-objects-column', routerLink: ['/dashboard'] },
                 ]
             },
             {
@@ -194,8 +194,8 @@ export class AppMenuComponent {
                 label: 'Server',
                 items: [
                     { label: 'Members', icon: 'pi pi-fw pi-users', routerLink: ['/members'] },
-                    { label: 'Channels', icon: 'pi pi-fw pi-hashtag', routerLink: ['/channels'] },
                     { label: 'Roles', icon: 'pi pi-fw pi-id-card', routerLink: ['/roles'] },
+                    { label: 'Channels', icon: 'pi pi-fw pi-hashtag', routerLink: ['/channels'] },
                 ]
             },
         ];

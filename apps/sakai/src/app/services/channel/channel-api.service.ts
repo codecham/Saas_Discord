@@ -4,7 +4,6 @@ import { Observable } from 'rxjs';
 import { environment } from '@environments/environment';
 import { 
   GuildChannelDTO,
-  ChannelListResponseDTO,
   CreateChannelDTO,
   ModifyChannelDTO,
   EditChannelPermissionsDTO
@@ -17,6 +16,7 @@ import {
  * Endpoints:
  * - GET    /discord/guilds/:guildId/channels
  * - POST   /discord/guilds/:guildId/channels
+ * - POST   /discord/guilds/:guildId/channels/:channelId/clone
  * - GET    /discord/channels/:channelId
  * - PATCH  /discord/channels/:channelId
  * - DELETE /discord/channels/:channelId
@@ -58,6 +58,17 @@ export class ChannelApiService {
   }
 
   /**
+   * Clone un channel existant (crée une copie)
+   * POST /discord/guilds/:guildId/channels/:channelId/clone
+   */
+  cloneChannel(guildId: string, channelId: string): Observable<GuildChannelDTO> {
+    return this.http.post<GuildChannelDTO>(
+      `${this.baseUrl}/guilds/${guildId}/channels/${channelId}/clone`,
+      {}
+    );
+  }
+
+  /**
    * Modifie un channel existant
    * PATCH /discord/channels/:channelId
    */
@@ -73,9 +84,13 @@ export class ChannelApiService {
    * DELETE /discord/channels/:channelId
    */
   deleteChannel(channelId: string, reason?: string): Observable<void> {
+    const options = reason ? { 
+      headers: { 'X-Audit-Log-Reason': reason }
+    } : {};
+    
     return this.http.delete<void>(
       `${this.baseUrl}/channels/${channelId}`,
-      { body: { reason } }
+      options
     );
   }
 
@@ -103,20 +118,13 @@ export class ChannelApiService {
     overwriteId: string,
     reason?: string
   ): Observable<void> {
+    const options = reason ? { 
+      headers: { 'X-Audit-Log-Reason': reason }
+    } : {};
+
     return this.http.delete<void>(
       `${this.baseUrl}/channels/${channelId}/permissions/${overwriteId}`,
-      { body: { reason } }
-    );
-  }
-
-  /**
-   * Clone un channel (crée un nouveau channel avec les mêmes paramètres)
-   * POST /discord/guilds/:guildId/channels/clone/:channelId
-   */
-  cloneChannel(guildId: string, channelId: string): Observable<GuildChannelDTO> {
-    return this.http.post<GuildChannelDTO>(
-      `${this.baseUrl}/guilds/${guildId}/channels/clone/${channelId}`,
-      {}
+      options
     );
   }
 }
