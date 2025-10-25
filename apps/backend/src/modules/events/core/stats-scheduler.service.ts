@@ -18,7 +18,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 @Injectable()
 export class StatsSchedulerService {
   private readonly logger = new Logger(StatsSchedulerService.name);
-  private readonly isActive5min: boolean = false;
+  private readonly metricsActive: boolean = false;
 
   constructor(
     @InjectQueue('stats-aggregation')
@@ -34,8 +34,7 @@ export class StatsSchedulerService {
    */
   @Cron(CronExpression.EVERY_5_MINUTES)
   async scheduleAggregate5Min() {
-    if (!this.isActive5min) {
-      this.logger.log(`5 minutes aggregation disable. Pass`);
+    if (!this.metricsActive) {
       return;
     }
     this.logger.log('🕐 Déclenchement agrégation 5min');
@@ -87,6 +86,9 @@ export class StatsSchedulerService {
    */
   @Cron(CronExpression.EVERY_HOUR)
   async scheduleAggregateHourly() {
+    if (!this.metricsActive) {
+      return;
+    }
     this.logger.log('🕐 Déclenchement agrégation horaire');
 
     try {
@@ -138,6 +140,9 @@ export class StatsSchedulerService {
    */
   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async scheduleAggregateDaily() {
+    if (!this.metricsActive) {
+      return;
+    }
     this.logger.log('🕐 Déclenchement agrégation quotidienne');
 
     try {
