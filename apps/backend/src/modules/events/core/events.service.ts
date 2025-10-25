@@ -1,14 +1,10 @@
-/* eslint-disable @typescript-eslint/require-await */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BotEventDto } from '@my-project/shared-types';
 import { EventType } from '@my-project/shared-types';
 import { Prisma } from '@prisma/client';
-import { MessageEventsProcessor } from '../processors/message-events.processor';
-import { VoiceEventsProcessor } from '../processors/voice-events.processor';
-import { ReactionEventsProcessor } from '../processors/reaction-events.processor';
+import type { Queue } from 'bull';
+import { InjectQueue } from '@nestjs/bull';
 
 /**
  * 📊 EventsService - Service principal de gestion des événements Discord
@@ -30,9 +26,7 @@ export class EventsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly messageProcessor: MessageEventsProcessor,
-    private readonly voiceProcessor: VoiceEventsProcessor,
-    private readonly reactionProcessor: ReactionEventsProcessor,
+    @InjectQueue('events-processing') private readonly eventsQueue: Queue,
   ) {}
 
   /**
@@ -50,7 +44,7 @@ export class EventsService {
     this.logger.log(`📥 Réception de ${events.length} events`);
 
     try {
-      // Étape 1 : Valider les events
+      // Validation
       const validEvents = this.validateEvents(events);
 
       if (validEvents.length === 0) {
@@ -58,18 +52,16 @@ export class EventsService {
         return 0;
       }
 
-      // Étape 2 : Transformer pour Prisma
+      // Transformer
       const eventsForDb = this.transformEventsForDb(validEvents);
 
-      // Étape 3 : Persister dans TimescaleDB
+      // Persister (OPTIONAL - peut être supprimé si on ne veut plus stocker les events bruts)
       const result = await this.persistEvents(eventsForDb);
 
-      this.logger.log(
-        `✅ ${result.count} events persistés avec succès (${events.length - validEvents.length} rejetés)`,
-      );
+      this.logger.log(`✅ ${result.count} events persistés`);
 
-      // 🆕 ÉTAPE 4 : Dispatcher vers les processors pour mise à jour temps réel
-      await this.dispatchToProcessors(validEvents);
+      // ✅ NOUVEAU : Envoyer à la queue au lieu d'appeler directement les processors
+      await this.sendToQueue(validEvents);
 
       return result.count;
     } catch (error) {
@@ -79,6 +71,67 @@ export class EventsService {
       );
       throw error;
     }
+  }
+
+  /**
+   * Envoie les events à la queue BullMQ pour traitement asynchrone
+   */
+  private async sendToQueue(events: BotEventDto[]): Promise<void> {
+    if (events.length === 0) return;
+
+    try {
+      // Envoyer tous les events en bulk à la queue
+      await this.eventsQueue.addBulk(
+        events.map((event) => ({
+          name: 'process-event',
+          data: event,
+          opts: {
+            // Priority basée sur le type d'event (optionnel)
+            priority: this.getEventPriority(event.type),
+          },
+        })),
+      );
+
+      this.logger.debug(
+        `📤 ${events.length} events envoyés à la queue events-processing`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `❌ Erreur lors de l'envoi à la queue: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Détermine la priorité d'un event (1 = haute, 5 = basse)
+   */
+  private getEventPriority(eventType: EventType): number {
+    // Events critiques = priorité haute
+    if (
+      [
+        EventType.GUILD_BAN_ADD,
+        EventType.GUILD_BAN_REMOVE,
+        EventType.GUILD_MEMBER_REMOVE,
+      ].includes(eventType)
+    ) {
+      return 1;
+    }
+
+    // Events stats = priorité normale
+    if (
+      [
+        EventType.MESSAGE_CREATE,
+        EventType.VOICE_STATE_UPDATE,
+        EventType.MESSAGE_REACTION_ADD,
+      ].includes(eventType)
+    ) {
+      return 2;
+    }
+
+    // Autres = priorité basse
+    return 3;
   }
 
   /**
@@ -214,81 +267,5 @@ export class EventsService {
       },
       {} as Record<string, number>,
     );
-  }
-
-  /**
-   * Dispatch les events vers les processors appropriés
-   *
-   * Groupe les events par type et appelle les processors en batch
-   * pour optimiser les performances.
-   */
-  private async dispatchToProcessors(events: BotEventDto[]): Promise<void> {
-    // Grouper les events par type
-    const messageEvents: BotEventDto[] = [];
-    const voiceEvents: BotEventDto[] = [];
-    const reactionEvents: BotEventDto[] = [];
-
-    for (const event of events) {
-      switch (event.type) {
-        case EventType.MESSAGE_CREATE:
-          messageEvents.push(event);
-          break;
-
-        case EventType.VOICE_STATE_UPDATE:
-          voiceEvents.push(event);
-          break;
-
-        case EventType.MESSAGE_REACTION_ADD:
-          reactionEvents.push(event);
-          break;
-
-        // Autres types d'events ignorés pour l'instant
-        default:
-          break;
-      }
-    }
-
-    // Traiter chaque type en parallèle
-    const processorPromises: Promise<void>[] = [];
-
-    if (messageEvents.length > 0) {
-      this.logger.debug(
-        `📨 Dispatch ${messageEvents.length} MESSAGE_CREATE vers MessageProcessor`,
-      );
-      processorPromises.push(this.messageProcessor.processBatch(messageEvents));
-    }
-
-    if (voiceEvents.length > 0) {
-      this.logger.debug(
-        `🎤 Dispatch ${voiceEvents.length} VOICE_STATE_UPDATE vers VoiceProcessor`,
-      );
-      // Traiter 1 par 1 car le voice processor gère les sessions
-      for (const event of voiceEvents) {
-        processorPromises.push(
-          this.voiceProcessor.processVoiceStateUpdate(event),
-        );
-      }
-    }
-
-    if (reactionEvents.length > 0) {
-      this.logger.debug(
-        `👍 Dispatch ${reactionEvents.length} MESSAGE_REACTION_ADD vers ReactionProcessor`,
-      );
-      processorPromises.push(
-        this.reactionProcessor.processBatch(reactionEvents),
-      );
-    }
-
-    // Attendre que tous les processors aient terminé
-    try {
-      await Promise.all(processorPromises);
-      this.logger.debug(`✅ Tous les processors ont terminé`);
-    } catch (error) {
-      this.logger.error(
-        `❌ Erreur dans un processor: ${error.message}`,
-        error.stack,
-      );
-      // On ne throw pas pour ne pas bloquer la persistance
-    }
   }
 }

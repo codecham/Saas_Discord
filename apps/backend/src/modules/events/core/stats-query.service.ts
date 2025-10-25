@@ -1,26 +1,30 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import type {
-  DashboardStatsDto,
-  MemberStatsDto,
-  MemberStatsListDto,
-  LeaderboardDto,
-  ActivityTimelineDto,
+import {
+  GuildStatsResponse,
+  MemberStatsResponse,
+  MembersStatsListResponse,
+  RankingsResponse,
+  TimelineResponse,
+  GetGuildStatsRequest,
+  GetMemberStatsRequest,
+  GetMembersStatsRequest,
+  GetRankingsRequest,
+  GetTimelineRequest,
   StatsPeriod,
-  MemberStatsQueryDto,
-  LeaderboardQueryDto,
-  ActivityTimelineQueryDto,
+  StatsMetricType,
+  StatsSortBy,
+  StatsSortOrder,
 } from '@my-project/shared-types';
 
 /**
- * 📊 Service de requêtes pour les statistiques
+ * 📊 Service de requêtes pour les statistiques v2
  *
- * Responsabilités :
- * - Calculer les périodes (today, week, month, all)
- * - Requêtes complexes pour dashboard, leaderboard, timeline
- * - Agrégations et calculs de comparaisons
+ * Sources de données :
+ * - MemberStats : Stats cumulatives temps réel
+ * - StatsDaily : Stats détaillées par jour
  */
 @Injectable()
 export class StatsQueryService {
@@ -29,419 +33,658 @@ export class StatsQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * 📊 Dashboard Stats
+   * 📊 Stats globales de la guild (Dashboard)
    */
-  async getDashboardStats(
-    guildId: string,
-    period: StatsPeriod = 'week',
-  ): Promise<DashboardStatsDto> {
+  async getGuildStats(
+    request: GetGuildStatsRequest,
+  ): Promise<GuildStatsResponse> {
+    const { guildId, period = StatsPeriod.WEEK } = request;
     const { startDate, endDate } = this.getPeriodDates(period);
     const { startDate: prevStartDate, endDate: prevEndDate } =
       this.getPreviousPeriodDates(period, startDate);
 
     // Stats période actuelle
-    const currentStats = await this.getAggregatedStats(
-      guildId,
-      startDate,
-      endDate,
-    );
+    const current = await this.getAggregatedStats(guildId, startDate, endDate);
 
-    // Stats période précédente (pour comparaison)
-    const previousStats = await this.getAggregatedStats(
+    // Stats période précédente
+    const previous = await this.getAggregatedStats(
       guildId,
       prevStartDate,
       prevEndDate,
     );
 
-    // Top 3 membres
-    const topMembers = await this.prisma.memberStats.findMany({
-      where: { guildId },
-      orderBy: { totalMessages: 'desc' },
-      take: 3,
-      select: {
-        userId: true,
-        totalMessages: true,
-        totalVoiceMinutes: true,
-      },
-    });
+    // Timeline
+    const timeline = await this.getTimeline(guildId, startDate, endDate);
 
-    // Calcul des changements (%)
-    const messagesChange = this.calculatePercentageChange(
-      currentStats.totalMessages,
-      previousStats.totalMessages,
-    );
-    const voiceMinutesChange = this.calculatePercentageChange(
-      currentStats.totalVoiceMinutes,
-      previousStats.totalVoiceMinutes,
-    );
-    const reactionsChange = this.calculatePercentageChange(
-      currentStats.totalReactions,
-      previousStats.totalReactions,
-    );
-    const activeUsersChange = this.calculatePercentageChange(
-      currentStats.uniqueActiveUsers,
-      previousStats.uniqueActiveUsers,
-    );
+    // Top membres
+    const topMessagesSenders = await this.getTopMembers(guildId, 'messages', 3);
+    const topVoiceUsers = await this.getTopMembers(guildId, 'voice', 3);
+
+    // Insights & health score
+    const insights = this.generateInsights(current, previous);
+    const healthScore = this.calculateHealthScore(current);
 
     return {
       guildId,
       period,
-      totalMessages: currentStats.totalMessages,
-      totalVoiceMinutes: currentStats.totalVoiceMinutes,
-      totalReactions: currentStats.totalReactions,
-      uniqueActiveUsers: currentStats.uniqueActiveUsers,
-      messagesChange,
-      voiceMinutesChange,
-      reactionsChange,
-      activeUsersChange,
-      topMembers,
-      periodStart: startDate.toISOString(),
-      periodEnd: endDate.toISOString(),
+      current: {
+        messages: current.messages,
+        voiceMinutes: current.voiceMinutes,
+        reactions: current.reactions,
+        activeMembers: current.activeMembers,
+      },
+      previous: {
+        messages: previous.messages,
+        voiceMinutes: previous.voiceMinutes,
+        reactions: previous.reactions,
+        activeMembers: previous.activeMembers,
+      },
+      changes: {
+        messagesChange: this.calculateChange(
+          current.messages,
+          previous.messages,
+        ),
+        voiceChange: this.calculateChange(
+          current.voiceMinutes,
+          previous.voiceMinutes,
+        ),
+        reactionsChange: this.calculateChange(
+          current.reactions,
+          previous.reactions,
+        ),
+        membersChange: this.calculateChange(
+          current.activeMembers,
+          previous.activeMembers,
+        ),
+      },
+      timeline,
+      topMembers: {
+        messages: topMessagesSenders,
+        voice: topVoiceUsers,
+      },
+      insights,
+      healthScore,
     };
   }
 
   /**
-   * 👥 Liste des membres avec stats
+   * 👤 Stats d'un membre spécifique
    */
   async getMemberStats(
-    guildId: string,
-    query: MemberStatsQueryDto = {},
-  ): Promise<MemberStatsListDto> {
+    request: GetMemberStatsRequest,
+  ): Promise<MemberStatsResponse> {
+    const { guildId, userId, period = StatsPeriod.MONTH } = request;
+    const { startDate, endDate } = this.getPeriodDates(period);
+
+    // Stats cumulatives
+    const memberStats = await this.prisma.memberStats.findUnique({
+      where: {
+        idx_member_stats_unique: { guildId, userId },
+      },
+    });
+
+    if (!memberStats) {
+      return this.getEmptyMemberStats(guildId, userId, period);
+    }
+
+    // Stats de la période depuis StatsDaily
+    const periodStats = await this.prisma.statsDaily.aggregate({
+      where: {
+        guildId,
+        userId,
+        date: { gte: startDate, lte: endDate },
+        channelId: '__global__',
+      },
+      _sum: {
+        messagesSent: true,
+        messagesDeleted: true,
+        messagesEdited: true,
+        voiceMinutes: true,
+        reactionsGiven: true,
+        reactionsReceived: true,
+      },
+    });
+
+    // Timeline
+    const timeline = await this.getMemberTimeline(
+      guildId,
+      userId,
+      startDate,
+      endDate,
+    );
+
+    // Channel breakdown
+    const channelBreakdown = await this.getChannelBreakdown(
+      guildId,
+      userId,
+      startDate,
+      endDate,
+    );
+
+    // Rankings
+    const ranking = await this.getMemberRankings(guildId, userId);
+
+    // Consistency score
+    const consistency = await this.calculateConsistency(
+      guildId,
+      userId,
+      startDate,
+      endDate,
+    );
+
+    // Moderation flags
+    const moderationFlags = this.checkModerationFlags(periodStats._sum);
+
+    return {
+      guildId,
+      userId,
+      period,
+      totals: {
+        messages: periodStats._sum.messagesSent || 0,
+        voiceMinutes: periodStats._sum.voiceMinutes || 0,
+        reactions: periodStats._sum.reactionsGiven || 0,
+        messagesDeleted: periodStats._sum.messagesDeleted || 0,
+        messagesEdited: periodStats._sum.messagesEdited || 0,
+        reactionsGiven: periodStats._sum.reactionsGiven || 0,
+        reactionsReceived: periodStats._sum.reactionsReceived || 0,
+      },
+      timeline,
+      channelBreakdown,
+      ranking,
+      consistency,
+      moderationFlags,
+    };
+  }
+
+  /**
+   * 📋 Liste paginée des membres
+   */
+  async getMembersList(
+    request: GetMembersStatsRequest,
+  ): Promise<MembersStatsListResponse> {
     const {
+      guildId,
       page = 1,
       pageSize = 20,
-      sortBy = 'totalMessages',
-      sortOrder = 'desc',
-      minMessages = 0,
-      minVoiceMinutes = 0,
-      activeOnly = false,
-    } = query;
+      sortBy = StatsSortBy.MESSAGES,
+      sortOrder = StatsSortOrder.DESC,
+      minMessages,
+      minVoiceMinutes,
+      activeOnly,
+      period = StatsPeriod.MONTH,
+    } = request;
 
-    // Filtres
-    const where: any = {
-      guildId,
-      totalMessages: { gte: minMessages },
-      totalVoiceMinutes: { gte: minVoiceMinutes },
-    };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { startDate, endDate } = this.getPeriodDates(period);
 
+    // Construire les filtres
+    const where: any = { guildId };
+    if (minMessages) where.totalMessages = { gte: minMessages };
+    if (minVoiceMinutes) where.totalVoiceMinutes = { gte: minVoiceMinutes };
     if (activeOnly) {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       where.lastSeen = { gte: sevenDaysAgo };
     }
 
     // Compter le total
     const total = await this.prisma.memberStats.count({ where });
 
+    // Calculer pagination
+    const totalPages = Math.ceil(total / pageSize);
+    const skip = (page - 1) * pageSize;
+
     // Récupérer les membres
+    const orderByField =
+      sortBy === StatsSortBy.MESSAGES
+        ? 'totalMessages'
+        : sortBy === StatsSortBy.VOICE
+          ? 'totalVoiceMinutes'
+          : sortBy === StatsSortBy.REACTIONS
+            ? 'totalReactionsGiven'
+            : 'lastSeen';
+
     const members = await this.prisma.memberStats.findMany({
       where,
-      orderBy: {
-        [sortBy === 'messages'
-          ? 'totalMessages'
-          : sortBy === 'voice'
-            ? 'totalVoiceMinutes'
-            : sortBy === 'reactions'
-              ? 'totalReactionsGiven'
-              : sortBy]: sortOrder,
-      },
-      skip: (page - 1) * pageSize,
+      orderBy: { [orderByField]: sortOrder },
+      skip,
       take: pageSize,
     });
 
-    // Transformer en DTO
-    const membersDto: MemberStatsDto[] = members.map((m) => ({
-      userId: m.userId,
-      guildId: m.guildId,
-      totalMessages: m.totalMessages,
-      totalVoiceMinutes: m.totalVoiceMinutes,
-      totalReactionsGiven: m.totalReactionsGiven,
-      totalReactionsReceived: m.totalReactionsReceived,
-      lastMessageAt: m.lastMessageAt?.toISOString() || null,
-      lastVoiceAt: m.lastVoiceAt?.toISOString() || null,
-      lastSeen: m.lastSeen?.toISOString() || null,
-      joinedAt: m.joinedAt?.toISOString() || null,
-    }));
-
     return {
-      members: membersDto,
+      members: members.map((m) => ({
+        userId: m.userId,
+        username: m.userId, // TODO: Enrichir avec données Discord
+        avatar: null,
+        stats: {
+          messages: m.totalMessages,
+          voiceMinutes: m.totalVoiceMinutes,
+          reactions: m.totalReactionsGiven,
+        },
+        lastSeen: m.lastSeen?.toISOString() || null,
+        joinedAt: m.joinedAt?.toISOString() || null,
+      })),
       pagination: {
         total,
         page,
         pageSize,
-        totalPages: Math.ceil(total / pageSize),
+        totalPages,
+      },
+      filters: {
+        minMessages,
+        minVoiceMinutes,
+        activeOnly,
       },
     };
   }
 
   /**
-   * 🏆 Leaderboard
+   * 🏆 Rankings/Leaderboard
    */
-  async getLeaderboard(
-    guildId: string,
-    query: LeaderboardQueryDto = {},
-  ): Promise<LeaderboardDto> {
-    const { category = 'messages', period = 'all', limit = 10 } = query;
+  async getRankings(request: GetRankingsRequest): Promise<RankingsResponse> {
+    const {
+      guildId,
+      metric = StatsMetricType.ALL,
+      limit = 10,
+      period = StatsPeriod.MONTH,
+    } = request;
 
-    // Déterminer le champ de tri
-    const sortField =
-      category === 'messages'
-        ? 'totalMessages'
-        : category === 'voice'
-          ? 'totalVoiceMinutes'
-          : category === 'reactions'
-            ? 'totalReactionsGiven'
-            : 'totalMessages'; // overall = messages par défaut
-
-    // Récupérer les top membres
-    const topMembers = await this.prisma.memberStats.findMany({
-      where: { guildId },
-      orderBy: { [sortField]: 'desc' },
-      take: Math.min(limit, 100), // Max 100
-    });
-
-    // Transformer en entries avec ranks
-    const entries = topMembers.map((member, index) => {
-      const rank = index + 1;
-      const score =
-        category === 'messages'
-          ? member.totalMessages
-          : category === 'voice'
-            ? member.totalVoiceMinutes
-            : category === 'reactions'
-              ? member.totalReactionsGiven
-              : member.totalMessages +
-                member.totalVoiceMinutes +
-                member.totalReactionsGiven;
-
-      return {
-        rank,
-        userId: member.userId,
-        score,
-        totalMessages: member.totalMessages,
-        totalVoiceMinutes: member.totalVoiceMinutes,
-        totalReactions:
-          member.totalReactionsGiven + member.totalReactionsReceived,
-        badge:
-          rank === 1
-            ? ('gold' as const)
-            : rank === 2
-              ? ('silver' as const)
-              : rank === 3
-                ? ('bronze' as const)
-                : undefined,
-      };
-    });
+    const members = await this.getTopMembers(
+      guildId,
+      metric,
+      Math.min(limit, 50),
+    );
 
     return {
       guildId,
-      category,
+      metric,
       period,
-      entries,
+      entries: members.map((m, index) => ({
+        ...m,
+        badge:
+          index === 0
+            ? 'gold'
+            : index === 1
+              ? 'silver'
+              : index === 2
+                ? 'bronze'
+                : undefined,
+        stats: {
+          messages: m.score, // TODO: Ajouter les autres stats
+          voiceMinutes: 0,
+          reactions: 0,
+        },
+      })),
       updatedAt: new Date().toISOString(),
     };
   }
 
   /**
-   * 📈 Activity Timeline
+   * 📈 Timeline d'activité
    */
-  async getActivityTimeline(
-    guildId: string,
-    query: ActivityTimelineQueryDto = {},
-  ): Promise<ActivityTimelineDto> {
-    const { period = 'week', granularity = 'day' } = query;
+  async getTimelineData(
+    request: GetTimelineRequest,
+  ): Promise<TimelineResponse> {
+    const { guildId, period = StatsPeriod.MONTH } = request;
     const { startDate, endDate } = this.getPeriodDates(period);
 
-    // Requête pour récupérer les snapshots agrégés
-    const snapshots = await this.prisma.metricsSnapshot.findMany({
-      where: {
-        guildId,
-        periodStart: { gte: startDate },
-        periodEnd: { lte: endDate },
-        periodType:
-          granularity === 'hour'
-            ? '5min'
-            : granularity === 'day'
-              ? 'hourly'
-              : 'daily',
-      },
-      orderBy: { periodStart: 'asc' },
-    });
+    const timeline = await this.getTimeline(guildId, startDate, endDate);
 
-    // Si pas de snapshots, créer des points vides
-    const dataPoints =
-      snapshots.length > 0
-        ? snapshots.map((s) => ({
-            timestamp: s.periodStart.toISOString(),
-            totalMessages: s.totalMessages || 0,
-            totalVoiceMinutes: s.totalVoiceMinutes || 0,
-            totalReactions: s.totalReactions || 0,
-            uniqueActiveUsers: s.uniqueActiveUsers || 0,
-          }))
-        : this.generateEmptyDataPoints(startDate, endDate, granularity);
+    // Calculer les agrégats
+    const totals = timeline.reduce(
+      (acc, point) => ({
+        messages: acc.messages + point.messages,
+        voice: acc.voice + point.voice,
+        reactions: acc.reactions + point.reactions,
+      }),
+      { messages: 0, voice: 0, reactions: 0 },
+    );
+
+    const days = timeline.length;
 
     return {
       guildId,
       period,
-      granularity,
-      dataPoints,
+      dataPoints: timeline,
+      aggregated: {
+        totalMessages: totals.messages,
+        totalVoiceMinutes: totals.voice,
+        totalReactions: totals.reactions,
+        avgMessagesPerDay: days > 0 ? Math.round(totals.messages / days) : 0,
+        avgVoicePerDay: days > 0 ? Math.round(totals.voice / days) : 0,
+      },
     };
   }
 
-  /**
-   * Calcule les stats agrégées pour une période
-   */
+  // ============================================
+  // MÉTHODES PRIVÉES
+  // ============================================
+
   private async getAggregatedStats(
     guildId: string,
     startDate: Date,
     endDate: Date,
-  ): Promise<{
-    totalMessages: number;
-    totalVoiceMinutes: number;
-    totalReactions: number;
-    uniqueActiveUsers: number;
-  }> {
-    // Compter depuis les events bruts
-    const eventCounts = await this.prisma.event.groupBy({
-      by: ['type'],
+  ) {
+    const result = await this.prisma.statsDaily.aggregate({
       where: {
         guildId,
-        timestamp: { gte: startDate, lte: endDate },
+        date: { gte: startDate, lte: endDate },
+        channelId: '__global__',
       },
-      _count: { type: true },
+      _sum: {
+        messagesSent: true,
+        voiceMinutes: true,
+        reactionsGiven: true,
+      },
     });
 
-    const totalMessages =
-      eventCounts.find((e) => e.type === 'MESSAGE_CREATE')?._count.type || 0;
-    const totalReactions =
-      eventCounts.find((e) => e.type === 'MESSAGE_REACTION_ADD')?._count.type ||
-      0;
-    const voiceEvents =
-      eventCounts.find((e) => e.type === 'VOICE_STATE_UPDATE')?._count.type ||
-      0;
-    const totalVoiceMinutes = Math.floor(voiceEvents / 2); // Estimation
-
-    // Compter users uniques
-    const uniqueUsers = await this.prisma.event.groupBy({
-      by: ['userId'],
+    const activeMembers = await this.prisma.statsDaily.findMany({
       where: {
         guildId,
-        timestamp: { gte: startDate, lte: endDate },
-        userId: { not: null },
+        date: { gte: startDate, lte: endDate },
+        channelId: '__global__',
+      },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+
+    return {
+      messages: result._sum.messagesSent || 0,
+      voiceMinutes: result._sum.voiceMinutes || 0,
+      reactions: result._sum.reactionsGiven || 0,
+      activeMembers: activeMembers.length,
+    };
+  }
+
+  private async getTimeline(guildId: string, startDate: Date, endDate: Date) {
+    const dailyStats = await this.prisma.statsDaily.groupBy({
+      by: ['date'],
+      where: {
+        guildId,
+        date: { gte: startDate, lte: endDate },
+        channelId: '__global__',
+      },
+      _sum: {
+        messagesSent: true,
+        voiceMinutes: true,
+        reactionsGiven: true,
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    return dailyStats.map((stat) => ({
+      date: stat.date.toISOString().split('T')[0],
+      messages: stat._sum.messagesSent || 0,
+      voice: stat._sum.voiceMinutes || 0,
+      reactions: stat._sum.reactionsGiven || 0,
+    }));
+  }
+
+  private async getTopMembers(guildId: string, metric: string, limit: number) {
+    const orderBy =
+      metric === 'messages'
+        ? 'totalMessages'
+        : metric === 'voice'
+          ? 'totalVoiceMinutes'
+          : 'totalReactionsGiven';
+
+    const members = await this.prisma.memberStats.findMany({
+      where: { guildId },
+      orderBy: { [orderBy]: 'desc' },
+      take: limit,
+    });
+
+    return members.map((m, index) => ({
+      userId: m.userId,
+      username: m.userId, // TODO: Enrichir
+      avatar: null,
+      score:
+        metric === 'messages'
+          ? m.totalMessages
+          : metric === 'voice'
+            ? m.totalVoiceMinutes
+            : m.totalReactionsGiven,
+      rank: index + 1,
+    }));
+  }
+
+  private async getMemberTimeline(
+    guildId: string,
+    userId: string,
+    startDate: Date,
+    endDate: Date,
+  ) {
+    const dailyStats = await this.prisma.statsDaily.findMany({
+      where: {
+        guildId,
+        userId,
+        date: { gte: startDate, lte: endDate },
+        channelId: '__global__',
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    return dailyStats.map((stat) => ({
+      date: stat.date.toISOString().split('T')[0],
+      messages: stat.messagesSent,
+      voice: stat.voiceMinutes,
+      reactions: stat.reactionsGiven,
+    }));
+  }
+
+  private async getChannelBreakdown(
+    guildId: string,
+    userId: string,
+    startDate: Date,
+    endDate: Date,
+  ) {
+    const channelStats = await this.prisma.statsDaily.groupBy({
+      by: ['channelId'],
+      where: {
+        guildId,
+        userId,
+        date: { gte: startDate, lte: endDate },
+        channelId: { not: '__global__' },
+      },
+      _sum: {
+        messagesSent: true,
+        voiceMinutes: true,
+      },
+      orderBy: {
+        _sum: {
+          messagesSent: 'desc',
+        },
+      },
+      take: 10,
+    });
+
+    return channelStats.map((stat) => ({
+      channelId: stat.channelId,
+      channelName: stat.channelId, // TODO: Enrichir
+      messages: stat._sum.messagesSent || 0,
+      voiceMinutes: stat._sum.voiceMinutes || 0,
+    }));
+  }
+
+  private async getMemberRankings(guildId: string, userId: string) {
+    const member = await this.prisma.memberStats.findUnique({
+      where: {
+        idx_member_stats_unique: { guildId, userId },
+      },
+    });
+
+    if (!member) {
+      return {
+        messages: { rank: 0, total: 0 },
+        voice: { rank: 0, total: 0 },
+        overall: { rank: 0, total: 0 },
+      };
+    }
+
+    const total = await this.prisma.memberStats.count({ where: { guildId } });
+
+    const messagesRank = await this.prisma.memberStats.count({
+      where: {
+        guildId,
+        totalMessages: { gt: member.totalMessages },
+      },
+    });
+
+    const voiceRank = await this.prisma.memberStats.count({
+      where: {
+        guildId,
+        totalVoiceMinutes: { gt: member.totalVoiceMinutes },
       },
     });
 
     return {
-      totalMessages,
-      totalVoiceMinutes,
-      totalReactions,
-      uniqueActiveUsers: uniqueUsers.length,
+      messages: { rank: messagesRank + 1, total },
+      voice: { rank: voiceRank + 1, total },
+      overall: { rank: messagesRank + 1, total }, // Simplified
     };
   }
 
-  /**
-   * Calcule le pourcentage de changement
-   */
-  private calculatePercentageChange(current: number, previous: number): number {
+  private async calculateConsistency(
+    guildId: string,
+    userId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<number> {
+    const dailyStats = await this.prisma.statsDaily.findMany({
+      where: {
+        guildId,
+        userId,
+        date: { gte: startDate, lte: endDate },
+        channelId: '__global__',
+      },
+    });
+
+    if (dailyStats.length === 0) return 0;
+
+    const activeDays = dailyStats.filter((s) => s.messagesSent > 0).length;
+    const totalDays = Math.ceil(
+      (endDate.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000),
+    );
+
+    return totalDays > 0 ? activeDays / totalDays : 0;
+  }
+
+  private checkModerationFlags(sums: any) {
+    const deleted = sums.messagesDeleted || 0;
+    const sent = sums.messagesSent || 0;
+    const deleteRate = sent > 0 ? deleted / sent : 0;
+
+    return {
+      highDeleteRate: deleteRate > 0.1,
+      suspiciousActivity: false, // TODO: Implémenter détection
+    };
+  }
+
+  private getPeriodDates(period: StatsPeriod) {
+    const now = new Date();
+    let days: number;
+
+    switch (period) {
+      case StatsPeriod.WEEK:
+        days = 7;
+        break;
+      case StatsPeriod.MONTH:
+        days = 30;
+        break;
+      case StatsPeriod.QUARTER:
+        days = 90;
+        break;
+      default:
+        days = 7;
+    }
+
+    const startDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    return { startDate, endDate: now };
+  }
+
+  private getPreviousPeriodDates(period: StatsPeriod, currentStartDate: Date) {
+    const endDate = new Date(currentStartDate.getTime() - 1);
+    let days: number;
+
+    switch (period) {
+      case StatsPeriod.WEEK:
+        days = 7;
+        break;
+      case StatsPeriod.MONTH:
+        days = 30;
+        break;
+      case StatsPeriod.QUARTER:
+        days = 90;
+        break;
+      default:
+        days = 7;
+    }
+
+    const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000);
+    return { startDate, endDate };
+  }
+
+  private calculateChange(current: number, previous: number): number {
     if (previous === 0) return current > 0 ? 100 : 0;
     return Math.round(((current - previous) / previous) * 100);
   }
 
-  /**
-   * Récupère les dates de début/fin selon la période
-   */
-  private getPeriodDates(period: StatsPeriod): {
-    startDate: Date;
-    endDate: Date;
-  } {
-    const endDate = new Date();
-    const startDate = new Date();
+  private generateInsights(current: any, previous: any): string[] {
+    const insights: string[] = [];
 
-    switch (period) {
-      case 'today':
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case 'week':
-        startDate.setDate(startDate.getDate() - 7);
-        break;
-      case 'month':
-        startDate.setDate(startDate.getDate() - 30);
-        break;
-      case 'all':
-        startDate.setFullYear(2020, 0, 1); // 1er janvier 2020
-        break;
+    const msgChange = this.calculateChange(current.messages, previous.messages);
+    if (msgChange > 20) {
+      insights.push(`Activity increased by ${msgChange}%!`);
+    } else if (msgChange < -20) {
+      insights.push(`Activity decreased by ${Math.abs(msgChange)}%`);
     }
 
-    return { startDate, endDate };
+    if (current.activeMembers > previous.activeMembers * 1.5) {
+      insights.push('Significant growth in active members');
+    }
+
+    return insights;
   }
 
-  /**
-   * Récupère les dates de la période précédente (pour comparaison)
-   */
-  private getPreviousPeriodDates(
+  private calculateHealthScore(stats: any): number {
+    let score = 50;
+
+    if (stats.messages > 100) score += 20;
+    if (stats.activeMembers > 10) score += 15;
+    if (stats.voiceMinutes > 60) score += 15;
+
+    return Math.min(score, 100);
+  }
+
+  private getEmptyMemberStats(
+    guildId: string,
+    userId: string,
     period: StatsPeriod,
-    currentStartDate: Date,
-  ): { startDate: Date; endDate: Date } {
-    const endDate = new Date(currentStartDate);
-    const startDate = new Date(currentStartDate);
-
-    switch (period) {
-      case 'today':
-        startDate.setDate(startDate.getDate() - 1);
-        endDate.setDate(endDate.getDate() - 1);
-        break;
-      case 'week':
-        startDate.setDate(startDate.getDate() - 7);
-        endDate.setDate(endDate.getDate() - 7);
-        break;
-      case 'month':
-        startDate.setDate(startDate.getDate() - 30);
-        endDate.setDate(endDate.getDate() - 30);
-        break;
-      case 'all':
-        // Pas de période précédente pour "all"
-        return { startDate: new Date(0), endDate: new Date(0) };
-    }
-
-    return { startDate, endDate };
-  }
-
-  /**
-   * Génère des points de données vides si pas de snapshots
-   */
-  private generateEmptyDataPoints(
-    startDate: Date,
-    endDate: Date,
-    granularity: 'hour' | 'day' | 'week',
-  ): Array<{
-    timestamp: string;
-    totalMessages: number;
-    totalVoiceMinutes: number;
-    totalReactions: number;
-    uniqueActiveUsers: number;
-  }> {
-    const points: Array<any> = [];
-    const current = new Date(startDate);
-
-    while (current <= endDate) {
-      points.push({
-        timestamp: current.toISOString(),
-        totalMessages: 0,
-        totalVoiceMinutes: 0,
-        totalReactions: 0,
-        uniqueActiveUsers: 0,
-      });
-
-      // Incrémenter selon granularité
-      if (granularity === 'hour') {
-        current.setHours(current.getHours() + 1);
-      } else if (granularity === 'day') {
-        current.setDate(current.getDate() + 1);
-      } else {
-        current.setDate(current.getDate() + 7);
-      }
-    }
-
-    return points;
+  ): MemberStatsResponse {
+    return {
+      guildId,
+      userId,
+      period,
+      totals: {
+        messages: 0,
+        voiceMinutes: 0,
+        reactions: 0,
+        messagesDeleted: 0,
+        messagesEdited: 0,
+        reactionsGiven: 0,
+        reactionsReceived: 0,
+      },
+      timeline: [],
+      channelBreakdown: [],
+      ranking: {
+        messages: { rank: 0, total: 0 },
+        voice: { rank: 0, total: 0 },
+        overall: { rank: 0, total: 0 },
+      },
+      consistency: 0,
+      moderationFlags: {
+        highDeleteRate: false,
+        suspiciousActivity: false,
+      },
+    };
   }
 }

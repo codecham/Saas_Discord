@@ -3,82 +3,159 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BotEventDto } from '@my-project/shared-types';
 
-/**
- * 👍 Processor pour les événements de réactions
- *
- * Responsabilités :
- * - Écouter les events MESSAGE_REACTION_ADD
- * - Mettre à jour member_stats (réactions données et reçues)
- * - Mettre à jour les timestamps (lastSeen)
- *
- * Logique :
- * - User qui réagit → totalReactionsGiven++
- * - Auteur du message → totalReactionsReceived++
- */
 @Injectable()
 export class ReactionEventsProcessor {
   private readonly logger = new Logger(ReactionEventsProcessor.name);
 
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Traite un event MESSAGE_REACTION_ADD
-   *
-   * @param event - Event Discord de type MESSAGE_REACTION_ADD
-   */
   async processReactionAdd(event: BotEventDto): Promise<void> {
+    const { guildId, userId, channelId, timestamp, data } = event;
+
+    if (!userId) {
+      this.logger.warn('MESSAGE_REACTION_ADD sans userId ignoré');
+      return;
+    }
+
+    const now = new Date(timestamp);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // messageAuthorId pour réactions reçues
+    const messageAuthorId = data?.messageAuthorId;
+
     try {
-      const { guildId, userId, timestamp, data } = event;
+      await Promise.all([
+        // 1. Update MemberStats (celui qui donne la réaction)
+        this.updateMemberStatsGiven(guildId, userId, now),
 
-      // Validation : on ne traite que les réactions avec userId
-      if (!userId) {
-        this.logger.warn('MESSAGE_REACTION_ADD sans userId ignoré');
-        return;
-      }
+        // 2. Update StatsDaily (celui qui donne)
+        this.updateStatsDailyGiven(
+          guildId,
+          userId,
+          channelId || '__global__',
+          today,
+        ),
 
-      const now = new Date(timestamp);
+        // 3. Update MemberStats (celui qui reçoit la réaction)
+        messageAuthorId &&
+          this.updateMemberStatsReceived(guildId, messageAuthorId, now),
 
-      // ÉTAPE 1 : Incrémenter totalReactionsGiven pour l'user qui réagit
-      await this.incrementReactionsGiven(guildId, userId, now);
-
-      // ÉTAPE 2 : Si on connaît l'auteur du message, incrémenter totalReactionsReceived
-      const messageAuthorId = data?.messageAuthorId as string | undefined;
-
-      if (messageAuthorId && messageAuthorId !== userId) {
-        // Ne pas compter si l'user réagit à son propre message
-        await this.incrementReactionsReceived(guildId, messageAuthorId, now);
-      }
+        // 4. Update StatsDaily (celui qui reçoit)
+        messageAuthorId &&
+          this.updateStatsDailyReceived(
+            guildId,
+            messageAuthorId,
+            channelId || '__global__',
+            today,
+          ),
+      ]);
 
       this.logger.debug(
-        `✅ Réaction comptabilisée pour user ${userId} dans guild ${guildId}`,
+        `✅ Réaction comptabilisée pour ${userId} dans guild ${guildId}`,
       );
     } catch (error) {
       this.logger.error(
         `❌ Erreur traitement MESSAGE_REACTION_ADD: ${error.message}`,
         error.stack,
       );
+      throw error;
     }
   }
 
   /**
-   * Incrémente le compteur de réactions données
+   * Traite un event MESSAGE_REACTION_REMOVE (retrait de réaction)
    */
-  private async incrementReactionsGiven(
+  async processReactionRemove(event: BotEventDto): Promise<void> {
+    const { guildId, userId, channelId, timestamp } = event;
+
+    if (!userId) {
+      this.logger.warn('MESSAGE_REACTION_REMOVE sans userId ignoré');
+      return;
+    }
+
+    const now = new Date(timestamp);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    try {
+      // 1. Update MemberStats - Décrémenter reactionsGiven
+      const memberStats = await this.prisma.memberStats.findUnique({
+        where: {
+          idx_member_stats_unique: { guildId, userId },
+        },
+      });
+
+      if (memberStats && memberStats.totalReactionsGiven > 0) {
+        await this.prisma.memberStats.update({
+          where: {
+            idx_member_stats_unique: { guildId, userId },
+          },
+          data: {
+            totalReactionsGiven: { decrement: 1 },
+            lastSeen: now,
+            updatedAt: now,
+          },
+        });
+      } else {
+        this.logger.debug(
+          `Skip decrement: user ${userId} n'a pas de réactions à retirer`,
+        );
+      }
+
+      // 2. Update StatsDaily - Décrémenter reactionsGiven
+      const dailyStats = await this.prisma.statsDaily.findUnique({
+        where: {
+          guildId_userId_date_channelId: {
+            guildId,
+            userId,
+            date: today,
+            channelId: channelId || '__global__',
+          },
+        },
+      });
+
+      if (dailyStats && dailyStats.reactionsGiven > 0) {
+        await this.prisma.statsDaily.update({
+          where: {
+            guildId_userId_date_channelId: {
+              guildId,
+              userId,
+              date: today,
+              channelId: channelId || '__global__',
+            },
+          },
+          data: {
+            reactionsGiven: { decrement: 1 },
+          },
+        });
+      } else {
+        this.logger.debug(
+          `Skip decrement: user ${userId} n'a pas de réactions daily à retirer`,
+        );
+      }
+
+      this.logger.debug(
+        `✅ Réaction retirée comptabilisée pour user ${userId} dans guild ${guildId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `❌ Erreur traitement MESSAGE_REACTION_REMOVE: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  private async updateMemberStatsGiven(
     guildId: string,
     userId: string,
     timestamp: Date,
   ): Promise<void> {
     await this.prisma.memberStats.upsert({
       where: {
-        idx_member_stats_unique: {
-          guildId,
-          userId,
-        },
+        idx_member_stats_unique: { guildId, userId },
       },
       update: {
-        totalReactionsGiven: {
-          increment: 1,
-        },
+        totalReactionsGiven: { increment: 1 },
         lastSeen: timestamp,
         updatedAt: timestamp,
       },
@@ -94,28 +171,18 @@ export class ReactionEventsProcessor {
     });
   }
 
-  /**
-   * Incrémente le compteur de réactions reçues
-   */
-  private async incrementReactionsReceived(
+  private async updateMemberStatsReceived(
     guildId: string,
     userId: string,
     timestamp: Date,
   ): Promise<void> {
     await this.prisma.memberStats.upsert({
       where: {
-        idx_member_stats_unique: {
-          guildId,
-          userId,
-        },
+        idx_member_stats_unique: { guildId, userId },
       },
       update: {
-        totalReactionsReceived: {
-          increment: 1,
-        },
+        totalReactionsReceived: { increment: 1 },
         updatedAt: timestamp,
-        // Note : on ne met pas à jour lastSeen car c'est l'auteur du message,
-        // pas forcément actif à ce moment
       },
       create: {
         guildId,
@@ -128,138 +195,79 @@ export class ReactionEventsProcessor {
     });
   }
 
-  /**
-   * Traite un batch d'events réactions
-   *
-   * Optimisation : groupe par userId pour réduire les requêtes DB
-   *
-   * @param events - Tableau d'events MESSAGE_REACTION_ADD
-   */
+  private async updateStatsDailyGiven(
+    guildId: string,
+    userId: string,
+    channelId: string,
+    date: Date,
+  ): Promise<void> {
+    await this.prisma.statsDaily.upsert({
+      where: {
+        guildId_userId_date_channelId: {
+          guildId,
+          userId,
+          date,
+          channelId,
+        },
+      },
+      update: {
+        reactionsGiven: { increment: 1 },
+      },
+      create: {
+        guildId,
+        userId,
+        channelId,
+        date,
+        messagesSent: 0,
+        messagesDeleted: 0,
+        messagesEdited: 0,
+        deletedBySelf: 0,
+        deletedByMod: 0,
+        voiceMinutes: 0,
+        reactionsGiven: 1,
+        reactionsReceived: 0,
+      },
+    });
+  }
+
+  private async updateStatsDailyReceived(
+    guildId: string,
+    userId: string,
+    channelId: string,
+    date: Date,
+  ): Promise<void> {
+    await this.prisma.statsDaily.upsert({
+      where: {
+        guildId_userId_date_channelId: {
+          guildId,
+          userId,
+          date,
+          channelId,
+        },
+      },
+      update: {
+        reactionsReceived: { increment: 1 },
+      },
+      create: {
+        guildId,
+        userId,
+        channelId,
+        date,
+        messagesSent: 0,
+        messagesDeleted: 0,
+        messagesEdited: 0,
+        deletedBySelf: 0,
+        deletedByMod: 0,
+        voiceMinutes: 0,
+        reactionsGiven: 0,
+        reactionsReceived: 1,
+      },
+    });
+  }
+
   async processBatch(events: BotEventDto[]): Promise<void> {
-    if (events.length === 0) return;
-
-    this.logger.log(`📥 Traitement batch de ${events.length} réactions`);
-
-    // Grouper les réactions données par userId
-    const reactionsGiven = new Map<string, { count: number; lastTime: Date }>();
-
-    // Grouper les réactions reçues par userId
-    const reactionsReceived = new Map<
-      string,
-      { count: number; lastTime: Date }
-    >();
-
     for (const event of events) {
-      if (!event.userId) continue;
-
-      const timestamp = new Date(event.timestamp);
-
-      // Compter réactions données
-      const givenKey = `${event.guildId}-${event.userId}`;
-      const existingGiven = reactionsGiven.get(givenKey);
-
-      if (existingGiven) {
-        existingGiven.count++;
-        existingGiven.lastTime = new Date(
-          Math.max(existingGiven.lastTime.getTime(), event.timestamp),
-        );
-      } else {
-        reactionsGiven.set(givenKey, {
-          count: 1,
-          lastTime: timestamp,
-        });
-      }
-
-      // Compter réactions reçues (si messageAuthorId disponible)
-      const messageAuthorId = event.data?.messageAuthorId as string | undefined;
-
-      if (messageAuthorId && messageAuthorId !== event.userId) {
-        const receivedKey = `${event.guildId}-${messageAuthorId}`;
-        const existingReceived = reactionsReceived.get(receivedKey);
-
-        if (existingReceived) {
-          existingReceived.count++;
-          existingReceived.lastTime = new Date(
-            Math.max(existingReceived.lastTime.getTime(), event.timestamp),
-          );
-        } else {
-          reactionsReceived.set(receivedKey, {
-            count: 1,
-            lastTime: timestamp,
-          });
-        }
-      }
+      await this.processReactionAdd(event);
     }
-
-    // Mettre à jour les réactions données
-    const updates: Promise<unknown>[] = [];
-
-    for (const [key, data] of reactionsGiven.entries()) {
-      const [guildId, userId] = key.split('-');
-
-      const updatePromise = this.prisma.memberStats.upsert({
-        where: {
-          idx_member_stats_unique: {
-            guildId,
-            userId,
-          },
-        },
-        update: {
-          totalReactionsGiven: {
-            increment: data.count,
-          },
-          lastSeen: data.lastTime,
-          updatedAt: data.lastTime,
-        },
-        create: {
-          guildId,
-          userId,
-          totalMessages: 0,
-          totalVoiceMinutes: 0,
-          totalReactionsGiven: data.count,
-          totalReactionsReceived: 0,
-          lastSeen: data.lastTime,
-        },
-      });
-
-      updates.push(updatePromise);
-    }
-
-    // Mettre à jour les réactions reçues
-    for (const [key, data] of reactionsReceived.entries()) {
-      const [guildId, userId] = key.split('-');
-
-      const updatePromise = this.prisma.memberStats.upsert({
-        where: {
-          idx_member_stats_unique: {
-            guildId,
-            userId,
-          },
-        },
-        update: {
-          totalReactionsReceived: {
-            increment: data.count,
-          },
-          updatedAt: data.lastTime,
-        },
-        create: {
-          guildId,
-          userId,
-          totalMessages: 0,
-          totalVoiceMinutes: 0,
-          totalReactionsGiven: 0,
-          totalReactionsReceived: data.count,
-        },
-      });
-
-      updates.push(updatePromise);
-    }
-
-    // Exécuter toutes les updates en parallèle
-    await Promise.all(updates);
-
-    this.logger.log(
-      `✅ ${reactionsGiven.size} users mis à jour (réactions données), ${reactionsReceived.size} users mis à jour (réactions reçues)`,
-    );
   }
 }

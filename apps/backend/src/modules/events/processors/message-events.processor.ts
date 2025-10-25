@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call */
-// apps/backend/src/modules/events/processors/message-events.processor.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BotEventDto } from '@my-project/shared-types';
@@ -8,12 +7,8 @@ import { BotEventDto } from '@my-project/shared-types';
  * 💬 Processor pour les événements de messages
  *
  * Responsabilités :
- * - Écouter les events MESSAGE_CREATE
- * - Mettre à jour member_stats (compteur de messages)
- * - Mettre à jour les timestamps (lastMessageAt, lastSeen)
- *
- * Events traités :
- * - MESSAGE_CREATE : Nouveau message envoyé
+ * - Mettre à jour MemberStats (stats cumulatives)
+ * - Mettre à jour StatsDaily (stats du jour par channel)
  */
 @Injectable()
 export class MessageEventsProcessor {
@@ -23,52 +18,32 @@ export class MessageEventsProcessor {
 
   /**
    * Traite un event MESSAGE_CREATE
-   *
-   * @param event - Event Discord de type MESSAGE_CREATE
    */
   async processMessageCreate(event: BotEventDto): Promise<void> {
+    const { guildId, userId, channelId, timestamp } = event;
+
+    if (!userId) {
+      this.logger.warn('MESSAGE_CREATE sans userId ignoré');
+      return;
+    }
+
+    const now = new Date(timestamp);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
     try {
-      const { guildId, userId } = event;
+      await Promise.all([
+        // 1. Update MemberStats (cumul total)
+        this.updateMemberStats(guildId, userId, now),
 
-      // Validation : on ne traite que les messages avec userId
-      if (!userId) {
-        this.logger.warn('MESSAGE_CREATE sans userId ignoré');
-        return;
-      }
-
-      const now = new Date(event.timestamp);
-
-      // ÉTAPE 1 : Trouver ou créer l'entrée member_stats
-      // On utilise upsert : si existe → update, sinon → create
-      await this.prisma.memberStats.upsert({
-        where: {
-          // Index unique (guildId, userId)
-          idx_member_stats_unique: {
-            guildId,
-            userId,
-          },
-        },
-        // Si existe déjà : incrémenter
-        update: {
-          totalMessages: {
-            increment: 1, // +1 message
-          },
-          lastMessageAt: now,
-          lastSeen: now,
-          updatedAt: now,
-        },
-        // Si n'existe pas : créer avec valeurs initiales
-        create: {
+        // 2. Update StatsDaily (stats du jour)
+        this.updateStatsDaily(
           guildId,
           userId,
-          totalMessages: 1,
-          totalVoiceMinutes: 0,
-          totalReactionsGiven: 0,
-          totalReactionsReceived: 0,
-          lastMessageAt: now,
-          lastSeen: now,
-        },
-      });
+          channelId || '__global__',
+          today,
+          now,
+        ),
+      ]);
 
       this.logger.debug(
         `✅ Message comptabilisé pour user ${userId} dans guild ${guildId}`,
@@ -78,89 +53,263 @@ export class MessageEventsProcessor {
         `❌ Erreur traitement MESSAGE_CREATE: ${error.message}`,
         error.stack,
       );
-      // On ne throw pas l'erreur pour ne pas bloquer le traitement des autres events
+      throw error; // Pour retry BullMQ
     }
   }
 
   /**
-   * Traite un batch d'events messages
-   *
-   * Optimisation : au lieu de traiter 1 par 1, on groupe par (guildId, userId)
-   * et on fait 1 seule requête DB par utilisateur.
-   *
-   * @param events - Tableau d'events MESSAGE_CREATE
+   * Traite un event MESSAGE_UPDATE (édition)
    */
-  async processBatch(events: BotEventDto[]): Promise<void> {
-    if (events.length === 0) return;
+  async processMessageUpdate(event: BotEventDto): Promise<void> {
+    const { guildId, userId, channelId, timestamp } = event;
 
-    this.logger.log(`📥 Traitement batch de ${events.length} messages`);
-
-    // Grouper par (guildId, userId)
-    const userMessageCounts = new Map<
-      string,
-      { count: number; lastTime: Date }
-    >();
-
-    for (const event of events) {
-      if (!event.userId) continue;
-
-      const key = `${event.guildId}-${event.userId}`;
-      const existing = userMessageCounts.get(key);
-
-      if (existing) {
-        existing.count++;
-        existing.lastTime = new Date(
-          Math.max(existing.lastTime.getTime(), event.timestamp),
-        );
-      } else {
-        userMessageCounts.set(key, {
-          count: 1,
-          lastTime: new Date(event.timestamp),
-        });
-      }
+    if (!userId) {
+      this.logger.warn('MESSAGE_UPDATE sans userId ignoré');
+      return;
     }
 
-    // Mettre à jour chaque utilisateur
-    const updates: Promise<unknown>[] = [];
+    const now = new Date(timestamp);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    for (const [key, data] of userMessageCounts.entries()) {
-      const [guildId, userId] = key.split('-');
-
-      const updatePromise = this.prisma.memberStats.upsert({
-        where: {
-          idx_member_stats_unique: {
+    try {
+      await Promise.all([
+        // 1. Update MemberStats (lastSeen seulement)
+        this.prisma.memberStats.upsert({
+          where: {
+            idx_member_stats_unique: { guildId, userId },
+          },
+          update: {
+            lastSeen: now,
+            updatedAt: now,
+          },
+          create: {
             guildId,
             userId,
+            totalMessages: 0,
+            totalVoiceMinutes: 0,
+            totalReactionsGiven: 0,
+            totalReactionsReceived: 0,
+            lastSeen: now,
           },
-        },
-        update: {
-          totalMessages: {
-            increment: data.count,
-          },
-          lastMessageAt: data.lastTime,
-          lastSeen: data.lastTime,
-          updatedAt: data.lastTime,
-        },
-        create: {
-          guildId,
-          userId,
-          totalMessages: data.count,
-          totalVoiceMinutes: 0,
-          totalReactionsGiven: 0,
-          totalReactionsReceived: 0,
-          lastMessageAt: data.lastTime,
-          lastSeen: data.lastTime,
-        },
-      });
+        }),
 
-      updates.push(updatePromise);
+        // 2. Update StatsDaily (messagesEdited++)
+        this.prisma.statsDaily.upsert({
+          where: {
+            guildId_userId_date_channelId: {
+              guildId,
+              userId,
+              date: today,
+              channelId: channelId || '__global__',
+            },
+          },
+          update: {
+            messagesEdited: { increment: 1 },
+          },
+          create: {
+            guildId,
+            userId,
+            channelId: channelId || '__global__',
+            date: today,
+            messagesSent: 0,
+            messagesDeleted: 0,
+            messagesEdited: 1,
+            deletedBySelf: 0,
+            deletedByMod: 0,
+            voiceMinutes: 0,
+            reactionsGiven: 0,
+            reactionsReceived: 0,
+          },
+        }),
+      ]);
+
+      this.logger.debug(
+        `✅ Message édité comptabilisé pour user ${userId} dans guild ${guildId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `❌ Erreur traitement MESSAGE_UPDATE: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Traite un event MESSAGE_DELETE (suppression)
+   *
+   * ⚠️ Limitation : Discord n'envoie pas toujours l'auteur du message
+   * On ne peut tracker que si le bot a le message en cache
+   */
+  async processMessageDelete(event: BotEventDto): Promise<void> {
+    const { guildId, userId, channelId, timestamp, data } = event;
+
+    // Si on n'a pas l'userId (message pas en cache), on ignore
+    if (!userId) {
+      this.logger.debug(
+        'MESSAGE_DELETE sans userId (message pas en cache), ignoré',
+      );
+      return;
     }
 
-    // Exécuter toutes les updates en parallèle
-    await Promise.all(updates);
+    const now = new Date(timestamp);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    this.logger.log(
-      `✅ ${userMessageCounts.size} utilisateurs mis à jour (${events.length} messages)`,
-    );
+    // Déterminer si suppression par l'auteur ou par un mod
+    // data.deletedBy peut être fourni par le bot si disponible
+    const deletedByMod = data?.deletedBy && data.deletedBy !== userId;
+
+    try {
+      await Promise.all([
+        // 1. Update MemberStats (lastSeen seulement)
+        this.prisma.memberStats.upsert({
+          where: {
+            idx_member_stats_unique: { guildId, userId },
+          },
+          update: {
+            lastSeen: now,
+            updatedAt: now,
+          },
+          create: {
+            guildId,
+            userId,
+            totalMessages: 0,
+            totalVoiceMinutes: 0,
+            totalReactionsGiven: 0,
+            totalReactionsReceived: 0,
+            lastSeen: now,
+          },
+        }),
+
+        // 2. Update StatsDaily
+        this.prisma.statsDaily.upsert({
+          where: {
+            guildId_userId_date_channelId: {
+              guildId,
+              userId,
+              date: today,
+              channelId: channelId || '__global__',
+            },
+          },
+          update: {
+            messagesDeleted: { increment: 1 },
+            deletedBySelf: deletedByMod ? 0 : { increment: 1 },
+            deletedByMod: deletedByMod ? { increment: 1 } : 0,
+          },
+          create: {
+            guildId,
+            userId,
+            channelId: channelId || '__global__',
+            date: today,
+            messagesSent: 0,
+            messagesDeleted: 1,
+            messagesEdited: 0,
+            deletedBySelf: deletedByMod ? 0 : 1,
+            deletedByMod: deletedByMod ? 1 : 0,
+            voiceMinutes: 0,
+            reactionsGiven: 0,
+            reactionsReceived: 0,
+          },
+        }),
+      ]);
+
+      const deleteType = deletedByMod ? 'par mod' : 'par auteur';
+      this.logger.debug(
+        `✅ Message supprimé (${deleteType}) comptabilisé pour user ${userId} dans guild ${guildId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `❌ Erreur traitement MESSAGE_DELETE: ${error.message}`,
+        error.stack,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Met à jour les stats cumulatives du membre
+   */
+  private async updateMemberStats(
+    guildId: string,
+    userId: string,
+    timestamp: Date,
+  ): Promise<void> {
+    await this.prisma.memberStats.upsert({
+      where: {
+        idx_member_stats_unique: { guildId, userId },
+      },
+      update: {
+        totalMessages: { increment: 1 },
+        lastMessageAt: timestamp,
+        lastSeen: timestamp,
+        updatedAt: timestamp,
+      },
+      create: {
+        guildId,
+        userId,
+        totalMessages: 1,
+        totalVoiceMinutes: 0,
+        totalReactionsGiven: 0,
+        totalReactionsReceived: 0,
+        lastMessageAt: timestamp,
+        lastSeen: timestamp,
+      },
+    });
+  }
+
+  /**
+   * Met à jour les stats quotidiennes
+   */
+  private async updateStatsDaily(
+    guildId: string,
+    userId: string,
+    channelId: string,
+    date: Date,
+    timestamp: Date,
+  ): Promise<void> {
+    const hour = timestamp.getHours();
+
+    await this.prisma.statsDaily.upsert({
+      where: {
+        guildId_userId_date_channelId: {
+          guildId,
+          userId,
+          date,
+          channelId,
+        },
+      },
+      update: {
+        messagesSent: { increment: 1 },
+        lastMessageAt: timestamp,
+        // Update peakHour si ce n'est pas défini ou si on veut tracker l'heure la plus récente
+        peakHour: hour,
+      },
+      create: {
+        guildId,
+        userId,
+        channelId,
+        date,
+        messagesSent: 1,
+        messagesDeleted: 0,
+        messagesEdited: 0,
+        deletedBySelf: 0,
+        deletedByMod: 0,
+        voiceMinutes: 0,
+        reactionsGiven: 0,
+        reactionsReceived: 0,
+        peakHour: hour,
+        firstMessageAt: timestamp,
+        lastMessageAt: timestamp,
+      },
+    });
+  }
+
+  /**
+   * Traite un batch d'events (pour compatibilité)
+   */
+  async processBatch(events: BotEventDto[]): Promise<void> {
+    for (const event of events) {
+      await this.processMessageCreate(event);
+    }
   }
 }

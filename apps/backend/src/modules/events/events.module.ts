@@ -12,6 +12,8 @@ import { MessageEventsProcessor } from './processors/message-events.processor';
 import { VoiceEventsProcessor } from './processors/voice-events.processor';
 import { ReactionEventsProcessor } from './processors/reaction-events.processor';
 import { EventsController } from './controllers/events.controller';
+import { EventsJobProcessor } from './jobs/events-processor';
+import { MemberEventsProcessor } from './processors/member-events.processor';
 
 /**
  * 📊 Module Events - Gestion des événements Discord et statistiques
@@ -71,6 +73,16 @@ import { EventsController } from './controllers/events.controller';
           priority: 2, // Priorité moyenne-haute
         },
       },
+      {
+        name: 'events-processing',
+        defaultJobOptions: {
+          priority: 1,
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 1000 },
+          removeOnComplete: 1000,
+          removeOnFail: 5000,
+        },
+      },
     ),
   ],
   providers: [
@@ -80,8 +92,10 @@ import { EventsController } from './controllers/events.controller';
     MessageEventsProcessor,
     VoiceEventsProcessor,
     ReactionEventsProcessor,
+    MemberEventsProcessor,
     StatsSchedulerService,
     StatsQueryService,
+    EventsJobProcessor,
   ],
   controllers: [
     EventsTestController, // ⚠️ Controller de test (à supprimer en prod)
