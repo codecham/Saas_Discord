@@ -12,6 +12,8 @@
  * const stats = await getGuildStats(guildId, StatsPeriod.WEEK);
  */
 export enum StatsPeriod {
+  TODAY = '1d',
+
   /** 7 derniers jours */
   WEEK = '7d',
   
@@ -20,6 +22,8 @@ export enum StatsPeriod {
   
   /** 90 derniers jours */
   QUARTER = '90d',
+
+  ALL = 'all',
 }
 
 /**
