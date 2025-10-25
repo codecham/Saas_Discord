@@ -112,34 +112,6 @@ model Event {
   @@map("events")
 }
 
-/// Snapshots de métriques agrégées (Hypertable TimescaleDB)
-/// Rétention : 1 an
-model MetricsSnapshot {
-  // SUPPRIME le champ id
-  
-  // Identification
-  guildId   String   @map("guild_id") @db.VarChar(20)
-  
-  // Période
-  periodStart DateTime @map("period_start") @db.Timestamptz
-  periodEnd   DateTime @map("period_end") @db.Timestamptz
-  periodType  String   @map("period_type") @db.VarChar(10)
-  
-  // Données
-  data      Json     @db.JsonB
-  
-  // Compteurs
-  totalMessages      Int? @default(0) @map("total_messages")
-  totalVoiceMinutes  Int? @default(0) @map("total_voice_minutes")
-  totalReactions     Int? @default(0) @map("total_reactions")
-  uniqueActiveUsers  Int? @default(0) @map("unique_active_users")
-  
-  // Timestamps
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
-
-  @@id([guildId, periodType, periodStart])  // ← PK composite
-  @@map("metrics_snapshots")
-}
 
 /// Statistiques cumulatives par membre
 /// 🆕 ENRICHI pour Stats V2

@@ -2,9 +2,6 @@ import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { PrismaModule } from '../prisma/prisma.module';
 import { EventsService } from './core/events.service';
-import { MetricsAggregationService } from './core/metrics-aggregation.service';
-import { StatsAggregationProcessor } from './jobs/stats-aggregation.processor';
-import { EventsTestController } from './controllers/events-test.controller';
 import { StatsSchedulerService } from './core/stats-scheduler.service';
 import { StatsQueryService } from './core/stats-query.service';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -56,12 +53,6 @@ import { MemberEventsProcessor } from './processors/member-events.processor';
     // 🆕 Enregistrement des queues
     BullModule.registerQueue(
       {
-        name: 'stats-aggregation',
-        defaultJobOptions: {
-          priority: 1, // Priorité normale
-        },
-      },
-      {
         name: 'cleanup',
         defaultJobOptions: {
           priority: 5, // Basse priorité (moins urgent)
@@ -87,8 +78,6 @@ import { MemberEventsProcessor } from './processors/member-events.processor';
   ],
   providers: [
     EventsService,
-    StatsAggregationProcessor, // 🆕 Processor BullMQ
-    MetricsAggregationService,
     MessageEventsProcessor,
     VoiceEventsProcessor,
     ReactionEventsProcessor,
@@ -97,10 +86,7 @@ import { MemberEventsProcessor } from './processors/member-events.processor';
     StatsQueryService,
     EventsJobProcessor,
   ],
-  controllers: [
-    EventsTestController, // ⚠️ Controller de test (à supprimer en prod)
-    EventsController,
-  ],
+  controllers: [EventsController],
   exports: [
     EventsService, // Rend le service disponible pour d'autres modules (Gateway)
   ],
