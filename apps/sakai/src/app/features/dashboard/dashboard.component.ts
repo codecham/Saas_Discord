@@ -3,7 +3,6 @@ import { StatisticsFacadeService } from '@app/services/statistics/statistics-fac
 import { StatsCardsWidgetComponent } from '@app/components/widgets/stats-card-widget.component';
 import { ActivityTimelineWidgetComponent } from '@app/components/widgets/activity-timeline-widget.component';
 import { ActivityHeatmapWidgetComponent } from '@app/components/widgets/activity-heatmap-widget.component';
-import { TopContributorsPodiumWidgetComponent } from '@app/components/widgets/top-contributors-podium-widget.component';
 
 /**
  * 📊 Page Dashboard principale
@@ -13,7 +12,7 @@ import { TopContributorsPodiumWidgetComponent } from '@app/components/widgets/to
 @Component({
     selector: 'app-dashboard',
     standalone: true,
-    imports: [StatsCardsWidgetComponent, ActivityTimelineWidgetComponent, ActivityHeatmapWidgetComponent, TopContributorsPodiumWidgetComponent],
+    imports: [StatsCardsWidgetComponent, ActivityTimelineWidgetComponent, ActivityHeatmapWidgetComponent],
     template: `
         <div class="grid grid-cols-12 gap-8">
             <!-- Stats Cards Widget -->
