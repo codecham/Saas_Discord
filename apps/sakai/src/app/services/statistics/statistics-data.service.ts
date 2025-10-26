@@ -1,455 +1,270 @@
+// apps/sakai/src/app/services/statistics/statistics-data.service.ts
 import { Injectable, signal, computed } from '@angular/core';
-import type {
-  DashboardStatsDto,
-  MemberStatsDto,
-  MemberStatsListDto,
-  LeaderboardDto,
-  ActivityTimelineDto,
-  StatsPeriod,
-} from './statistics.models';
-import { 
-  CacheEntry, 
-  createCacheEntry, 
-  isCacheValid 
-} from './statistics.models';
+import {
+  GuildStatsResponse,
+  MemberStatsResponse,
+  MembersStatsListResponse,
+  RankingsResponse,
+  TimelineResponse,
+} from '@my-project/shared-types';
 
 /**
- * 📊 Service de gestion de l'état des statistiques
- * 
- * Responsabilités :
- * - Stocker l'état des données stats en signals
- * - Gérer le cache local (5 minutes TTL par défaut)
- * - Transformer les données si nécessaire
- * - Exposer des computed signals pour la logique dérivée
+ * Service de gestion de l'état des statistiques
+ * Utilise des signals Angular pour la réactivité
  */
 @Injectable({
   providedIn: 'root'
 })
 export class StatisticsDataService {
-  
-  // ============================================================================
-  // 🔒 SIGNALS PRIVÉS - État interne
-  // ============================================================================
+
+  // ============================================
+  // SIGNALS PRIVÉS - État interne
+  // ============================================
 
   /**
-   * Stats du dashboard de la guild actuelle
+   * Stats globales de la guild
    */
-  private readonly _dashboardStats = signal<DashboardStatsDto | null>(null);
-
-  /**
-   * Liste paginée des membres avec leurs stats
-   */
-  private readonly _memberStatsList = signal<MemberStatsListDto | null>(null);
+  private readonly _guildStats = signal<GuildStatsResponse | null>(null);
 
   /**
    * Stats d'un membre spécifique
    */
-  private readonly _selectedMemberStats = signal<MemberStatsDto | null>(null);
+  private readonly _memberStats = signal<MemberStatsResponse | null>(null);
 
   /**
-   * Leaderboard actuel
+   * Liste des membres avec leurs stats
    */
-  private readonly _leaderboard = signal<LeaderboardDto | null>(null);
+  private readonly _membersList = signal<MembersStatsListResponse | null>(null);
 
   /**
-   * Timeline d'activité pour les graphiques
+   * Leaderboard
    */
-  private readonly _activityTimeline = signal<ActivityTimelineDto | null>(null);
+  private readonly _rankings = signal<RankingsResponse | null>(null);
 
   /**
-   * Période actuellement sélectionnée
+   * Timeline d'activité
    */
-  private readonly _currentPeriod = signal<StatsPeriod>('week');
+  private readonly _timeline = signal<TimelineResponse | null>(null);
 
   /**
-   * État de chargement du dashboard
+   * États de chargement
    */
-  private readonly _isLoadingDashboard = signal<boolean>(false);
+  private readonly _isLoadingGuildStats = signal<boolean>(false);
+  private readonly _isLoadingMemberStats = signal<boolean>(false);
+  private readonly _isLoadingMembersList = signal<boolean>(false);
+  private readonly _isLoadingRankings = signal<boolean>(false);
+  private readonly _isLoadingTimeline = signal<boolean>(false);
 
   /**
-   * État de chargement des membres
-   */
-  private readonly _isLoadingMembers = signal<boolean>(false);
-
-  /**
-   * État de chargement du leaderboard
-   */
-  private readonly _isLoadingLeaderboard = signal<boolean>(false);
-
-  /**
-   * État de chargement de l'activity timeline
-   */
-  private readonly _isLoadingActivity = signal<boolean>(false);
-
-  /**
-   * Erreur éventuelle
+   * Erreurs
    */
   private readonly _error = signal<string | null>(null);
 
-  // ============================================================================
-  // 📖 SIGNALS PUBLICS READ-ONLY
-  // ============================================================================
+  // ============================================
+  // CACHE PAR GUILD
+  // ============================================
 
-  readonly dashboardStats = this._dashboardStats.asReadonly();
-  readonly memberStatsList = this._memberStatsList.asReadonly();
-  readonly selectedMemberStats = this._selectedMemberStats.asReadonly();
-  readonly leaderboard = this._leaderboard.asReadonly();
-  readonly activityTimeline = this._activityTimeline.asReadonly();
-  readonly currentPeriod = this._currentPeriod.asReadonly();
-  readonly isLoadingDashboard = this._isLoadingDashboard.asReadonly();
-  readonly isLoadingMembers = this._isLoadingMembers.asReadonly();
-  readonly isLoadingLeaderboard = this._isLoadingLeaderboard.asReadonly();
-  readonly isLoadingActivity = this._isLoadingActivity.asReadonly();
+  private currentGuildId: string | null = null;
+
+  /**
+   * Cache des stats par guild
+   */
+  private readonly statsCache = new Map<string, {
+    guildStats: GuildStatsResponse | null;
+    membersList: MembersStatsListResponse | null;
+    rankings: RankingsResponse | null;
+    timeline: TimelineResponse | null;
+    timestamp: number;
+  }>();
+
+  /**
+   * TTL du cache en millisecondes (2 minutes)
+   */
+  private readonly CACHE_TTL = 2 * 60 * 1000;
+
+  // ============================================
+  // SIGNALS PUBLICS (READONLY)
+  // ============================================
+
+  readonly guildStats = this._guildStats.asReadonly();
+  readonly memberStats = this._memberStats.asReadonly();
+  readonly membersList = this._membersList.asReadonly();
+  readonly rankings = this._rankings.asReadonly();
+  readonly timeline = this._timeline.asReadonly();
+
+  readonly isLoadingGuildStats = this._isLoadingGuildStats.asReadonly();
+  readonly isLoadingMemberStats = this._isLoadingMemberStats.asReadonly();
+  readonly isLoadingMembersList = this._isLoadingMembersList.asReadonly();
+  readonly isLoadingRankings = this._isLoadingRankings.asReadonly();
+  readonly isLoadingTimeline = this._isLoadingTimeline.asReadonly();
+
   readonly error = this._error.asReadonly();
 
-  // ============================================================================
-  // 🧮 COMPUTED SIGNALS
-  // ============================================================================
+  /**
+   * Computed - Vérifier si on a des stats guild
+   */
+  readonly hasGuildStats = computed(() => this._guildStats() !== null);
 
   /**
-   * Indique si au moins une requête est en cours
+   * Computed - Vérifier si on a des rankings
    */
-  readonly isLoading = computed(() => 
-    this._isLoadingDashboard() || 
-    this._isLoadingMembers() || 
-    this._isLoadingLeaderboard() ||
-    this._isLoadingActivity()
-  );
+  readonly hasRankings = computed(() => this._rankings() !== null);
 
   /**
-   * Indique si des stats dashboard sont chargées
+   * Computed - Membres de la liste paginée
    */
-  readonly hasDashboardStats = computed(() => this._dashboardStats() !== null);
+  readonly members = computed(() => this._membersList()?.members || []);
 
   /**
-   * Indique si un leaderboard est chargé
+   * Computed - Pagination info
    */
-  readonly hasLeaderboard = computed(() => this._leaderboard() !== null);
+  readonly pagination = computed(() => this._membersList()?.pagination || null);
 
   /**
-   * Nombre total de membres dans la liste actuelle
+   * Computed - Top 3 du leaderboard
    */
-  readonly totalMembers = computed(() => 
-    this._memberStatsList()?.pagination.total || 0
-  );
-
-  /**
-   * Membres de la page actuelle
-   */
-  readonly currentPageMembers = computed(() => 
-    this._memberStatsList()?.members || []
-  );
-
-  /**
-   * Pagination info
-   */
-  readonly pagination = computed(() => 
-    this._memberStatsList()?.pagination || null
-  );
-
-  /**
-   * Top 3 membres du leaderboard
-   */
-  readonly topThreeMembers = computed(() => {
-    const entries = this._leaderboard()?.entries || [];
-    return entries.slice(0, 3);
+  readonly topThree = computed(() => {
+    const rankings = this._rankings();
+    if (!rankings) return [];
+    return rankings.entries.slice(0, 3);
   });
 
   /**
-   * Entrées du leaderboard après le top 3
+   * Computed - Reste du leaderboard (après top 3)
    */
-  readonly remainingLeaderboard = computed(() => {
-    const entries = this._leaderboard()?.entries || [];
-    return entries.slice(3);
+  readonly remainingRankings = computed(() => {
+    const rankings = this._rankings();
+    if (!rankings) return [];
+    return rankings.entries.slice(3);
   });
 
-  // ============================================================================
-  // 💾 CACHE LOCAL
-  // ============================================================================
+  // ============================================
+  // MÉTHODES PUBLIQUES - Gestion des données
+  // ============================================
 
   /**
-   * TTL du cache en millisecondes (5 minutes par défaut)
+   * Définit les stats de la guild
    */
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+  setGuildStats(stats: GuildStatsResponse): void {
+    this._guildStats.set(stats);
+  }
 
   /**
-   * Cache pour le dashboard par guild et période
-   * Map<"guildId:period", CacheEntry<DashboardStatsDto>>
+   * Définit les stats d'un membre
    */
-  private dashboardCache = new Map<string, CacheEntry<DashboardStatsDto>>();
+  setMemberStats(stats: MemberStatsResponse): void {
+    this._memberStats.set(stats);
+  }
 
   /**
-   * Cache pour le leaderboard par guild, catégorie et période
-   * Map<"guildId:category:period", CacheEntry<LeaderboardDto>>
+   * Définit la liste des membres
    */
-  private leaderboardCache = new Map<string, CacheEntry<LeaderboardDto>>();
+  setMembersList(list: MembersStatsListResponse): void {
+    this._membersList.set(list);
+  }
 
   /**
-   * Cache pour les members par guild et query params
-   * Map<"guildId:queryHash", CacheEntry<MemberStatsListDto>>
+   * Définit le leaderboard
    */
-  private membersCache = new Map<string, CacheEntry<MemberStatsListDto>>();
+  setRankings(rankings: RankingsResponse): void {
+    this._rankings.set(rankings);
+  }
 
   /**
-   * Cache pour l'activity timeline par guild, période et granularité
-   * Map<"guildId:period:granularity", CacheEntry<ActivityTimelineDto>>
+   * Définit la timeline
    */
-  private activityCache = new Map<string, CacheEntry<ActivityTimelineDto>>();
-
-  // ============================================================================
-  // ✍️ SETTERS - Méthodes publiques pour modifier l'état
-  // ============================================================================
-
-  setDashboardStats(stats: DashboardStatsDto | null, guildId?: string): void {
-    this._dashboardStats.set(stats);
-    
-    // Mettre en cache si on a un guildId
-    if (stats && guildId) {
-      const cacheKey = this.getDashboardCacheKey(guildId, stats.period);
-      this.dashboardCache.set(cacheKey, createCacheEntry(stats, this.CACHE_TTL));
-    }
+  setTimeline(timeline: TimelineResponse): void {
+    this._timeline.set(timeline);
   }
 
-  setMemberStatsList(list: MemberStatsListDto | null, guildId?: string, queryHash?: string): void {
-    this._memberStatsList.set(list);
-    
-    // Mettre en cache si on a un guildId et queryHash
-    if (list && guildId && queryHash) {
-      const cacheKey = this.getMembersCacheKey(guildId, queryHash);
-      this.membersCache.set(cacheKey, createCacheEntry(list, this.CACHE_TTL));
-    }
+  /**
+   * Gestion des états de chargement
+   */
+  setLoadingGuildStats(loading: boolean): void {
+    this._isLoadingGuildStats.set(loading);
   }
 
-  setSelectedMemberStats(stats: MemberStatsDto | null): void {
-    this._selectedMemberStats.set(stats);
+  setLoadingMemberStats(loading: boolean): void {
+    this._isLoadingMemberStats.set(loading);
   }
 
-  setLeaderboard(leaderboard: LeaderboardDto | null, guildId?: string): void {
-    this._leaderboard.set(leaderboard);
-    
-    // Mettre en cache si on a un guildId
-    if (leaderboard && guildId) {
-      const cacheKey = this.getLeaderboardCacheKey(
-        guildId, 
-        leaderboard.category, 
-        leaderboard.period
-      );
-      this.leaderboardCache.set(cacheKey, createCacheEntry(leaderboard, this.CACHE_TTL));
-    }
+  setLoadingMembersList(loading: boolean): void {
+    this._isLoadingMembersList.set(loading);
   }
 
-  setActivityTimeline(timeline: ActivityTimelineDto | null, guildId?: string): void {
-    this._activityTimeline.set(timeline);
-    
-    // Mettre en cache si on a un guildId
-    if (timeline && guildId) {
-      const cacheKey = this.getActivityCacheKey(
-        guildId, 
-        timeline.period, 
-        timeline.granularity
-      );
-      this.activityCache.set(cacheKey, createCacheEntry(timeline, this.CACHE_TTL));
-    }
+  setLoadingRankings(loading: boolean): void {
+    this._isLoadingRankings.set(loading);
   }
 
-  setCurrentPeriod(period: StatsPeriod): void {
-    this._currentPeriod.set(period);
+  setLoadingTimeline(loading: boolean): void {
+    this._isLoadingTimeline.set(loading);
   }
 
-  setLoadingDashboard(loading: boolean): void {
-    this._isLoadingDashboard.set(loading);
-  }
-
-  setLoadingMembers(loading: boolean): void {
-    this._isLoadingMembers.set(loading);
-  }
-
-  setLoadingLeaderboard(loading: boolean): void {
-    this._isLoadingLeaderboard.set(loading);
-  }
-
-  setLoadingActivity(loading: boolean): void {
-    this._isLoadingActivity.set(loading);
-  }
-
+  /**
+   * Définit une erreur
+   */
   setError(error: string | null): void {
     this._error.set(error);
   }
 
-  // ============================================================================
-  // 🗑️ CLEAR METHODS
-  // ============================================================================
+  // ============================================
+  // CACHE
+  // ============================================
 
   /**
-   * Efface toutes les données stats
+   * Charge les stats depuis le cache si disponible et valide
+   */
+  loadFromCache(guildId: string): boolean {
+    const cached = this.statsCache.get(guildId);
+    
+    if (!cached) return false;
+
+    const age = Date.now() - cached.timestamp;
+    if (age > this.CACHE_TTL) {
+      this.statsCache.delete(guildId);
+      return false;
+    }
+
+    this._guildStats.set(cached.guildStats);
+    this._membersList.set(cached.membersList);
+    this._rankings.set(cached.rankings);
+    this._timeline.set(cached.timeline);
+    
+    this.currentGuildId = guildId;
+    return true;
+  }
+
+  /**
+   * Sauvegarde les stats dans le cache
+   */
+  saveToCache(guildId: string): void {
+    this.statsCache.set(guildId, {
+      guildStats: this._guildStats(),
+      membersList: this._membersList(),
+      rankings: this._rankings(),
+      timeline: this._timeline(),
+      timestamp: Date.now(),
+    });
+    this.currentGuildId = guildId;
+  }
+
+  /**
+   * Invalide le cache pour une guild
+   */
+  invalidateCache(guildId: string): void {
+    this.statsCache.delete(guildId);
+  }
+
+  /**
+   * Clear toutes les données
    */
   clearAll(): void {
-    this._dashboardStats.set(null);
-    this._memberStatsList.set(null);
-    this._selectedMemberStats.set(null);
-    this._leaderboard.set(null);
-    this._activityTimeline.set(null);
-    this._currentPeriod.set('week');
-    this._isLoadingDashboard.set(false);
-    this._isLoadingMembers.set(false);
-    this._isLoadingLeaderboard.set(false);
-    this._isLoadingActivity.set(false);
+    this._guildStats.set(null);
+    this._memberStats.set(null);
+    this._membersList.set(null);
+    this._rankings.set(null);
+    this._timeline.set(null);
     this._error.set(null);
-  }
-
-  /**
-   * Efface tout le cache
-   */
-  clearCache(): void {
-    this.dashboardCache.clear();
-    this.leaderboardCache.clear();
-    this.membersCache.clear();
-    this.activityCache.clear();
-  }
-
-  /**
-   * Efface le cache pour une guild spécifique
-   */
-  clearCacheForGuild(guildId: string): void {
-    // Dashboard
-    for (const key of this.dashboardCache.keys()) {
-      if (key.startsWith(`${guildId}:`)) {
-        this.dashboardCache.delete(key);
-      }
-    }
-
-    // Leaderboard
-    for (const key of this.leaderboardCache.keys()) {
-      if (key.startsWith(`${guildId}:`)) {
-        this.leaderboardCache.delete(key);
-      }
-    }
-
-    // Members
-    for (const key of this.membersCache.keys()) {
-      if (key.startsWith(`${guildId}:`)) {
-        this.membersCache.delete(key);
-      }
-    }
-
-    // Activity
-    for (const key of this.activityCache.keys()) {
-      if (key.startsWith(`${guildId}:`)) {
-        this.activityCache.delete(key);
-      }
-    }
-  }
-
-  // ============================================================================
-  // 📦 CACHE GETTERS
-  // ============================================================================
-
-  /**
-   * Récupère le dashboard depuis le cache s'il est valide
-   */
-  getCachedDashboard(guildId: string, period: StatsPeriod): DashboardStatsDto | null {
-    const cacheKey = this.getDashboardCacheKey(guildId, period);
-    const cached = this.dashboardCache.get(cacheKey);
-    
-    if (cached && isCacheValid(cached)) {
-      return cached.data;
-    }
-    
-    // Cache expiré, on le supprime
-    if (cached) {
-      this.dashboardCache.delete(cacheKey);
-    }
-    
-    return null;
-  }
-
-  /**
-   * Récupère le leaderboard depuis le cache s'il est valide
-   */
-  getCachedLeaderboard(
-    guildId: string, 
-    category: 'messages' | 'voice' | 'reactions' | 'overall',
-    period: StatsPeriod
-  ): LeaderboardDto | null {
-    const cacheKey = this.getLeaderboardCacheKey(guildId, category, period);
-    const cached = this.leaderboardCache.get(cacheKey);
-    
-    if (cached && isCacheValid(cached)) {
-      return cached.data;
-    }
-    
-    if (cached) {
-      this.leaderboardCache.delete(cacheKey);
-    }
-    
-    return null;
-  }
-
-  /**
-   * Récupère la liste de membres depuis le cache s'il est valide
-   */
-  getCachedMembers(guildId: string, queryHash: string): MemberStatsListDto | null {
-    const cacheKey = this.getMembersCacheKey(guildId, queryHash);
-    const cached = this.membersCache.get(cacheKey);
-    
-    if (cached && isCacheValid(cached)) {
-      return cached.data;
-    }
-    
-    if (cached) {
-      this.membersCache.delete(cacheKey);
-    }
-    
-    return null;
-  }
-
-  /**
-   * Récupère l'activity timeline depuis le cache s'il est valide
-   */
-  getCachedActivity(
-    guildId: string, 
-    period: StatsPeriod,
-    granularity: 'hour' | 'day' | 'week'
-  ): ActivityTimelineDto | null {
-    const cacheKey = this.getActivityCacheKey(guildId, period, granularity);
-    const cached = this.activityCache.get(cacheKey);
-    
-    if (cached && isCacheValid(cached)) {
-      return cached.data;
-    }
-    
-    if (cached) {
-      this.activityCache.delete(cacheKey);
-    }
-    
-    return null;
-  }
-
-  // ============================================================================
-  // 🔑 CACHE KEY HELPERS - Privé
-  // ============================================================================
-
-  private getDashboardCacheKey(guildId: string, period: StatsPeriod): string {
-    return `${guildId}:${period}`;
-  }
-
-  private getLeaderboardCacheKey(
-    guildId: string, 
-    category: string, 
-    period: StatsPeriod
-  ): string {
-    return `${guildId}:${category}:${period}`;
-  }
-
-  private getMembersCacheKey(guildId: string, queryHash: string): string {
-    return `${guildId}:${queryHash}`;
-  }
-
-  private getActivityCacheKey(
-    guildId: string, 
-    period: StatsPeriod, 
-    granularity: string
-  ): string {
-    return `${guildId}:${period}:${granularity}`;
+    this.currentGuildId = null;
   }
 }

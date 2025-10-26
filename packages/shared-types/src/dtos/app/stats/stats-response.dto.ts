@@ -1,9 +1,11 @@
 // packages/shared-types/src/stats/stats-response.dto.ts
 
+import { StatsPeriod } from "../../../enums/stats/stats.enum";
+
 /**
  * Période de temps pour les stats
  */
-export type StatsPeriod = 'today' | 'week' | 'month' | 'all';
+// export type StatsPeriod = 'today' | 'week' | 'month' | 'all';
 
 /**
  * 📊 Dashboard Stats - Vue d'ensemble du serveur

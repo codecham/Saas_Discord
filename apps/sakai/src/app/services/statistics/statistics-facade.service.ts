@@ -1,569 +1,317 @@
 // apps/sakai/src/app/services/statistics/statistics-facade.service.ts
-
 import { Injectable, inject, effect } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { StatisticsDataService } from './statistics-data.service';
 import { StatisticsApiService } from './statistics-api.service';
+import { StatisticsDataService } from './statistics-data.service';
 import { GuildFacadeService } from '../guild/guild-facade.service';
 import { ErrorHandlerService } from '../error-handler.service';
-import type {
+import {
   StatsPeriod,
-  MemberStatsQueryDto,
-  LeaderboardQueryDto,
-  ActivityTimelineQueryDto,
-} from './statistics.models';
+  StatsMetricType,
+  StatsSortBy,
+  StatsSortOrder,
+} from '@my-project/shared-types';
 
 /**
- * 📊 Service Facade pour les statistiques
+ * Service Facade pour les statistiques
+ * Interface publique pour les composants
  * 
- * Interface publique pour les composants.
- * Orchestre l'API Service et le Data Service.
- * 
- * IMPORTANT : Ce service dépend du GuildFacadeService.
- * Une guild doit être sélectionnée avant d'utiliser ces méthodes.
- * 
- * @example
- * // Dans un composant
- * constructor() {
- *   const statsFacade = inject(StatisticsFacadeService);
- *   
- *   // Charger les stats du dashboard
- *   await statsFacade.loadDashboardStats('week');
- *   
- *   // Accéder aux données
- *   const stats = statsFacade.dashboardStats();
- * }
+ * Responsabilités:
+ * - Auto-loading au changement de serveur
+ * - Orchestration entre API et Data services
+ * - Gestion du cache
+ * - Méthodes publiques pour les components
  */
 @Injectable({
   providedIn: 'root'
 })
 export class StatisticsFacadeService {
-  private readonly statsData = inject(StatisticsDataService);
   private readonly statsApi = inject(StatisticsApiService);
+  private readonly statsData = inject(StatisticsDataService);
   private readonly guildFacade = inject(GuildFacadeService);
   private readonly errorHandler = inject(ErrorHandlerService);
 
-  // ============================================================================
-  // 📖 SIGNALS PUBLICS - Exposés depuis le Data Service
-  // ============================================================================
+  // ============================================
+  // EXPOSITION DES SIGNALS PUBLICS
+  // ============================================
 
-  // Dashboard
-  readonly dashboardStats = this.statsData.dashboardStats;
-  readonly hasDashboardStats = this.statsData.hasDashboardStats;
-  readonly isLoadingDashboard = this.statsData.isLoadingDashboard;
+  readonly guildStats = this.statsData.guildStats;
+  readonly memberStats = this.statsData.memberStats;
+  readonly membersList = this.statsData.membersList;
+  readonly rankings = this.statsData.rankings;
+  readonly timeline = this.statsData.timeline;
 
-  // Members
-  readonly memberStatsList = this.statsData.memberStatsList;
-  readonly selectedMemberStats = this.statsData.selectedMemberStats;
-  readonly currentPageMembers = this.statsData.currentPageMembers;
-  readonly totalMembers = this.statsData.totalMembers;
-  readonly pagination = this.statsData.pagination;
-  readonly isLoadingMembers = this.statsData.isLoadingMembers;
+  readonly isLoadingGuildStats = this.statsData.isLoadingGuildStats;
+  readonly isLoadingMemberStats = this.statsData.isLoadingMemberStats;
+  readonly isLoadingMembersList = this.statsData.isLoadingMembersList;
+  readonly isLoadingRankings = this.statsData.isLoadingRankings;
+  readonly isLoadingTimeline = this.statsData.isLoadingTimeline;
 
-  // Leaderboard
-  readonly leaderboard = this.statsData.leaderboard;
-  readonly hasLeaderboard = this.statsData.hasLeaderboard;
-  readonly topThreeMembers = this.statsData.topThreeMembers;
-  readonly remainingLeaderboard = this.statsData.remainingLeaderboard;
-  readonly isLoadingLeaderboard = this.statsData.isLoadingLeaderboard;
-
-  // Activity Timeline
-  readonly activityTimeline = this.statsData.activityTimeline;
-  readonly isLoadingActivity = this.statsData.isLoadingActivity;
-
-  // État global
-  readonly currentPeriod = this.statsData.currentPeriod;
-  readonly isLoading = this.statsData.isLoading;
   readonly error = this.statsData.error;
 
-  // ============================================================================
-  // 🔄 EFFECT - Nettoie le cache quand la guild change
-  // ============================================================================
+  readonly hasGuildStats = this.statsData.hasGuildStats;
+  readonly hasRankings = this.statsData.hasRankings;
+  readonly members = this.statsData.members;
+  readonly pagination = this.statsData.pagination;
+  readonly topThree = this.statsData.topThree;
+  readonly remainingRankings = this.statsData.remainingRankings;
+
+  // ============================================
+  // CONSTRUCTOR - AUTO-LOADING
+  // ============================================
 
   constructor() {
-    // Effect : Nettoie le cache des stats quand la guild change
+    // Écouter les changements de serveur pour auto-loading
     effect(() => {
       const guildId = this.guildFacade.selectedGuildId();
       
-      // Si la guild change, on nettoie toutes les stats
       if (guildId) {
-        console.log('[StatsFacade] Guild changed, clearing stats cache for:', guildId);
-        // On ne nettoie que les données en mémoire, pas le cache
-        // Le cache sera automatiquement invalidé car il contient l'ancien guildId
-        this.clearStatsData();
+        // Essayer de charger depuis le cache
+        const fromCache = this.statsData.loadFromCache(guildId);
+        
+        if (fromCache) {
+          console.log('[StatsFacade] Stats chargées depuis le cache');
+        } else {
+          // Pas en cache, charger depuis l'API
+          console.log('[StatsFacade] Chargement des stats depuis l\'API');
+          this.loadAllStats(guildId).catch(err => {
+            console.error('[StatsFacade] Erreur auto-loading:', err);
+          });
+        }
+      } else {
+        // Pas de serveur sélectionné, clear
+        this.statsData.clearAll();
       }
     });
   }
 
-  // ============================================================================
-  // 📊 DASHBOARD STATS
-  // ============================================================================
+  // ============================================
+  // CHARGEMENT DES STATS
+  // ============================================
 
   /**
-   * Charge les stats du dashboard pour la guild sélectionnée
-   * 
-   * @param period - Période des stats ('today' | 'week' | 'month' | 'all')
-   * @param forceRefresh - Force le rechargement même si en cache
-   * @throws Error si aucune guild n'est sélectionnée
-   * 
-   * @example
-   * await statsFacade.loadDashboardStats('week');
-   * const stats = statsFacade.dashboardStats();
+   * Charge toutes les stats principales d'une guild
+   * Appelé automatiquement au changement de serveur
    */
-  async loadDashboardStats(
-    period: StatsPeriod = 'week',
-    forceRefresh: boolean = false
-  ): Promise<void> {
-    const guildId = this.getSelectedGuildId();
+  async loadAllStats(guildId?: string, forceRefresh: boolean = false): Promise<void> {
+    const targetGuildId = guildId || this.guildFacade.selectedGuildId();
     
-    console.log('[StatsFacade] Loading dashboard stats', { guildId, period, forceRefresh });
+    if (!targetGuildId) {
+      throw new Error('Aucune guild sélectionnée');
+    }
 
-    // Vérifier le cache si pas de force refresh
+    // Si pas de force refresh, vérifier le cache
     if (!forceRefresh) {
-      const cached = this.statsData.getCachedDashboard(guildId, period);
-      if (cached) {
-        console.log('[StatsFacade] Using cached dashboard stats');
-        this.statsData.setDashboardStats(cached);
-        this.statsData.setCurrentPeriod(period);
+      const fromCache = this.statsData.loadFromCache(targetGuildId);
+      if (fromCache) {
+        console.log('[StatsFacade] Utilisé le cache');
         return;
       }
     }
 
-    this.statsData.setLoadingDashboard(true);
-    this.statsData.setError(null);
+    try {
+      this.statsData.setError(null);
+
+      // Charger en parallèle les stats principales
+      await Promise.all([
+        this.loadGuildStats(targetGuildId, '7d' as StatsPeriod),
+        this.loadRankings(targetGuildId),
+        this.loadTimeline(targetGuildId),
+      ]);
+
+      // Sauvegarder dans le cache
+      this.statsData.saveToCache(targetGuildId);
+
+    } catch (error) {
+      const message = this.errorHandler.handleError(error, 'Chargement des statistiques');
+      this.statsData.setError(message.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Charge les stats dashboard de la guild
+   */
+  async loadGuildStats(guildId?: string, period: StatsPeriod = '7d' as StatsPeriod): Promise<void> {
+    const targetGuildId = guildId || this.guildFacade.selectedGuildId();
+    
+    if (!targetGuildId) {
+      throw new Error('Aucune guild sélectionnée');
+    }
 
     try {
+      this.statsData.setLoadingGuildStats(true);
+      this.statsData.setError(null);
+
       const stats = await firstValueFrom(
-        this.statsApi.getDashboardStats(guildId, period)
+        this.statsApi.getGuildStats(targetGuildId, period)
       );
 
-      this.statsData.setDashboardStats(stats, guildId);
-      this.statsData.setCurrentPeriod(period);
-      
-      console.log('[StatsFacade] Dashboard stats loaded successfully');
+      this.statsData.setGuildStats(stats);
 
     } catch (error) {
-      const appError = this.errorHandler.handleError(
-        error,
-        'Chargement des statistiques du dashboard'
-      );
-      this.statsData.setError(appError.message);
+      const message = this.errorHandler.handleError(error, 'Chargement des stats guild');
+      this.statsData.setError(message.message);
       throw error;
-
     } finally {
-      this.statsData.setLoadingDashboard(false);
-    }
-  }
-
-  /**
-   * Rafraîchit les stats du dashboard (force le rechargement)
-   */
-  async refreshDashboardStats(): Promise<void> {
-    const currentPeriod = this.statsData.currentPeriod();
-    await this.loadDashboardStats(currentPeriod, true);
-  }
-
-  // ============================================================================
-  // 👥 MEMBER STATS
-  // ============================================================================
-
-  /**
-   * Charge la liste des membres avec leurs stats
-   * 
-   * @param query - Paramètres de filtrage et pagination
-   * @param forceRefresh - Force le rechargement même si en cache
-   * 
-   * @example
-   * await statsFacade.loadMemberStats({
-   *   page: 1,
-   *   pageSize: 20,
-   *   sortBy: 'messages',
-   *   sortOrder: 'desc',
-   *   activeOnly: true
-   * });
-   */
-  async loadMemberStats(
-    query: MemberStatsQueryDto = {},
-    forceRefresh: boolean = false
-  ): Promise<void> {
-    const guildId = this.getSelectedGuildId();
-    
-    // Générer un hash unique pour cette query
-    const queryHash = this.statsApi.generateMemberQueryHash(query);
-    
-    console.log('[StatsFacade] Loading member stats', { guildId, query, forceRefresh });
-
-    // Vérifier le cache
-    if (!forceRefresh) {
-      const cached = this.statsData.getCachedMembers(guildId, queryHash);
-      if (cached) {
-        console.log('[StatsFacade] Using cached member stats');
-        this.statsData.setMemberStatsList(cached);
-        return;
-      }
-    }
-
-    this.statsData.setLoadingMembers(true);
-    this.statsData.setError(null);
-
-    try {
-      const result = await firstValueFrom(
-        this.statsApi.getMemberStats(guildId, query)
-      );
-
-      this.statsData.setMemberStatsList(result, guildId, queryHash);
-      
-      console.log('[StatsFacade] Member stats loaded successfully', {
-        total: result.pagination.total,
-        page: result.pagination.page
-      });
-
-    } catch (error) {
-      const appError = this.errorHandler.handleError(
-        error,
-        'Chargement des statistiques des membres'
-      );
-      this.statsData.setError(appError.message);
-      throw error;
-
-    } finally {
-      this.statsData.setLoadingMembers(false);
+      this.statsData.setLoadingGuildStats(false);
     }
   }
 
   /**
    * Charge les stats d'un membre spécifique
-   * 
-   * @param userId - ID du membre
-   * 
-   * Note: Pour l'instant utilise la liste des membres.
-   * Un endpoint dédié pourrait être ajouté au backend plus tard.
    */
-  async loadMemberStatsById(userId: string): Promise<void> {
-    const guildId = this.getSelectedGuildId();
-    
-    console.log('[StatsFacade] Loading stats for member:', userId);
-
-    this.statsData.setLoadingMembers(true);
-    this.statsData.setError(null);
-
-    try {
-      const result = await firstValueFrom(
-        this.statsApi.getMemberStatsById(guildId, userId)
-      );
-
-      // Prendre le premier (et seul) membre du résultat
-      const memberStats = result.members[0] || null;
-      this.statsData.setSelectedMemberStats(memberStats);
-      
-      console.log('[StatsFacade] Member stats loaded successfully');
-
-    } catch (error) {
-      const appError = this.errorHandler.handleError(
-        error,
-        'Chargement des statistiques du membre'
-      );
-      this.statsData.setError(appError.message);
-      throw error;
-
-    } finally {
-      this.statsData.setLoadingMembers(false);
-    }
-  }
-
-  /**
-   * Rafraîchit la liste actuelle des membres
-   */
-  async refreshMemberStats(): Promise<void> {
-    // Récréer la query depuis la pagination actuelle si disponible
-    const currentPagination = this.statsData.pagination();
-    if (currentPagination) {
-      await this.loadMemberStats({
-        page: currentPagination.page,
-        pageSize: currentPagination.pageSize,
-      }, true);
-    } else {
-      await this.loadMemberStats({}, true);
-    }
-  }
-
-  // ============================================================================
-  // 🏆 LEADERBOARD
-  // ============================================================================
-
-  /**
-   * Charge le leaderboard de la guild
-   * 
-   * @param query - Paramètres du leaderboard
-   * @param forceRefresh - Force le rechargement même si en cache
-   * 
-   * @example
-   * await statsFacade.loadLeaderboard({
-   *   category: 'messages',
-   *   period: 'week',
-   *   limit: 10
-   * });
-   */
-  async loadLeaderboard(
-    query: LeaderboardQueryDto = {},
-    forceRefresh: boolean = false
-  ): Promise<void> {
-    const guildId = this.getSelectedGuildId();
-    
-    // Valeurs par défaut
-    const category = query.category || 'messages';
-    const period = query.period || 'all';
-    const limit = query.limit || 10;
-    
-    console.log('[StatsFacade] Loading leaderboard', { guildId, category, period, limit });
-
-    // Vérifier le cache
-    if (!forceRefresh) {
-      const cached = this.statsData.getCachedLeaderboard(guildId, category, period);
-      if (cached) {
-        console.log('[StatsFacade] Using cached leaderboard');
-        this.statsData.setLeaderboard(cached);
-        return;
-      }
-    }
-
-    this.statsData.setLoadingLeaderboard(true);
-    this.statsData.setError(null);
-
-    try {
-      const leaderboard = await firstValueFrom(
-        this.statsApi.getLeaderboard(guildId, { category, period, limit })
-      );
-
-      this.statsData.setLeaderboard(leaderboard, guildId);
-      
-      console.log('[StatsFacade] Leaderboard loaded successfully', {
-        entries: leaderboard.entries.length
-      });
-
-    } catch (error) {
-      const appError = this.errorHandler.handleError(
-        error,
-        'Chargement du classement'
-      );
-      this.statsData.setError(appError.message);
-      throw error;
-
-    } finally {
-      this.statsData.setLoadingLeaderboard(false);
-    }
-  }
-
-  /**
-   * Rafraîchit le leaderboard actuel
-   */
-  async refreshLeaderboard(): Promise<void> {
-    const currentLeaderboard = this.statsData.leaderboard();
-    if (currentLeaderboard) {
-      await this.loadLeaderboard({
-        category: currentLeaderboard.category,
-        period: currentLeaderboard.period,
-      }, true);
-    } else {
-      await this.loadLeaderboard({}, true);
-    }
-  }
-
-  // ============================================================================
-  // 📈 ACTIVITY TIMELINE
-  // ============================================================================
-
-  /**
-   * Charge la timeline d'activité pour les graphiques
-   * 
-   * @param query - Paramètres de la timeline
-   * @param forceRefresh - Force le rechargement même si en cache
-   * 
-   * @example
-   * await statsFacade.loadActivityTimeline({
-   *   period: 'week',
-   *   granularity: 'day'
-   * });
-   */
-  async loadActivityTimeline(
-    query: ActivityTimelineQueryDto = {},
-    forceRefresh: boolean = false
-  ): Promise<void> {
-    const guildId = this.getSelectedGuildId();
-    
-    // Valeurs par défaut
-    const period = query.period || 'week';
-    const granularity = query.granularity || 'day';
-    
-    console.log('[StatsFacade] Loading activity timeline', { guildId, period, granularity });
-
-    // Vérifier le cache
-    if (!forceRefresh) {
-      const cached = this.statsData.getCachedActivity(guildId, period, granularity);
-      if (cached) {
-        console.log('[StatsFacade] Using cached activity timeline');
-        this.statsData.setActivityTimeline(cached);
-        return;
-      }
-    }
-
-    this.statsData.setLoadingActivity(true);
-    this.statsData.setError(null);
-
-    try {
-      const timeline = await firstValueFrom(
-        this.statsApi.getActivityTimeline(guildId, { period, granularity })
-      );
-
-      this.statsData.setActivityTimeline(timeline, guildId);
-      
-      console.log('[StatsFacade] Activity timeline loaded successfully', {
-        dataPoints: timeline.dataPoints.length
-      });
-
-    } catch (error) {
-      const appError = this.errorHandler.handleError(
-        error,
-        'Chargement de la timeline d\'activité'
-      );
-      this.statsData.setError(appError.message);
-      throw error;
-
-    } finally {
-      this.statsData.setLoadingActivity(false);
-    }
-  }
-
-  /**
-   * Rafraîchit la timeline d'activité actuelle
-   */
-  async refreshActivityTimeline(): Promise<void> {
-    const currentTimeline = this.statsData.activityTimeline();
-    if (currentTimeline) {
-      await this.loadActivityTimeline({
-        period: currentTimeline.period,
-        granularity: currentTimeline.granularity,
-      }, true);
-    } else {
-      await this.loadActivityTimeline({}, true);
-    }
-  }
-
-  // ============================================================================
-  // 🛠️ MÉTHODES UTILITAIRES
-  // ============================================================================
-
-  /**
-   * Change la période actuelle et recharge les stats nécessaires
-   * 
-   * @param period - Nouvelle période
-   * @param reloadDashboard - Recharger le dashboard
-   * @param reloadLeaderboard - Recharger le leaderboard
-   * 
-   * @example
-   * await statsFacade.changePeriod('month', true, true);
-   */
-  async changePeriod(
-    period: StatsPeriod,
-    reloadDashboard: boolean = true,
-    reloadLeaderboard: boolean = false
-  ): Promise<void> {
-    console.log('[StatsFacade] Changing period to:', period);
-    
-    this.statsData.setCurrentPeriod(period);
-
-    const promises: Promise<void>[] = [];
-
-    if (reloadDashboard) {
-      promises.push(this.loadDashboardStats(period));
-    }
-
-    if (reloadLeaderboard && this.statsData.leaderboard()) {
-      const currentLeaderboard = this.statsData.leaderboard()!;
-      promises.push(this.loadLeaderboard({
-        category: currentLeaderboard.category,
-        period,
-      }));
-    }
-
-    await Promise.all(promises);
-  }
-
-  /**
-   * Efface toutes les données stats (mais garde le cache)
-   */
-  clearStatsData(): void {
-    console.log('[StatsFacade] Clearing stats data');
-    this.statsData.clearAll();
-  }
-
-  /**
-   * Efface tout le cache
-   */
-  clearCache(): void {
-    console.log('[StatsFacade] Clearing stats cache');
-    this.statsData.clearCache();
-  }
-
-  /**
-   * Efface le cache pour la guild actuellement sélectionnée
-   */
-  clearCacheForCurrentGuild(): void {
-    const guildId = this.guildFacade.selectedGuildId();
-    if (guildId) {
-      console.log('[StatsFacade] Clearing cache for guild:', guildId);
-      this.statsData.clearCacheForGuild(guildId);
-    }
-  }
-
-  /**
-   * Rafraîchit toutes les stats actuellement chargées
-   */
-  async refreshAllStats(): Promise<void> {
-    console.log('[StatsFacade] Refreshing all stats');
-
-    const promises: Promise<void>[] = [];
-
-    // Dashboard si chargé
-    if (this.statsData.hasDashboardStats()) {
-      promises.push(this.refreshDashboardStats());
-    }
-
-    // Leaderboard si chargé
-    if (this.statsData.hasLeaderboard()) {
-      promises.push(this.refreshLeaderboard());
-    }
-
-    // Members si chargé
-    if (this.statsData.memberStatsList()) {
-      promises.push(this.refreshMemberStats());
-    }
-
-    // Activity si chargé
-    if (this.statsData.activityTimeline()) {
-      promises.push(this.refreshActivityTimeline());
-    }
-
-    await Promise.all(promises);
-  }
-
-  // ============================================================================
-  // 🔒 MÉTHODES PRIVÉES
-  // ============================================================================
-
-  /**
-   * Récupère l'ID de la guild sélectionnée
-   * @throws Error si aucune guild n'est sélectionnée
-   */
-  private getSelectedGuildId(): string {
+  async loadMemberStats(userId: string, period: StatsPeriod = '30d' as StatsPeriod): Promise<void> {
     const guildId = this.guildFacade.selectedGuildId();
     
     if (!guildId) {
-      throw new Error(
-        '[StatsFacade] No guild selected. Please select a guild before loading statistics.'
-      );
+      throw new Error('Aucune guild sélectionnée');
     }
 
-    return guildId;
+    try {
+      this.statsData.setLoadingMemberStats(true);
+      this.statsData.setError(null);
+
+      const stats = await firstValueFrom(
+        this.statsApi.getMemberStats(guildId, userId, period)
+      );
+
+      this.statsData.setMemberStats(stats);
+
+    } catch (error) {
+      const message = this.errorHandler.handleError(error, 'Chargement des stats membre');
+      this.statsData.setError(message.message);
+      throw error;
+    } finally {
+      this.statsData.setLoadingMemberStats(false);
+    }
+  }
+
+  /**
+   * Charge la liste paginée des membres avec leurs stats
+   */
+  async loadMembersList(options?: {
+    page?: number;
+    pageSize?: number;
+    sortBy?: StatsSortBy;
+    sortOrder?: StatsSortOrder;
+    minMessages?: number;
+    minVoiceMinutes?: number;
+    activeOnly?: boolean;
+  }): Promise<void> {
+    const guildId = this.guildFacade.selectedGuildId();
+    
+    if (!guildId) {
+      throw new Error('Aucune guild sélectionnée');
+    }
+
+    try {
+      this.statsData.setLoadingMembersList(true);
+      this.statsData.setError(null);
+
+      const list = await firstValueFrom(
+        this.statsApi.getMembersList(guildId, options)
+      );
+
+      this.statsData.setMembersList(list);
+
+    } catch (error) {
+      const message = this.errorHandler.handleError(error, 'Chargement de la liste des membres');
+      this.statsData.setError(message.message);
+      throw error;
+    } finally {
+      this.statsData.setLoadingMembersList(false);
+    }
+  }
+
+  /**
+   * Charge le leaderboard
+   */
+  async loadRankings(guildId?: string, options?: {
+    metric?: StatsMetricType;
+    period?: StatsPeriod;
+    limit?: number;
+  }): Promise<void> {
+    const targetGuildId = guildId || this.guildFacade.selectedGuildId();
+    
+    if (!targetGuildId) {
+      throw new Error('Aucune guild sélectionnée');
+    }
+
+    try {
+      this.statsData.setLoadingRankings(true);
+      this.statsData.setError(null);
+
+      const rankings = await firstValueFrom(
+        this.statsApi.getRankings(targetGuildId, options)
+      );
+
+      this.statsData.setRankings(rankings);
+
+    } catch (error) {
+      const message = this.errorHandler.handleError(error, 'Chargement du leaderboard');
+      this.statsData.setError(message.message);
+      throw error;
+    } finally {
+      this.statsData.setLoadingRankings(false);
+    }
+  }
+
+  /**
+   * Charge la timeline d'activité
+   */
+  async loadTimeline(guildId?: string, options?: {
+    period?: StatsPeriod;
+    metrics?: StatsMetricType[];
+    userId?: string;
+  }): Promise<void> {
+    const targetGuildId = guildId || this.guildFacade.selectedGuildId();
+    
+    if (!targetGuildId) {
+      throw new Error('Aucune guild sélectionnée');
+    }
+
+    try {
+      this.statsData.setLoadingTimeline(true);
+      this.statsData.setError(null);
+
+      const timeline = await firstValueFrom(
+        this.statsApi.getTimeline(targetGuildId, options)
+      );
+
+      this.statsData.setTimeline(timeline);
+
+    } catch (error) {
+      const message = this.errorHandler.handleError(error, 'Chargement de la timeline');
+      this.statsData.setError(message.message);
+      throw error;
+    } finally {
+      this.statsData.setLoadingTimeline(false);
+    }
+  }
+
+  // ============================================
+  // UTILITAIRES
+  // ============================================
+
+  /**
+   * Rafraîchit toutes les données (force reload)
+   */
+  async refresh(): Promise<void> {
+    const guildId = this.guildFacade.selectedGuildId();
+    if (guildId) {
+      this.statsData.invalidateCache(guildId);
+      await this.loadAllStats(guildId, true);
+    }
+  }
+
+  /**
+   * Invalide le cache pour forcer un rechargement au prochain accès
+   */
+  invalidateCache(): void {
+    const guildId = this.guildFacade.selectedGuildId();
+    if (guildId) {
+      this.statsData.invalidateCache(guildId);
+    }
   }
 }
