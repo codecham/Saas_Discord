@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -127,13 +125,13 @@ export class StatsQueryService {
       return this.getEmptyMemberStats(guildId, userId, period);
     }
 
-    // Stats de la période depuis StatsDaily
+    // ✅ Stats de la période: SUM de tous les channels
     const periodStats = await this.prisma.statsDaily.aggregate({
       where: {
         guildId,
         userId,
         date: { gte: startDate, lte: endDate },
-        channelId: '__global__',
+        // ❌ RETIRÉ: channelId: '__global__',
       },
       _sum: {
         messagesSent: true,
@@ -359,16 +357,21 @@ export class StatsQueryService {
   // MÉTHODES PRIVÉES
   // ============================================
 
+  /**
+   * Au lieu de chercher channelId = '__global__',
+   * on somme TOUTES les lignes (tous channels confondus)
+   */
   private async getAggregatedStats(
     guildId: string,
     startDate: Date,
     endDate: Date,
   ) {
+    // ✅ NOUVEAU: Agrégation sur TOUS les channels (pas de filtre channelId)
     const result = await this.prisma.statsDaily.aggregate({
       where: {
         guildId,
         date: { gte: startDate, lte: endDate },
-        channelId: '__global__',
+        // ❌ RETIRÉ: channelId: '__global__',
       },
       _sum: {
         messagesSent: true,
@@ -377,11 +380,11 @@ export class StatsQueryService {
       },
     });
 
+    // Compter les membres uniques actifs
     const activeMembers = await this.prisma.statsDaily.findMany({
       where: {
         guildId,
         date: { gte: startDate, lte: endDate },
-        channelId: '__global__',
       },
       select: { userId: true },
       distinct: ['userId'],
@@ -395,13 +398,18 @@ export class StatsQueryService {
     };
   }
 
+  // ============================================
+  // Même logique pour getTimeline
+  // ============================================
+
   private async getTimeline(guildId: string, startDate: Date, endDate: Date) {
+    // ✅ Group by date, SUM tous les channels
     const dailyStats = await this.prisma.statsDaily.groupBy({
       by: ['date'],
       where: {
         guildId,
         date: { gte: startDate, lte: endDate },
-        channelId: '__global__',
+        // ❌ RETIRÉ: channelId: '__global__',
       },
       _sum: {
         messagesSent: true,
@@ -447,29 +455,44 @@ export class StatsQueryService {
     }));
   }
 
+  // ============================================
+  // getMemberTimeline - SUM par date
+  // ============================================
+
   private async getMemberTimeline(
     guildId: string,
     userId: string,
     startDate: Date,
     endDate: Date,
   ) {
-    const dailyStats = await this.prisma.statsDaily.findMany({
+    // ✅ GroupBy date, SUM tous les channels du membre
+    const dailyStats = await this.prisma.statsDaily.groupBy({
+      by: ['date'],
       where: {
         guildId,
         userId,
         date: { gte: startDate, lte: endDate },
-        channelId: '__global__',
+        // ❌ RETIRÉ: channelId: '__global__',
+      },
+      _sum: {
+        messagesSent: true,
+        voiceMinutes: true,
+        reactionsGiven: true,
       },
       orderBy: { date: 'asc' },
     });
 
     return dailyStats.map((stat) => ({
       date: stat.date.toISOString().split('T')[0],
-      messages: stat.messagesSent,
-      voice: stat.voiceMinutes,
-      reactions: stat.reactionsGiven,
+      messages: stat._sum.messagesSent || 0,
+      voice: stat._sum.voiceMinutes || 0,
+      reactions: stat._sum.reactionsGiven || 0,
     }));
   }
+
+  // ============================================
+  // getChannelBreakdown - GARDE le groupBy channel
+  // ============================================
 
   private async getChannelBreakdown(
     guildId: string,
@@ -477,13 +500,14 @@ export class StatsQueryService {
     startDate: Date,
     endDate: Date,
   ) {
+    // ✅ Ici on VEUT le détail par channel, donc on garde le groupBy
     const channelStats = await this.prisma.statsDaily.groupBy({
       by: ['channelId'],
       where: {
         guildId,
         userId,
         date: { gte: startDate, lte: endDate },
-        channelId: { not: '__global__' },
+        // ✅ Pas de filtre channelId ici, on veut tous les channels
       },
       _sum: {
         messagesSent: true,
@@ -499,7 +523,7 @@ export class StatsQueryService {
 
     return channelStats.map((stat) => ({
       channelId: stat.channelId,
-      channelName: stat.channelId, // TODO: Enrichir
+      channelName: stat.channelId, // TODO: Enrichir avec nom réel
       messages: stat._sum.messagesSent || 0,
       voiceMinutes: stat._sum.voiceMinutes || 0,
     }));

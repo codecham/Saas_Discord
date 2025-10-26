@@ -69,11 +69,16 @@ export class EventsController {
 
     // Valider la période
     const validPeriod = this.validatePeriod(period);
-
-    return this.statsQueryService.getGuildStats({
+    const resp = this.statsQueryService.getGuildStats({
       guildId,
       period: validPeriod,
     });
+    return resp;
+
+    // return this.statsQueryService.getGuildStats({
+    //   guildId,
+    //   period: validPeriod,
+    // });
   }
 
   /**

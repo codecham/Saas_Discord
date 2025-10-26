@@ -9,11 +9,13 @@ import {
   MembersStatsListResponse,
   RankingsResponse,
   TimelineResponse,
+} from '@my-project/shared-types';
+import {
   StatsPeriod,
   StatsMetricType,
   StatsSortBy,
   StatsSortOrder,
-} from '@my-project/shared-types';
+} from './statistics.types';
 
 /**
  * Service API pour les statistiques

@@ -10,7 +10,8 @@ import {
   StatsMetricType,
   StatsSortBy,
   StatsSortOrder,
-} from '@my-project/shared-types';
+  STATS_PERIODS,
+} from './statistics.types';
 
 /**
  * Service Facade pour les statistiques
@@ -114,7 +115,7 @@ export class StatisticsFacadeService {
 
       // Charger en parallèle les stats principales
       await Promise.all([
-        this.loadGuildStats(targetGuildId, '7d' as StatsPeriod),
+        this.loadGuildStats(targetGuildId, STATS_PERIODS.WEEK),
         this.loadRankings(targetGuildId),
         this.loadTimeline(targetGuildId),
       ]);
@@ -132,7 +133,7 @@ export class StatisticsFacadeService {
   /**
    * Charge les stats dashboard de la guild
    */
-  async loadGuildStats(guildId?: string, period: StatsPeriod = '7d' as StatsPeriod): Promise<void> {
+  async loadGuildStats(guildId?: string, period: StatsPeriod = '7d'): Promise<void> {
     const targetGuildId = guildId || this.guildFacade.selectedGuildId();
     
     if (!targetGuildId) {
@@ -161,7 +162,7 @@ export class StatisticsFacadeService {
   /**
    * Charge les stats d'un membre spécifique
    */
-  async loadMemberStats(userId: string, period: StatsPeriod = '30d' as StatsPeriod): Promise<void> {
+  async loadMemberStats(userId: string, period: StatsPeriod = STATS_PERIODS.MONTH): Promise<void> {
     const guildId = this.guildFacade.selectedGuildId();
     
     if (!guildId) {
