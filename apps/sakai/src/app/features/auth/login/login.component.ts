@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { RippleModule } from 'primeng/ripple';
-import { AppFloatingConfiguratorComponent } from '@app/components/floatingconfigurator.component';
+import { AppFloatingConfiguratorComponent } from '@app/components/core/floatingconfigurator.component';
 import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
 
 @Component({

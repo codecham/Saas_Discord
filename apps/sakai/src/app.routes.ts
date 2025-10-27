@@ -42,7 +42,7 @@ export const appRoutes: Routes = [
                 path: 'dashboard',
                 canActivate: [guildGuard],
                 loadComponent: () => import('./app/features/dashboard/dashboard.component')
-                    .then(m => m.DemoDashboardComponent)
+                    .then(m => m.DashboardComponent)
             },
             {
                 path: 'server-info',

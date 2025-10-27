@@ -3,7 +3,7 @@ import { MenuItem } from 'primeng/api';
 import { Router, RouterModule } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { StyleClassModule } from 'primeng/styleclass';
-import { AppConfiguratorComponent } from '../components/configurator.component';
+import { AppConfiguratorComponent } from '../components/core/configurator.component';
 import { LayoutService } from '../services/layout.service';
 import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
 import { AvatarModule } from 'primeng/avatar';

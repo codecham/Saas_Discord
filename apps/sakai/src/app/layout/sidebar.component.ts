@@ -1,8 +1,8 @@
 import { Component, ElementRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { AppMenuComponent } from '../components/menu.component';
-import { GuildSelectorComponent } from '../components/guild-selector.component';
+import { AppMenuComponent } from '../components/core/menu.component';
+import { GuildSelectorComponent } from '../components/core/guild-selector.component';
 import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
 import { ButtonModule } from 'primeng/button';
 

@@ -21,14 +21,14 @@ import { DividerModule } from 'primeng/divider';
 import { MemberFacadeService } from '@app/services/member/member-facade.service';
 import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
 import { GuildMemberDTO } from '@my-project/shared-types';
-import { MemberRolesComponent } from '@app/components/member-roles.component';
+import { MemberRolesComponent } from '@app/components/core/member-roles.component';
 import { 
   MemberActionModalsComponent,
   KickMemberAction,
   BanMemberAction,
   TimeoutMemberAction,
   NicknameChangeAction
-} from '@components/member-action-modals.component';
+} from '@app/components/core/member-action-modals.component';
 
 /**
  * ✅ VERSION FINALE - Composant de gestion des membres

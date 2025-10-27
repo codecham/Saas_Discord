@@ -1,5 +1,3 @@
-// apps/sakai/src/app/components/widgets/activity-timeline-widget.component.ts
-
 import { Component, inject, OnInit, OnDestroy, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -415,3 +413,4 @@ export class ActivityTimelineWidgetComponent implements OnInit, OnDestroy {
     }
   }
 }
+

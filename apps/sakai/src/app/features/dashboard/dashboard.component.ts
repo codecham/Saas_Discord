@@ -12,29 +12,16 @@ import { ActivityHeatmapWidgetComponent } from '@app/components/widgets/activity
 @Component({
     selector: 'app-dashboard',
     standalone: true,
-    imports: [StatsCardsWidgetComponent, ActivityTimelineWidgetComponent, ActivityHeatmapWidgetComponent],
+    imports: [StatsCardsWidgetComponent],
     template: `
         <div class="grid grid-cols-12 gap-8">
             <!-- Stats Cards Widget -->
             <app-stats-cards-widget />
-            <div class="col-span-6">
-                <app-activity-timeline-widget />
-            </div>
-            <div class="col-span-6">
-                <app-activity-heatmap-widget />
-            </div>
-            <div class="col-span-4">
-                <!-- <app-top-contributors-podium-widget /> -->
-            </div>
-
-
-            
-            <!-- Placeholder pour les prochains widgets -->
-            <!-- <app-activity-chart-widget />
-            <app-leaderboard-widget /> -->
+            <!-- <app-activity-timeline-widget /> -->
+            <!-- <app-activity-heatmap-widget /> -->
         </div>
     `
 })
-export class DemoDashboardComponent {
+export class DashboardComponent {
     private statFacade = inject(StatisticsFacadeService);
 }
