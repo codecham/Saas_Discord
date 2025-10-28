@@ -127,7 +127,7 @@ import { SetupOnboardingModalComponent } from '@app/components/guild-onboarding/
                   <ng-template #grid let-guilds>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       @for (guild of guilds; track guild.id) {
-                        <div class="card p-0 hover:shadow-lg transition-shadow cursor-pointer"
+                        <div class="card p-0 hover:shadow-lg transition-shadow cursor-pointer h-full"
                              [class.ring-2]="selectedGuildId === guild.id"
                              [class.ring-primary]="selectedGuildId === guild.id">
                           <div class="flex flex-col h-full">
@@ -202,7 +202,7 @@ import { SetupOnboardingModalComponent } from '@app/components/guild-onboarding/
                   <ng-template #grid let-guilds>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       @for (guild of guilds; track guild.id) {
-                        <div class="card p-0 hover:shadow-lg transition-shadow">
+                        <div class="card p-0 hover:shadow-lg transition-shadow h-full">
                           <div class="flex flex-col h-full">
                             <!-- Guild Image -->
                             <div class="relative h-32 bg-gradient-to-br from-orange-400 to-red-500 rounded-t-lg overflow-hidden">
@@ -283,7 +283,7 @@ import { SetupOnboardingModalComponent } from '@app/components/guild-onboarding/
                   <ng-template #grid let-guilds>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       @for (guild of guilds; track guild.id) {
-                        <div class="card p-0 hover:shadow-lg transition-shadow">
+                        <div class="card p-0 hover:shadow-lg transition-shadow h-full">
                           <div class="flex flex-col h-full">
                             <!-- Guild Image -->
                             <div class="relative h-32 bg-gradient-to-br from-gray-400 to-gray-600 rounded-t-lg overflow-hidden">

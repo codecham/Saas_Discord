@@ -1,3 +1,4 @@
+// apps/sakai/src/app/components/guild-onboarding/setup-onboarding-modal.component.ts
 import { Component, inject, input, output, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -224,6 +225,7 @@ import { QuickStartAnswersDto } from '@my-project/shared-types';
                     [showClear]="true"
                     [filter]="true"
                     filterBy="name"
+                    appendTo="body"
                     class="w-full">
                     <ng-template #selectedItem let-option>
                       @if (option) {
