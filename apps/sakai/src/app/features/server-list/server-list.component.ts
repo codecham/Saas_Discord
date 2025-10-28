@@ -12,6 +12,7 @@ import { TabsModule } from 'primeng/tabs';
 
 // Services
 import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
+import { OnboardingFacadeService } from '@app/services/onboarding/onboarding-facade.service';
 import { GuildWithBotStatusDTO } from '@my-project/shared-types';
 
 @Component({
@@ -124,15 +125,20 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
                     <div class="grid grid-cols-12 gap-4">
                       @for (guild of guilds; track guild.id) {
                         <div class="col-span-12 sm:col-span-6 lg:col-span-4 p-2">
-                          <div class="border border-surface rounded-lg flex flex-col h-full hover:shadow-lg transition-all duration-300 overflow-hidden"
-                               [class.ring-2]="guildFacade.isGuildSelected(guild.id)"
-                               [class.ring-primary]="guildFacade.isGuildSelected(guild.id)">
+                          <div 
+                            class="border border-surface rounded-lg flex flex-col h-full hover:shadow-lg transition-shadow duration-300 cursor-pointer overflow-hidden"
+                            [class.ring-2]="selectedGuildId === guild.id"
+                            [class.ring-primary-500]="selectedGuildId === guild.id"
+                            (click)="selectGuild(guild)">
                             
                             <!-- Header avec fond gradient et icône circulaire -->
-                            <div class="relative bg-gradient-to-br from-primary-100 to-primary-50 dark:from-primary-900 dark:to-primary-800 p-6 flex items-center justify-center">
+                            <div class="relative bg-gradient-to-br from-green-100 to-emerald-50 dark:from-green-900 dark:to-emerald-800 p-6 flex items-center justify-center">
                               <!-- Status Badge -->
                               <div class="absolute top-3 right-3">
-                                <p-tag value="Actif" severity="success" [rounded]="true" />
+                                <p-tag value="Actif" severity="success" [rounded]="true">
+                                  <i class="pi pi-check-circle mr-1"></i>
+                                  Actif
+                                </p-tag>
                               </div>
 
                               <!-- Guild Icon (circulaire) -->
@@ -142,7 +148,7 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
                                   [src]="getGuildIconUrl(guild)" 
                                   [alt]="guild.name" />
                               } @else {
-                                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg border-4 border-white dark:border-surface-800">
+                                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg border-4 border-white dark:border-surface-800">
                                   {{ guild.name.charAt(0).toUpperCase() }}
                                 </div>
                               }
@@ -163,16 +169,13 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
                                 </div>
                               </div>
 
-                              <!-- Action Button -->
-                              <div class="mt-auto">
-                                <p-button 
-                                  label="Administrer" 
-                                  icon="pi pi-arrow-right"
-                                  iconPos="right"
-                                  styleClass="w-full"
-                                  [loading]="guildFacade.isLoadingGuildDetails() && selectedGuildId === guild.id"
-                                  (onClick)="selectGuild(guild)" />
-                              </div>
+                              <!-- Stats -->
+                              @if (guild.lastSync) {
+                                <div class="text-sm text-surface-600 dark:text-surface-400 mb-4">
+                                  <i class="pi pi-clock mr-2"></i>
+                                  Dernière synchro: {{ formatDate(guild.lastSync) }}
+                                </div>
+                              }
                             </div>
                           </div>
                         </div>
@@ -185,7 +188,7 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
                   <i class="pi pi-inbox text-6xl text-surface-400 mb-4"></i>
                   <div class="text-xl font-semibold mb-2">Aucun serveur actif</div>
                   <p class="text-surface-600 dark:text-surface-400">
-                    Le bot n'est présent sur aucun de vos serveurs
+                    Invitez le bot sur un serveur pour commencer !
                   </p>
                 </div>
               }
@@ -194,7 +197,7 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
             <!-- Panel Serveurs Inactifs -->
             <p-tabpanel [value]="1">
               <p-message severity="warn" styleClass="w-full mb-4">
-                Le bot a été retiré de ces serveurs. Vous pouvez le réinviter pour réactiver la configuration.
+                ⚠️ Le bot a été retiré de ces serveurs. Vous pouvez le réinviter pour réactiver l'administration.
               </p-message>
 
               @if (guildFacade.inactiveGuilds().length > 0) {
@@ -206,20 +209,26 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
                           <div class="border border-orange-200 dark:border-orange-800 rounded-lg flex flex-col h-full bg-orange-50/30 dark:bg-orange-950/10 hover:shadow-lg transition-all duration-300 overflow-hidden">
                             
                             <!-- Header avec fond gradient et icône circulaire -->
-                            <div class="relative bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-900 dark:to-orange-800 p-6 flex items-center justify-center">
+                            <div class="relative bg-gradient-to-br from-orange-100 to-yellow-50 dark:from-orange-900 dark:to-yellow-800 p-6 flex items-center justify-center">
                               <!-- Status Badge -->
                               <div class="absolute top-3 right-3">
-                                <p-tag value="Inactif" severity="warn" [rounded]="true" />
+                                <p-tag value="Inactif" severity="warn" [rounded]="true">
+                                  <i class="pi pi-clock mr-1"></i>
+                                  Inactif
+                                </p-tag>
                               </div>
 
-                              <!-- Guild Icon (circulaire avec opacité) -->
+                              <!-- Guild Icon (circulaire avec overlay désaturé) -->
                               @if (guild.icon) {
-                                <img 
-                                  class="w-24 h-24 rounded-full object-cover shadow-lg border-4 border-white dark:border-surface-800 opacity-75"
-                                  [src]="getGuildIconUrl(guild)" 
-                                  [alt]="guild.name" />
+                                <div class="relative">
+                                  <img 
+                                    class="w-24 h-24 rounded-full object-cover shadow-lg border-4 border-white dark:border-surface-800 grayscale"
+                                    [src]="getGuildIconUrl(guild)" 
+                                    [alt]="guild.name" />
+                                  <div class="absolute inset-0 w-24 h-24 rounded-full bg-black/20"></div>
+                                </div>
                               } @else {
-                                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg border-4 border-white dark:border-surface-800 opacity-75">
+                                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-orange-300 to-yellow-500 opacity-60 flex items-center justify-center text-white text-4xl font-bold shadow-lg border-4 border-white dark:border-surface-800">
                                   {{ guild.name.charAt(0).toUpperCase() }}
                                 </div>
                               }
@@ -238,21 +247,24 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
                                   }
                                   <p-tag value="ADMIN" icon="pi pi-shield" severity="info" />
                                 </div>
-                                @if (guild.botAddedAt) {
-                                  <div class="text-sm text-surface-600 dark:text-surface-400 mt-2">
-                                    <i class="pi pi-clock mr-1"></i>
-                                    Inactif depuis {{ formatDate(guild.botAddedAt) }}
-                                  </div>
-                                }
                               </div>
 
-                              <!-- Action Button -->
+                              <!-- Info inactivité -->
+                              @if (guild.botRemovedAt) {
+                                <div class="text-sm text-orange-700 dark:text-orange-300 mb-4 bg-orange-100 dark:bg-orange-900/30 p-3 rounded">
+                                  <i class="pi pi-info-circle mr-2"></i>
+                                  Inactif depuis {{ formatDate(guild.botRemovedAt) }}
+                                </div>
+                              }
+
+                              <!-- Action Button - RÉACTIVER -->
                               <div class="mt-auto">
                                 <p-button 
                                   label="Réactiver le bot" 
-                                  icon="pi pi-replay"
+                                  icon="pi pi-refresh"
                                   severity="warn"
                                   styleClass="w-full"
+                                  [loading]="isReactivating(guild.id)"
                                   (onClick)="reactivateBot(guild)" />
                               </div>
                             </div>
@@ -267,7 +279,7 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
                   <i class="pi pi-check-circle text-6xl text-green-500 mb-4"></i>
                   <div class="text-xl font-semibold mb-2">Aucun serveur inactif</div>
                   <p class="text-surface-600 dark:text-surface-400">
-                    Tous vos serveurs sont actifs - Excellent !
+                    Le bot est actif sur tous vos serveurs configurés !
                   </p>
                 </div>
               }
@@ -276,7 +288,7 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
             <!-- Panel Serveurs Non Configurés -->
             <p-tabpanel [value]="2">
               <p-message severity="info" styleClass="w-full mb-4">
-                Ajoutez le bot à ces serveurs pour commencer à les administrer avec notre plateforme.
+                🚀 Ajoutez le bot à ces serveurs pour commencer à les administrer avec notre plateforme.
               </p-message>
 
               @if (guildFacade.notAddedGuilds().length > 0) {
@@ -322,14 +334,15 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
                                 </div>
                               </div>
 
-                              <!-- Action Button -->
+                              <!-- Action Button - AJOUTER -->
                               <div class="mt-auto">
                                 <p-button 
-                                  label="Configurer le bot" 
-                                  icon="pi pi-cog"
+                                  label="Ajouter le bot" 
+                                  icon="pi pi-plus"
                                   severity="info"
                                   styleClass="w-full"
-                                  (onClick)="configureBot(guild)" />
+                                  [loading]="isAddingBot(guild.id)"
+                                  (onClick)="addBot(guild)" />
                               </div>
                             </div>
                           </div>
@@ -363,7 +376,7 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
                 <li>Seuls les serveurs où vous avez les droits administrateur sont affichés</li>
                 <li>Les serveurs actifs ont le bot connecté et fonctionnel</li>
                 <li>Vous pouvez réactiver un serveur inactif en réinvitant le bot</li>
-                <li>Pour les nouveaux serveurs, cliquez sur "Configurer le bot" pour commencer</li>
+                <li>Pour les nouveaux serveurs, cliquez sur "Ajouter le bot" pour commencer</li>
               </ul>
             </div>
           </div>
@@ -379,9 +392,13 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
 })
 export class ServerListComponent implements OnInit {
   protected readonly guildFacade = inject(GuildFacadeService);
+  protected readonly onboardingFacade = inject(OnboardingFacadeService);
   private readonly router = inject(Router);
   
   protected selectedGuildId: string | null = null;
+
+  // Track which guild is being processed for onboarding
+  private processingGuildId: string | null = null;
 
   // Computed pour le total de guilds
   totalGuildsCount = computed(() => {
@@ -399,6 +416,9 @@ export class ServerListComponent implements OnInit {
     }
   }
 
+  /**
+   * Sélectionne une guild active pour l'administrer
+   */
   async selectGuild(guild: GuildWithBotStatusDTO): Promise<void> {
     this.selectedGuildId = guild.id;
     try {
@@ -409,15 +429,86 @@ export class ServerListComponent implements OnInit {
     }
   }
 
+  /**
+   * Rafraîchit la liste des guilds
+   */
   async refreshGuilds(): Promise<void> {
     await this.guildFacade.refreshGuildsList();
   }
 
+  /**
+   * ✨ NOUVEAU: Ajoute le bot à une guild non configurée
+   */
+  async addBot(guild: GuildWithBotStatusDTO): Promise<void> {
+    console.log('[ServerList] Adding bot to guild:', guild.id, guild.name);
+    
+    this.processingGuildId = guild.id;
+    
+    try {
+      // Démarre le flow d'onboarding
+      await this.onboardingFacade.startOnboarding(guild.id);
+      
+      // TODO Phase 2.3: Ouvrir la modal de setup avec polling
+      // Pour l'instant, on ouvre juste Discord et on informe l'utilisateur
+      
+    } catch (error) {
+      console.error('[ServerList] Failed to add bot:', error);
+    } finally {
+      // Reset après un délai pour laisser le temps au polling de démarrer
+      setTimeout(() => {
+        this.processingGuildId = null;
+      }, 1000);
+    }
+  }
+
+  /**
+   * ✨ NOUVEAU: Réactive le bot sur une guild inactive
+   */
+  async reactivateBot(guild: GuildWithBotStatusDTO): Promise<void> {
+    console.log('[ServerList] Reactivating bot for guild:', guild.id, guild.name);
+    
+    this.processingGuildId = guild.id;
+    
+    try {
+      // Démarre le flow de réactivation (identique à l'ajout)
+      await this.onboardingFacade.reactivateBot(guild.id);
+      
+      // TODO Phase 2.3: Ouvrir la modal de setup avec polling
+      
+    } catch (error) {
+      console.error('[ServerList] Failed to reactivate bot:', error);
+    } finally {
+      setTimeout(() => {
+        this.processingGuildId = null;
+      }, 1000);
+    }
+  }
+
+  /**
+   * Vérifie si un bot est en cours d'ajout
+   */
+  isAddingBot(guildId: string): boolean {
+    return this.processingGuildId === guildId;
+  }
+
+  /**
+   * Vérifie si un bot est en cours de réactivation
+   */
+  isReactivating(guildId: string): boolean {
+    return this.processingGuildId === guildId;
+  }
+
+  /**
+   * Récupère l'URL de l'icône de la guild
+   */
   getGuildIconUrl(guild: GuildWithBotStatusDTO): string {
     if (!guild.icon) return '';
     return `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=256`;
   }
 
+  /**
+   * Formate une date en format relatif (ex: "2j", "3m", "1a")
+   */
   formatDate(dateString: string): string {
     const date = new Date(dateString);
     const now = new Date();
@@ -433,16 +524,5 @@ export class ServerListComponent implements OnInit {
       const years = Math.floor(diffDays / 365);
       return `${years}a`;
     }
-  }
-
-  // Actions pour les guilds inactives et non configurées
-  reactivateBot(guild: GuildWithBotStatusDTO): void {
-    console.log('Réactivation du bot pour la guild:', guild.id, guild.name);
-    // TODO: Implémenter la logique de réinvitation du bot
-  }
-
-  configureBot(guild: GuildWithBotStatusDTO): void {
-    console.log('Configuration du bot pour la guild:', guild.id, guild.name);
-    // TODO: Implémenter la logique d'ajout du bot
   }
 }

@@ -113,4 +113,41 @@ export class GuildSetupController {
 
     return this.quickStartService.applyAnswers(answers);
   }
+
+  /**
+   * Génère l'URL d'invitation Discord OAuth pour ajouter le bot
+   * Pré-remplit le guild_id pour une expérience fluide
+   *
+   * @example GET /api/guilds/123456789/invite-url
+   */
+  @Get('invite-url')
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async getInviteUrl(
+    @Param('guildId') guildId: string,
+  ): Promise<{ inviteUrl: string }> {
+    this.logger.log(`Generating invite URL for guild ${guildId}`);
+
+    // Récupérer le bot client ID depuis les variables d'environnement
+    const clientId = process.env.DISCORD_CLIENT_ID;
+
+    if (!clientId) {
+      throw new Error('DISCORD_BOT_CLIENT_ID not configured');
+    }
+
+    // Permissions requises (calculées en fonction des features)
+    // Voir: https://discord.com/developers/docs/topics/permissions
+    const permissions = [
+      '8', // Administrator (ou liste spécifique de permissions)
+      // Alternative: liste détaillée des permissions nécessaires
+      // '2048',     // VIEW_CHANNELS
+      // '3072',     // SEND_MESSAGES + EMBED_LINKS
+      // '8192',     // MANAGE_MESSAGES
+      // '268435456' // MANAGE_ROLES
+    ].join('');
+
+    // Construire l'URL OAuth
+    const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=${permissions}&guild_id=${guildId}&scope=bot%20applications.commands`;
+
+    return { inviteUrl };
+  }
 }
