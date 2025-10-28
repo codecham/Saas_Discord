@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, computed } from '@angular/core';
+import { Component, inject, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 
@@ -15,6 +15,9 @@ import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
 import { OnboardingFacadeService } from '@app/services/onboarding/onboarding-facade.service';
 import { GuildWithBotStatusDTO } from '@my-project/shared-types';
 
+// Components
+import { SetupOnboardingModalComponent } from '@app/components/guild-onboarding/setup-onboarding-modal.component';
+
 @Component({
   selector: 'app-server-list',
   standalone: true,
@@ -25,7 +28,8 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
     TagModule,
     MessageModule,
     ProgressSpinnerModule,
-    TabsModule
+    TabsModule,
+    SetupOnboardingModalComponent
   ],
   template: `
     <div class="card">
@@ -58,61 +62,60 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
 
       <!-- Loading -->
       @if (guildFacade.isLoading()) {
-        <div class="flex justify-center items-center py-12">
+        <div class="flex justify-center items-center py-16">
           <p-progressSpinner 
             styleClass="w-16 h-16" 
             strokeWidth="4"
-            animationDuration="1s" />
+            animationDuration="1s">
+          </p-progressSpinner>
         </div>
       }
 
-      <!-- Error -->
-      @if (guildFacade.error()) {
-        <p-message 
-          severity="error" 
-          styleClass="w-full mb-4">
-          <div class="flex items-center gap-2">
-            <i class="pi pi-exclamation-triangle"></i>
-            <div>
-              <div class="font-semibold">Erreur</div>
-              <div>{{ guildFacade.error() }}</div>
-            </div>
-          </div>
-        </p-message>
+      <!-- Empty State -->
+      @if (!guildFacade.isLoading() && totalGuildsCount() === 0) {
+        <div class="text-center py-16">
+          <i class="pi pi-server text-6xl text-surface-400 mb-4"></i>
+          <div class="text-xl font-semibold mb-2">Aucun serveur trouvé</div>
+          <p class="text-surface-600 dark:text-surface-400 mb-6">
+            Vous devez avoir les droits administrateur sur un serveur Discord pour utiliser cette application.
+          </p>
+          <p-button 
+            label="Rafraîchir" 
+            icon="pi pi-refresh" 
+            (onClick)="refreshGuilds()" />
+        </div>
       }
 
-      <!-- Tabs pour les 3 catégories -->
-      @if (!guildFacade.isLoading()) {
-        <p-tabs [value]="0">
+      <!-- Tabs avec les listes -->
+      @if (!guildFacade.isLoading() && totalGuildsCount() > 0) {
+        <p-tabs [value]="0" styleClass="w-full">
           <p-tablist>
-            <!-- Tab Actifs -->
             <p-tab [value]="0">
-              <i class="pi pi-check-circle mr-2"></i>
               Serveurs actifs
-              <p-tag 
-                [value]="guildFacade.activeGuilds().length.toString()" 
-                severity="success" 
-                styleClass="ml-2" />
+              @if (guildFacade.activeGuilds().length > 0) {
+                <p-tag 
+                  [value]="guildFacade.activeGuilds().length.toString()" 
+                  severity="success"
+                  styleClass="ml-2" />
+              }
             </p-tab>
-
-            <!-- Tab Inactifs -->
             <p-tab [value]="1">
-              <i class="pi pi-clock mr-2"></i>
               Serveurs inactifs
-              <p-tag 
-                [value]="guildFacade.inactiveGuilds().length.toString()" 
-                severity="warn" 
-                styleClass="ml-2" />
+              @if (guildFacade.inactiveGuilds().length > 0) {
+                <p-tag 
+                  [value]="guildFacade.inactiveGuilds().length.toString()" 
+                  severity="warn"
+                  styleClass="ml-2" />
+              }
             </p-tab>
-
-            <!-- Tab Non configurés -->
             <p-tab [value]="2">
-              <i class="pi pi-plus-circle mr-2"></i>
               Non configurés
-              <p-tag 
-                [value]="guildFacade.notAddedGuilds().length.toString()" 
-                severity="info" 
-                styleClass="ml-2" />
+              @if (guildFacade.notAddedGuilds().length > 0) {
+                <p-tag 
+                  [value]="guildFacade.notAddedGuilds().length.toString()" 
+                  severity="info"
+                  styleClass="ml-2" />
+              }
             </p-tab>
           </p-tablist>
 
@@ -122,33 +125,23 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
               @if (guildFacade.activeGuilds().length > 0) {
                 <p-dataview [value]="guildFacade.activeGuilds()" layout="grid">
                   <ng-template #grid let-guilds>
-                    <div class="grid grid-cols-12 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       @for (guild of guilds; track guild.id) {
-                        <div class="col-span-12 sm:col-span-6 lg:col-span-4 p-2">
-                          <div 
-                            class="border border-surface rounded-lg flex flex-col h-full hover:shadow-lg transition-shadow duration-300 cursor-pointer overflow-hidden"
-                            [class.ring-2]="selectedGuildId === guild.id"
-                            [class.ring-primary-500]="selectedGuildId === guild.id"
-                            (click)="selectGuild(guild)">
-                            
-                            <!-- Header avec fond gradient et icône circulaire -->
-                            <div class="relative bg-gradient-to-br from-green-100 to-emerald-50 dark:from-green-900 dark:to-emerald-800 p-6 flex items-center justify-center">
-                              <!-- Status Badge -->
-                              <div class="absolute top-3 right-3">
-                                <p-tag value="Actif" severity="success" [rounded]="true">
-                                  <i class="pi pi-check-circle mr-1"></i>
-                                  Actif
-                                </p-tag>
-                              </div>
-
-                              <!-- Guild Icon (circulaire) -->
+                        <div class="card p-0 hover:shadow-lg transition-shadow cursor-pointer"
+                             [class.ring-2]="selectedGuildId === guild.id"
+                             [class.ring-primary]="selectedGuildId === guild.id">
+                          <div class="flex flex-col h-full">
+                            <!-- Guild Image -->
+                            <div class="relative h-32 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-t-lg overflow-hidden">
                               @if (guild.icon) {
-                                <img 
-                                  class="w-24 h-24 rounded-full object-cover shadow-lg border-4 border-white dark:border-surface-800"
-                                  [src]="getGuildIconUrl(guild)" 
-                                  [alt]="guild.name" />
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                  <img 
+                                    class="w-24 h-24 rounded-full shadow-xl border-4 border-white dark:border-surface-800"
+                                    [src]="getGuildIconUrl(guild)" 
+                                    [alt]="guild.name" />
+                                </div>
                               } @else {
-                                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg border-4 border-white dark:border-surface-800">
+                                <div class="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm absolute inset-0 m-auto flex items-center justify-center text-white text-4xl font-bold shadow-xl border-4 border-white dark:border-surface-800">
                                   {{ guild.name.charAt(0).toUpperCase() }}
                                 </div>
                               }
@@ -166,16 +159,20 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
                                     <p-tag value="OWNER" icon="pi pi-crown" severity="warn" />
                                   }
                                   <p-tag value="ADMIN" icon="pi pi-shield" severity="info" />
+                                  <p-tag value="BOT ACTIF" icon="pi pi-check-circle" severity="success" />
                                 </div>
                               </div>
 
-                              <!-- Stats -->
-                              @if (guild.lastSync) {
-                                <div class="text-sm text-surface-600 dark:text-surface-400 mb-4">
-                                  <i class="pi pi-clock mr-2"></i>
-                                  Dernière synchro: {{ formatDate(guild.lastSync) }}
-                                </div>
-                              }
+                              <!-- Action Button -->
+                              <div class="mt-auto">
+                                <p-button 
+                                  label="Gérer ce serveur" 
+                                  icon="pi pi-cog"
+                                  severity="info"
+                                  styleClass="w-full"
+                                  [loading]="selectedGuildId === guild.id"
+                                  (onClick)="selectGuild(guild)" />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -188,7 +185,7 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
                   <i class="pi pi-inbox text-6xl text-surface-400 mb-4"></i>
                   <div class="text-xl font-semibold mb-2">Aucun serveur actif</div>
                   <p class="text-surface-600 dark:text-surface-400">
-                    Invitez le bot sur un serveur pour commencer !
+                    Vous n'avez pas encore configuré de serveur avec le bot.
                   </p>
                 </div>
               }
@@ -196,39 +193,29 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
 
             <!-- Panel Serveurs Inactifs -->
             <p-tabpanel [value]="1">
-              <p-message severity="warn" styleClass="w-full mb-4">
-                ⚠️ Le bot a été retiré de ces serveurs. Vous pouvez le réinviter pour réactiver l'administration.
-              </p-message>
-
               @if (guildFacade.inactiveGuilds().length > 0) {
+                <p-message severity="warn" styleClass="w-full mb-4">
+                  ⚠️ Ces serveurs ont retiré le bot. Vous pouvez le réinviter pour reprendre le suivi.
+                </p-message>
+
                 <p-dataview [value]="guildFacade.inactiveGuilds()" layout="grid">
                   <ng-template #grid let-guilds>
-                    <div class="grid grid-cols-12 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       @for (guild of guilds; track guild.id) {
-                        <div class="col-span-12 sm:col-span-6 lg:col-span-4 p-2">
-                          <div class="border border-orange-200 dark:border-orange-800 rounded-lg flex flex-col h-full bg-orange-50/30 dark:bg-orange-950/10 hover:shadow-lg transition-all duration-300 overflow-hidden">
-                            
-                            <!-- Header avec fond gradient et icône circulaire -->
-                            <div class="relative bg-gradient-to-br from-orange-100 to-yellow-50 dark:from-orange-900 dark:to-yellow-800 p-6 flex items-center justify-center">
-                              <!-- Status Badge -->
-                              <div class="absolute top-3 right-3">
-                                <p-tag value="Inactif" severity="warn" [rounded]="true">
-                                  <i class="pi pi-clock mr-1"></i>
-                                  Inactif
-                                </p-tag>
-                              </div>
-
-                              <!-- Guild Icon (circulaire avec overlay désaturé) -->
+                        <div class="card p-0 hover:shadow-lg transition-shadow">
+                          <div class="flex flex-col h-full">
+                            <!-- Guild Image -->
+                            <div class="relative h-32 bg-gradient-to-br from-orange-400 to-red-500 rounded-t-lg overflow-hidden">
                               @if (guild.icon) {
-                                <div class="relative">
+                                <div class="absolute inset-0 flex items-center justify-center">
                                   <img 
-                                    class="w-24 h-24 rounded-full object-cover shadow-lg border-4 border-white dark:border-surface-800 grayscale"
+                                    class="w-24 h-24 rounded-full shadow-xl border-4 border-white dark:border-surface-800 grayscale"
                                     [src]="getGuildIconUrl(guild)" 
                                     [alt]="guild.name" />
                                   <div class="absolute inset-0 w-24 h-24 rounded-full bg-black/20"></div>
                                 </div>
                               } @else {
-                                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-orange-300 to-yellow-500 opacity-60 flex items-center justify-center text-white text-4xl font-bold shadow-lg border-4 border-white dark:border-surface-800">
+                                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-orange-300 to-yellow-500 opacity-60 absolute inset-0 m-auto flex items-center justify-center text-white text-4xl font-bold shadow-xl border-4 border-white dark:border-surface-800">
                                   {{ guild.name.charAt(0).toUpperCase() }}
                                 </div>
                               }
@@ -294,26 +281,21 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
               @if (guildFacade.notAddedGuilds().length > 0) {
                 <p-dataview [value]="guildFacade.notAddedGuilds()" layout="grid">
                   <ng-template #grid let-guilds>
-                    <div class="grid grid-cols-12 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       @for (guild of guilds; track guild.id) {
-                        <div class="col-span-12 sm:col-span-6 lg:col-span-4 p-2">
-                          <div class="border border-blue-200 dark:border-blue-800 rounded-lg flex flex-col h-full bg-blue-50/30 dark:bg-blue-950/10 hover:shadow-lg transition-all duration-300 overflow-hidden">
-                            
-                            <!-- Header avec fond gradient et icône circulaire -->
-                            <div class="relative bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900 dark:to-blue-800 p-6 flex items-center justify-center">
-                              <!-- Status Badge -->
-                              <div class="absolute top-3 right-3">
-                                <p-tag value="Non configuré" severity="info" [rounded]="true" />
-                              </div>
-
-                              <!-- Guild Icon (circulaire) -->
+                        <div class="card p-0 hover:shadow-lg transition-shadow">
+                          <div class="flex flex-col h-full">
+                            <!-- Guild Image -->
+                            <div class="relative h-32 bg-gradient-to-br from-gray-400 to-gray-600 rounded-t-lg overflow-hidden">
                               @if (guild.icon) {
-                                <img 
-                                  class="w-24 h-24 rounded-full object-cover shadow-lg border-4 border-white dark:border-surface-800"
-                                  [src]="getGuildIconUrl(guild)" 
-                                  [alt]="guild.name" />
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                  <img 
+                                    class="w-24 h-24 rounded-full shadow-xl border-4 border-white dark:border-surface-800 grayscale"
+                                    [src]="getGuildIconUrl(guild)" 
+                                    [alt]="guild.name" />
+                                </div>
                               } @else {
-                                <div class="w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg border-4 border-white dark:border-surface-800">
+                                <div class="w-24 h-24 rounded-full bg-white/30 absolute inset-0 m-auto flex items-center justify-center text-white text-4xl font-bold shadow-xl border-4 border-white dark:border-surface-800">
                                   {{ guild.name.charAt(0).toUpperCase() }}
                                 </div>
                               }
@@ -383,6 +365,14 @@ import { GuildWithBotStatusDTO } from '@my-project/shared-types';
         </div>
       }
     </div>
+
+    <!-- 🆕 Modal d'onboarding -->
+    <app-setup-onboarding-modal
+      [visible]="showOnboardingModal()"
+      [guildId]="onboardingGuildId()"
+      [guildName]="onboardingGuildName()"
+      (visibleChange)="closeOnboardingModal()"
+      (setupComplete)="handleSetupComplete()" />
   `,
   styles: [`
     :host {
@@ -399,6 +389,11 @@ export class ServerListComponent implements OnInit {
 
   // Track which guild is being processed for onboarding
   private processingGuildId: string | null = null;
+
+  // 🆕 Modal state
+  protected showOnboardingModal = signal(false);
+  protected onboardingGuildId = signal('');
+  protected onboardingGuildName = signal('');
 
   // Computed pour le total de guilds
   totalGuildsCount = computed(() => {
@@ -437,7 +432,7 @@ export class ServerListComponent implements OnInit {
   }
 
   /**
-   * ✨ NOUVEAU: Ajoute le bot à une guild non configurée
+   * 🆕 Ajoute le bot à une guild non configurée
    */
   async addBot(guild: GuildWithBotStatusDTO): Promise<void> {
     console.log('[ServerList] Adding bot to guild:', guild.id, guild.name);
@@ -445,16 +440,19 @@ export class ServerListComponent implements OnInit {
     this.processingGuildId = guild.id;
     
     try {
+      // Ouvrir la modal AVANT de démarrer l'onboarding
+      this.onboardingGuildId.set(guild.id);
+      this.onboardingGuildName.set(guild.name);
+      this.showOnboardingModal.set(true);
+
       // Démarre le flow d'onboarding
       await this.onboardingFacade.startOnboarding(guild.id);
       
-      // TODO Phase 2.3: Ouvrir la modal de setup avec polling
-      // Pour l'instant, on ouvre juste Discord et on informe l'utilisateur
-      
     } catch (error) {
       console.error('[ServerList] Failed to add bot:', error);
+      this.closeOnboardingModal();
     } finally {
-      // Reset après un délai pour laisser le temps au polling de démarrer
+      // Reset après un délai
       setTimeout(() => {
         this.processingGuildId = null;
       }, 1000);
@@ -462,7 +460,7 @@ export class ServerListComponent implements OnInit {
   }
 
   /**
-   * ✨ NOUVEAU: Réactive le bot sur une guild inactive
+   * 🆕 Réactive le bot sur une guild inactive
    */
   async reactivateBot(guild: GuildWithBotStatusDTO): Promise<void> {
     console.log('[ServerList] Reactivating bot for guild:', guild.id, guild.name);
@@ -470,18 +468,44 @@ export class ServerListComponent implements OnInit {
     this.processingGuildId = guild.id;
     
     try {
-      // Démarre le flow de réactivation (identique à l'ajout)
+      // Ouvrir la modal AVANT de démarrer la réactivation
+      this.onboardingGuildId.set(guild.id);
+      this.onboardingGuildName.set(guild.name);
+      this.showOnboardingModal.set(true);
+
+      // Démarre le flow de réactivation
       await this.onboardingFacade.reactivateBot(guild.id);
-      
-      // TODO Phase 2.3: Ouvrir la modal de setup avec polling
       
     } catch (error) {
       console.error('[ServerList] Failed to reactivate bot:', error);
+      this.closeOnboardingModal();
     } finally {
       setTimeout(() => {
         this.processingGuildId = null;
       }, 1000);
     }
+  }
+
+  /**
+   * 🆕 Ferme la modal d'onboarding
+   */
+  protected closeOnboardingModal(): void {
+    this.showOnboardingModal.set(false);
+    
+    // Reset après animation de fermeture
+    setTimeout(() => {
+      this.onboardingGuildId.set('');
+      this.onboardingGuildName.set('');
+    }, 300);
+  }
+
+  /**
+   * 🆕 Gère la fin du setup
+   */
+  protected handleSetupComplete(): void {
+    console.log('[ServerList] Setup complete, refreshing guilds...');
+    // Rafraîchir la liste des guilds pour mettre à jour les états
+    this.refreshGuilds();
   }
 
   /**
@@ -524,5 +548,12 @@ export class ServerListComponent implements OnInit {
       const years = Math.floor(diffDays / 365);
       return `${years}a`;
     }
+  }
+
+  /**
+   * Navigate to server list (for back button)
+   */
+  protected navigateToServerList(): void {
+    this.router.navigate(['/server-list']);
   }
 }
