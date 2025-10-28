@@ -468,56 +468,56 @@ USER          FRONTEND              BACKEND              BOT              DISCOR
 ### Phase 1: Backend Setup (2-3 jours)
 
 #### 1.1 Database Migration
-- [ ] Ajouter `botRemovedAt` à `Guild`
-- [ ] Créer table `GuildSettings` complète
-- [ ] Créer migration Prisma
-- [ ] Tester migration sur DB de dev
-- [ ] Seed data pour tests
+- [x] Ajouter `botRemovedAt` à `Guild`
+- [x] Créer table `GuildSettings` complète
+- [x] Créer migration Prisma
+- [x] Tester migration sur DB de dev
+- [x] Seed data pour tests
 
 #### 1.2 DTOs & Interfaces
 **Fichier:** `packages/shared-types/src/guild/`
-- [ ] `GuildSetupStatusDto` (status enum + error)
-- [ ] `GuildSettingsDto` (full settings)
-- [ ] `SetupProgressDto` (pour polling)
-- [ ] `QuickStartAnswersDto` (wizard data)
+- [x] `GuildSetupStatusDto` (status enum + error)
+- [x] `GuildSettingsDto` (full settings)
+- [x] `SetupProgressDto` (pour polling)
+- [x] `QuickStartAnswersDto` (wizard data)
 
 #### 1.3 Backend Services
 **Fichier:** `apps/backend/src/modules/guild-setup/`
-- [ ] `GuildSetupService`
-  - [ ] `initializeGuild(guildId)` → Setup initial
-  - [ ] `checkSetupStatus(guildId)` → Pour polling
-  - [ ] `validatePermissions(guildId)` → Vérif perms
-  - [ ] `quickSync(guildId)` → Sync léger (réactivation)
-  - [ ] `refreshGuildData(guildId)` → Sync complet
+- [x] `GuildSetupService`
+  - [x] `initializeGuild(guildId)` → Setup initial
+  - [x] `checkSetupStatus(guildId)` → Pour polling
+  - [x] `validatePermissions(guildId)` → Vérif perms
+  - [x] `quickSync(guildId)` → Sync léger (réactivation)
+  - [x] `refreshGuildData(guildId)` → Sync complet
 
-- [ ] `GuildSettingsService`
-  - [ ] `create(guildId, defaults)` → Settings par défaut
-  - [ ] `update(guildId, data)` → MAJ settings
-  - [ ] `get(guildId)` → Récup settings
-  - [ ] `applyQuickStartAnswers(guildId, answers)` → Apply wizard
+- [x] `GuildSettingsService`
+  - [x] `create(guildId, defaults)` → Settings par défaut
+  - [x] `update(guildId, data)` → MAJ settings
+  - [x] `get(guildId)` → Récup settings
+  - [x] `applyQuickStartAnswers(guildId, answers)` → Apply wizard
 
 #### 1.4 Backend Controllers
 **Fichier:** `apps/backend/src/modules/guild-setup/`
-- [ ] `POST /api/guilds/:guildId/setup/initialize` → Trigger setup
-- [ ] `GET /api/guilds/:guildId/setup/status` → Polling endpoint
-- [ ] `POST /api/guilds/:guildId/setup/quick-start` → Save wizard
-- [ ] `GET /api/guilds/:guildId/invite-url` → Generate OAuth link
+- [x] `POST /api/guilds/:guildId/setup/initialize` → Trigger setup
+- [x] `GET /api/guilds/:guildId/setup/status` → Polling endpoint
+- [x] `POST /api/guilds/:guildId/setup/quick-start` → Save wizard
+- [x] `GET /api/guilds/:guildId/invite-url` → Generate OAuth link
 
 #### 1.5 Bot Event Handler
 **Fichier:** `apps/bot/src/listeners/guild/`
-- [ ] Listener `GUILD_CREATE`
-  - [ ] Check si nouvelle guild ou réactivation
-  - [ ] Fetch guild data complet (channels, roles, members)
-  - [ ] Envoyer event via Gateway
-  - [ ] Gérer erreurs (permissions, rate limit)
+- [x] Listener `GUILD_CREATE`
+  - [x] Check si nouvelle guild ou réactivation
+  - [x] Fetch guild data complet (channels, roles, members)
+  - [x] Envoyer event via Gateway
+  - [x] Gérer erreurs (permissions, rate limit)
 
 #### 1.6 Backend Event Handler
 **Fichier:** `apps/backend/src/modules/gateway/`
-- [ ] Handler event `GUILD_CREATE` du bot
-  - [ ] Router vers `GuildSetupService`
-  - [ ] Gérer timeouts (30s max)
-  - [ ] Retry logic (3 attempts)
-  - [ ] Emit status updates (WebSocket)
+- [x] Handler event `GUILD_CREATE` du bot
+  - [x] Router vers `GuildSetupService`
+  - [x] Gérer timeouts (30s max)
+  - [x] Retry logic (3 attempts)
+  - [x] Emit status updates (WebSocket)
 
 ---
 

@@ -112,3 +112,10 @@ echo ""
 echo "Pour tester :"
 echo "- Frontend: cd apps/frontend && npm start"
 echo "- Backend: cd apps/backend && npm run start:dev"
+
+
+touch packages/shared-types/src/dtos/app/guild-setup/guild-setup.enums.ts &&
+touch packages/shared-types/src/dtos/app/guild-setup/guild-settings.dto.ts &&
+touch packages/shared-types/src/dtos/app/guild-setup/guild-setup-status.dto.ts &&
+touch packages/shared-types/src/dtos/app/guild-setup/quick-start.dto.ts &&
+touch packages/shared-types/src/dtos/app/guild-setup/backfill.dto.ts

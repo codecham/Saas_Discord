@@ -63,14 +63,92 @@ model Guild {
   ownerDiscordId String  @map("owner_discord_id")
   
   // Status
-  botAddedAt DateTime @default(now()) @map("bot_added_at")
-  isActive   Boolean  @default(true) @map("is_active")
+  botAddedAt   DateTime  @default(now()) @map("bot_added_at")
+  botRemovedAt DateTime? @map("bot_removed_at")
+  isActive     Boolean   @default(true) @map("is_active")
+  
+  // Relations
+  settings GuildSettings?
   
   // Métadonnées
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("guilds")
+}
+
+model GuildSettings {
+  id                    String   @id @default(cuid())
+  guildId               String   @unique @map("guild_id")
+  
+  // ═══════════════════════════════════════
+  // INITIALISATION
+  // ═══════════════════════════════════════
+  initializationStatus  String   @default("pending") @map("initialization_status")
+  // Values: "pending" | "initializing" | "ready" | "error" | "partial"
+  
+  initializationError   String?  @map("initialization_error")
+  initializedAt         DateTime? @map("initialized_at")
+  
+  // ═══════════════════════════════════════
+  // MODULES ACTIVÉS
+  // ═══════════════════════════════════════
+  moduleStats           Boolean  @default(true) @map("module_stats")
+  moduleModeration      Boolean  @default(false) @map("module_moderation")
+  moduleInvites         Boolean  @default(true) @map("module_invites")
+  moduleAutomod         Boolean  @default(false) @map("module_automod")
+  moduleWelcome         Boolean  @default(false) @map("module_welcome")
+  
+  // ═══════════════════════════════════════
+  // CONFIGURATION STATS
+  // ═══════════════════════════════════════
+  statsBackfillDays     Int      @default(0) @map("stats_backfill_days")
+  // 0 = pas de backfill, 7 = optionnel free, 30/60/90 = premium
+  
+  statsBackfillStatus   String   @default("none") @map("stats_backfill_status")
+  // Values: "none" | "requested" | "in_progress" | "completed" | "failed"
+  
+  statsBackfillProgress Int      @default(0) @map("stats_backfill_progress")
+  // Pourcentage 0-100
+  
+  statsRetentionDays    Int      @default(90) @map("stats_retention_days")
+  statsBackfilledAt     DateTime? @map("stats_backfilled_at")
+  
+  // ═══════════════════════════════════════
+  // CONFIGURATION MODÉRATION
+  // ═══════════════════════════════════════
+  modLogChannelId       String?  @map("mod_log_channel_id")
+  autoModLevel          String   @default("medium") @map("automod_level")
+  // Values: "off" | "low" | "medium" | "high"
+  
+  // ═══════════════════════════════════════
+  // CONFIGURATION INVITES
+  // ═══════════════════════════════════════
+  trackInvites          Boolean  @default(true) @map("track_invites")
+  inviteAnalytics       Boolean  @default(true) @map("invite_analytics")
+  
+  // ═══════════════════════════════════════
+  // LOCALE & TIMEZONE
+  // ═══════════════════════════════════════
+  locale                String   @default("en") @map("locale")
+  timezone              String   @default("UTC") @map("timezone")
+  
+  // ═══════════════════════════════════════
+  // PERMISSIONS (Role IDs)
+  // ═══════════════════════════════════════
+  adminRoleIds          String[] @default([]) @map("admin_role_ids")
+  modRoleIds            String[] @default([]) @map("mod_role_ids")
+  
+  // ═══════════════════════════════════════
+  // MÉTADONNÉES
+  // ═══════════════════════════════════════
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+  
+  // Relation
+  guild                 Guild    @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
+  
+  @@map("guild_settings")
 }
 
 

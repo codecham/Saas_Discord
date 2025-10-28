@@ -12,6 +12,7 @@ import { RedisModule } from './modules/redis/redis.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { EventsModule } from './modules/events/events.module';
+import { GuildSetupModule } from './modules/guild-setup/guild-setup.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { EventsModule } from './modules/events/events.module';
     DiscordModule,
     RedisModule,
     EventsModule,
+    GuildSetupModule,
   ],
   controllers: [AppController],
   providers: [

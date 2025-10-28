@@ -10,7 +10,6 @@
 export * from './dtos/app/auth/auth.dto'
 export * from './dtos/app/app-discord.dto';
 export * from './dtos/app/events/botEvent.dto';
-// export * from './dtos/app/stats/stats-response.dto';
 export type { 
   DashboardStatsDto,
   MemberStatsDto,
@@ -23,6 +22,7 @@ export type {
   ActivityTimelineQueryDto
 } from './dtos/app/stats/stats-response.dto'; // Legacy - À supprimer après migration
 export * from './dtos/app/stats'; // Stats V2 - Nouvelle architecture
+export * from './dtos/app/guild-setup';
 
 /*
 	DTO raw api discord 
