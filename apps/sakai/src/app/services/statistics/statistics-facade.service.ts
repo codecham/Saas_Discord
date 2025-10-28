@@ -120,6 +120,7 @@ export class StatisticsFacadeService {
         this.loadTimeline(targetGuildId),
       ]);
 
+      this.printData();
       // Sauvegarder dans le cache
       this.statsData.saveToCache(targetGuildId);
 
@@ -314,5 +315,19 @@ export class StatisticsFacadeService {
     if (guildId) {
       this.statsData.invalidateCache(guildId);
     }
+  }
+
+
+  printData(): void {
+    console.log(`[Statistics Facade]:`);
+    console.log(`guildStats: ${JSON.stringify(this.guildStats())}`);
+    console.log(`memberStats: ${JSON.stringify(this.memberStats())}`);
+    console.log(`membersList: ${JSON.stringify(this.membersList())}`);
+    console.log(`rankings: ${JSON.stringify(this.rankings())}`);
+    console.log(`timeline: ${JSON.stringify(this.timeline())}`);
+    console.log(`members: ${JSON.stringify(this.members())}`);
+    console.log(`pagination: ${JSON.stringify(this.pagination())}`);
+    console.log(`topThree: ${JSON.stringify(this.topThree())}`);
+    console.log(`remainingRankings: ${JSON.stringify(this.remainingRankings())}`);
   }
 }
