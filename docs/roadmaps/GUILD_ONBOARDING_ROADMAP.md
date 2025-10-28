@@ -525,43 +525,43 @@ USER          FRONTEND              BACKEND              BOT              DISCOR
 
 #### 2.1 Services
 **Fichier:** `apps/sakai/src/app/services/guild-setup/`
-- [ ] `GuildSetupFacadeService`
-  - [ ] `startSetup(guildId)` → Trigger + polling
-  - [ ] `pollStatus(guildId)` → Check every 2s
-  - [ ] `submitQuickStart(guildId, answers)` → Save wizard
-  - [ ] Signals: `setupStatus$`, `error$`, `progress$`
+- [x] `GuildSetupFacadeService`
+  - [x] `startSetup(guildId)` → Trigger + polling
+  - [x] `pollStatus(guildId)` → Check every 2s
+  - [x] `submitQuickStart(guildId, answers)` → Save wizard
+  - [x] Signals: `setupStatus$`, `error$`, `progress$`
 
-- [ ] `GuildSetupApiService`
-  - [ ] API calls vers endpoints backend
+- [x] `GuildSetupApiService`
+  - [x] API calls vers endpoints backend
 
 #### 2.2 Components
 
 **ServerList Component** (déjà existe, à modifier)
 **Fichier:** `apps/sakai/src/app/features/server-list/`
-- [ ] Ajouter badge "Configurer" sur guilds not added
-- [ ] Handler clic → Open setup modal
-- [ ] Générer OAuth URL avec guild_id
+- [x] Ajouter badge "Configurer" sur guilds not added
+- [x] Handler clic → Open setup modal
+- [x] Générer OAuth URL avec guild_id
 
 **GuildSetupModal Component** (nouveau)
 **Fichier:** `apps/sakai/src/app/features/guild-setup/`
-- [ ] Modal PrimeNG `p-dialog`
-- [ ] Étapes:
-  - [ ] Loading state (spinner + messages)
-  - [ ] Error state (message + retry button)
-  - [ ] Partial state (warnings + continue anyway)
-  - [ ] Success state (auto-close + redirect)
-- [ ] Polling automatique status
-- [ ] Timeouts (30s → show error)
+- [x] Modal PrimeNG `p-dialog`
+- [x] Étapes:
+  - [x] Loading state (spinner + messages)
+  - [x] Error state (message + retry button)
+  - [x] Partial state (warnings + continue anyway)
+  - [x] Success state (auto-close + redirect)
+- [x] Polling automatique status
+- [x] Timeouts (30s → show error)
 
 **QuickStartWizard Component** (nouveau)
 **Fichier:** `apps/sakai/src/app/features/guild-setup/`
-- [ ] Wizard PrimeNG `p-steps`
-- [ ] 2-3 questions simples:
-  - [ ] Toggle: Activer stats?
-  - [ ] Toggle: Tracker invites?
-  - [ ] Dropdown: Canal logs? (liste channels)
-- [ ] Skip button
-- [ ] Submit → Save settings
+- [x] Wizard PrimeNG `p-steps`
+- [x] 2-3 questions simples:
+  - [x] Toggle: Activer stats?
+  - [x] Toggle: Tracker invites?
+  - [x] Dropdown: Canal logs? (liste channels)
+- [x] Skip button
+- [x] Submit → Save settings
 
 #### 2.3 Routing & Guards
 - [ ] Route `/guild-setup/:guildId` → Setup flow
