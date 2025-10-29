@@ -564,9 +564,9 @@ USER          FRONTEND              BACKEND              BOT              DISCOR
 - [x] Submit → Save settings
 
 #### 2.3 Routing & Guards
-- [ ] Route `/guild-setup/:guildId` → Setup flow
-- [ ] Guard `GuildSetupGuard` → Vérifier status avant dashboard
-- [ ] Redirect auto vers dashboard si `status === 'ready'`
+- [x] Route `/guild-setup/:guildId` → Setup flow
+- [x] Guard `GuildSetupGuard` → Vérifier status avant dashboard
+- [x] Redirect auto vers dashboard si `status === 'ready'`
 
 ---
 
