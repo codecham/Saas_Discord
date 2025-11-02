@@ -1,6 +1,6 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { PrismaService } from 'src/core/prisma/prisma.service';
 import { EncryptionService } from './encryption.service';
 import { OAuthStateService } from './oauth-state.service'; // 👈 NOUVEAU
 

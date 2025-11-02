@@ -9,7 +9,7 @@ Ce document contient toutes les informations critiques pour comprendre le projet
 ## 🎯 Vision & Objectifs du Projet
 
 ### Ambition
-Créer une application d'administration Discord **premium** capable de concurrencer MEE6, Carl-Bot et Dyno.
+Créer une application d'administration/moderation Discord **premium** capable de concurrencer MEE6, Carl-Bot et Dyno.
 
 ### Différenciateurs Clés
 1. **UI/UX supérieure** : Interface web moderne, intuitive (template Sakai + PrimeNG)
@@ -31,7 +31,7 @@ Créer une application d'administration Discord **premium** capable de concurren
 #### Frontend
 - **Framework** : Angular 20
 - **UI Library** : PrimeNG
-- **Styling** : TailwindCSS
+- **Styling** : TailwindCSS (No SCSS)
 - **Template** : Sakai (exemples dans fichiers `*demo.ts`)
 - **Pattern** : Services en facade (facade → api → data)
 
@@ -107,6 +107,7 @@ users               : Auth Discord (tokens chiffrés, metadata)
 refresh_tokens      : JWT refresh tokens
 guilds              : Config basique (guildId, isActive, botAddedAt)
 guild_settings      : Config app (modules enabled, prefix, language)
+member_stats        : Donnée et Statistiques relatif à un membre sur un serveur 
 subscriptions       : Billing (tier, status, Stripe IDs)
 automations         : Workflows custom (trigger, actions, conditions)
 tickets             : Support tickets (status, priority, messages)
@@ -427,23 +428,3 @@ Question : [ta question spécifique]
 
 ---
 
-## 🎉 Checklist Avant de Coder
-
-Avant de démarrer n'importe quelle feature :
-
-- [ ] Lire la tâche complète dans la roadmap
-- [ ] Vérifier si dépendances nécessaires (autres tâches terminées ?)
-- [ ] Consulter docs existantes (architecture, patterns)
-- [ ] Schématiser l'approche (sur papier/whiteboard)
-- [ ] Identifier modules/services impactés
-- [ ] Estimer temps réaliste (× 1.5 pour sécurité)
-- [ ] Tests : définir critères d'acceptance
-- [ ] Start coding! 🚀
-
----
-
-**Version** : 1.0  
-**Dernière mise à jour** : Octobre 2025  
-**Auteur** : Documentation générée lors de la planification initiale
-
-Ce document est **vivant** : update au fur et à mesure des décisions d'architecture ou changements majeurs.

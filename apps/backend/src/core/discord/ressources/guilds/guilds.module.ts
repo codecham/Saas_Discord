@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { GuildsController } from './guilds.controller';
 import { GuildsService } from './guilds.service';
-import { AuthModule } from 'src/modules/auth/auth.module';
+import { AuthModule } from 'src/core/auth/auth.module';
 
 /**
  * Module pour la gestion des guilds (serveurs Discord)

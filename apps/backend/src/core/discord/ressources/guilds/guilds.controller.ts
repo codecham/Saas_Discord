@@ -15,7 +15,7 @@ import { GuildsService } from './guilds.service';
 import { DiscordExceptionFilter } from '../../common/filters/discord-exception.filter';
 import { DiscordResponseInterceptor } from '../../common/interceptors/discord-response.interceptor';
 import { GuildAdminGuard } from '../../common/guards/guild-admin.guard';
-import { JwtAuthGuard } from 'src/modules/auth/guards/jwt-auth.guard';
+import { JwtAuthGuard } from 'src/core/auth/guards/jwt-auth.guard';
 
 /**
  * Controller pour les endpoints liés aux guilds Discord

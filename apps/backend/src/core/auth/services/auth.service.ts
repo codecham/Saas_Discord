@@ -11,7 +11,7 @@ import {
   UserRole,
 } from '@my-project/shared-types';
 import * as crypto from 'crypto';
-import { InternalTokenRefreshResult } from 'src/modules/interfaces/InternalTokenRefreshResult.interface';
+import { InternalTokenRefreshResult } from 'src/core/interfaces/InternalTokenRefreshResult.interface';
 
 /**
  * Service principal d'authentification

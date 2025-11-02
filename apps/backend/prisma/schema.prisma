@@ -69,6 +69,7 @@ model Guild {
   
   // Relations
   settings GuildSettings?
+  modules  GuildModule[]
   
   // Métadonnées
   createdAt DateTime @default(now()) @map("created_at")
@@ -149,6 +150,31 @@ model GuildSettings {
   guild                 Guild    @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
   
   @@map("guild_settings")
+}
+
+// ============================================
+// MODULE SYSTEM
+// ============================================
+
+/// Table générique pour les modules activés par serveur
+model GuildModule {
+  id         String   @id @default(cuid())
+  guildId    String   @map("guild_id") @db.VarChar(20)
+  moduleId   String   @map("module_id") @db.VarChar(50)
+  enabled    Boolean  @default(false)
+  enabledAt  DateTime? @map("enabled_at") @db.Timestamptz
+  disabledAt DateTime? @map("disabled_at") @db.Timestamptz
+  config     Json?    // Config spécifique JSON
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Relations
+  guild Guild @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
+
+  @@unique([guildId, moduleId])
+  @@index([guildId])
+  @@index([enabled])
+  @@map("guild_modules")
 }
 
 

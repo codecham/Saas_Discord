@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-call */
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
-import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { PrismaService } from 'src/core/prisma/prisma.service';
 import { EncryptionService } from './encryption.service';
 import { DiscordOAuthService } from './discord-oauth.service';
 

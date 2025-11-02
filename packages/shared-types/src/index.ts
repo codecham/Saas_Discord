@@ -23,6 +23,7 @@ export type {
 } from './dtos/app/stats/stats-response.dto'; // Legacy - À supprimer après migration
 export * from './dtos/app/stats'; // Stats V2 - Nouvelle architecture
 export * from './dtos/app/guild-setup';
+export * from './dtos/app/modules';
 
 /*
 	DTO raw api discord 

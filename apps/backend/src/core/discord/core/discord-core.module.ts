@@ -5,7 +5,7 @@ import { DiscordApiService } from './discord-api.service';
 import { DiscordRateLimiterService } from './discord-rate-limiter.service';
 import discordConfig from '../config/discord.config';
 import { GuildsDbService } from '../common/services/guild-db.service';
-import { PrismaService } from 'src/modules/prisma/prisma.service';
+import { PrismaService } from 'src/core/prisma/prisma.service';
 
 /**
  * Module global pour les services core de Discord

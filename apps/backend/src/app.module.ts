@@ -2,17 +2,18 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { PrismaService } from './modules/prisma/prisma.service';
-import { PrismaModule } from './modules/prisma/prisma.module';
-import { GatewayModule } from './modules/gateway/gateway.module';
-import { DiscordModule } from './modules/discord/discord.module';
-import { AuthModule } from './modules/auth/auth.module';
+import { PrismaService } from './core/prisma/prisma.service';
+import { PrismaModule } from './core/prisma/prisma.module';
+import { GatewayModule } from './core/gateway/gateway.module';
+import { DiscordModule } from './core/discord/discord.module';
+import { AuthModule } from './core/auth/auth.module';
 import { CacheModule } from '@nestjs/cache-manager';
-import { RedisModule } from './modules/redis/redis.module';
+import { RedisModule } from './core/redis/redis.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { EventsModule } from './modules/events/events.module';
-import { GuildSetupModule } from './modules/guild-setup/guild-setup.module';
+import { EventsModule } from './core/events/events.module';
+import { GuildSetupModule } from './core/guild-setup/guild-setup.module';
+import { ModuleSystemModule } from './core/module-system/module-system.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { GuildSetupModule } from './modules/guild-setup/guild-setup.module';
     RedisModule,
     EventsModule,
     GuildSetupModule,
+    ModuleSystemModule,
   ],
   controllers: [AppController],
   providers: [
