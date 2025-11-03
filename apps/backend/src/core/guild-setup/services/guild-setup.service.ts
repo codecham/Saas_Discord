@@ -126,6 +126,7 @@ export class GuildSetupService {
    */
   async getSetupStatus(guildId: string): Promise<GuildSetupStatusDto> {
     // Vérifier le cache en premier
+    this.logger.log(`getSetupStatus detected for guildid ${guildId}`);
     const cached = this.setupCache.get(guildId);
     if (cached) {
       return cached;
@@ -161,7 +162,7 @@ export class GuildSetupService {
         };
       }
     }
-
+    this.logger.log(`Status: ${JSON.stringify(status)}`);
     return status;
   }
 

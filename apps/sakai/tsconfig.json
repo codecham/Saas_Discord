@@ -28,6 +28,7 @@
             "@interceptor/*": ["src/app/interceptor/*"],
             "@environments/*": ["src/environments/*"],
             "@interfaces/*": ["src/app/inerfaces/*"],
+            "@types/*": ["src/app/types/*"],
             "@/*": [
                 "src/app/*"
             ]

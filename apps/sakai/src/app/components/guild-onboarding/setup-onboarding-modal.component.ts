@@ -7,23 +7,22 @@ import { FormsModule } from '@angular/forms';
 // PrimeNG
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
-import { ProgressBarModule } from 'primeng/progressbar';
+import { ProgressSpinnerModule } from 'primeng/progressspinner';
 import { MessageModule } from 'primeng/message';
-import { CheckboxModule } from 'primeng/checkbox';
 import { DividerModule } from 'primeng/divider';
-import { CardModule } from 'primeng/card';
 
 // Services & Types
 import { OnboardingFacadeService } from '@app/services/onboarding/onboarding-facade.service';
 
 /**
- * 🎯 Modal d'onboarding simplifiée - Sans QuickStart backend
+ * 🎯 Modal d'onboarding améliorée
  * 
  * Features:
- * - ✅ Affichage progression du setup (polling automatique)
- * - ✅ Configuration optionnelle (locale/timezone)
- * - ✅ Gestion des erreurs avec retry
- * - ✅ UX fluide et moderne
+ * - ✅ Spinner pendant le setup
+ * - ✅ Icône verte + message si succès
+ * - ✅ Icône rouge + message si erreur
+ * - ✅ Boutons pour fermer le modal
+ * - ✅ Gestion propre du lifecycle
  */
 @Component({
   selector: 'app-setup-onboarding-modal',
@@ -33,11 +32,9 @@ import { OnboardingFacadeService } from '@app/services/onboarding/onboarding-fac
     FormsModule,
     DialogModule,
     ButtonModule,
-    ProgressBarModule,
+    ProgressSpinnerModule,
     MessageModule,
-    CheckboxModule,
-    DividerModule,
-    CardModule
+    DividerModule
   ],
   template: `
     <p-dialog
@@ -47,20 +44,18 @@ import { OnboardingFacadeService } from '@app/services/onboarding/onboarding-fac
       [closeOnEscape]="canClose()"
       [draggable]="false"
       [resizable]="false"
-      [style]="{ width: '90vw', maxWidth: '600px' }"
+      [style]="{ width: '90vw', maxWidth: '500px' }"
       (onHide)="handleClose()">
       
       <!-- HEADER -->
       <ng-template #header>
         <div class="flex items-center gap-3">
-          @if (isSetupInProgress()) {
+          @if (isLoading()) {
             <i class="pi pi-spin pi-spinner text-2xl text-primary"></i>
-          } @else if (isSetupComplete() || configVisible()) {
+          } @else if (isSuccess()) {
             <i class="pi pi-check-circle text-2xl text-green-500"></i>
-          } @else if (isSetupFailed()) {
+          } @else if (isError()) {
             <i class="pi pi-times-circle text-2xl text-red-500"></i>
-          } @else {
-            <i class="pi pi-cog text-2xl"></i>
           }
           
           <div>
@@ -73,205 +68,148 @@ import { OnboardingFacadeService } from '@app/services/onboarding/onboarding-fac
       </ng-template>
 
       <!-- CONTENT -->
-      <div class="pt-4">
+      <div class="py-4">
         
-        <!-- STATE 1: Setup en cours -->
-        @if (isSetupInProgress()) {
-          <div class="space-y-6">
-            <!-- Progress Bar -->
-            <div>
-              <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-medium">{{ getCurrentStatusMessage() }}</span>
-                <span class="text-sm text-surface-600 dark:text-surface-400">
-                  {{ setupProgress() }}%
-                </span>
-              </div>
-              <p-progressBar 
-                [value]="setupProgress()" 
-                [showValue]="false"
-                styleClass="h-2" />
+        <!-- ========================================== -->
+        <!-- ÉTAT 1: CHARGEMENT (Spinner) -->
+        <!-- ========================================== -->
+        @if (isLoading()) {
+          <div class="flex flex-col items-center justify-center py-8 space-y-6">
+            <!-- Spinner -->
+            <p-progressSpinner
+              strokeWidth="4"
+              styleClass="w-20 h-20"
+              animationDuration="1s" />
+            
+            <!-- Message de progression -->
+            <div class="text-center space-y-2">
+              <p class="font-semibold text-lg">
+                {{ getCurrentStatusMessage() }}
+              </p>
+              <p class="text-sm text-surface-600 dark:text-surface-400">
+                Cela ne prendra que quelques secondes...
+              </p>
             </div>
 
-            <!-- Info card -->
-            <p-card styleClass="bg-primary-50 dark:bg-primary-950 border border-primary-200 dark:border-primary-800">
-              <div class="flex gap-3">
-                <i class="pi pi-info-circle text-primary text-xl flex-shrink-0"></i>
-                <div class="text-sm">
-                  <p class="font-semibold mb-1">⚡ Configuration ultra-rapide</p>
-                  <p class="text-surface-700 dark:text-surface-300">
-                    Nous configurons votre serveur en quelques secondes seulement !
-                  </p>
+            <!-- Barre de progression (optionnel) -->
+            @if (setupProgress() > 0) {
+              <div class="w-full max-w-xs">
+                <div class="flex justify-between text-xs text-surface-600 mb-1">
+                  <span>Progression</span>
+                  <span>{{ setupProgress() }}%</span>
+                </div>
+                <div class="w-full bg-surface-200 rounded-full h-2 overflow-hidden">
+                  <div 
+                    class="bg-primary h-full transition-all duration-300"
+                    [style.width.%]="setupProgress()">
+                  </div>
                 </div>
               </div>
-            </p-card>
+            }
+          </div>
+        }
 
-            <!-- Steps detail -->
-            <div class="space-y-2 text-sm">
-              <div class="flex items-center gap-2" [class.opacity-50]="setupProgress() < 25">
-                <i class="pi" [class.pi-check-circle]="setupProgress() >= 25" 
-                   [class.pi-circle]="setupProgress() < 25"
-                   [class.text-green-500]="setupProgress() >= 25"></i>
-                <span>Création du profil serveur</span>
-              </div>
-              <div class="flex items-center gap-2" [class.opacity-50]="setupProgress() < 50">
-                <i class="pi" [class.pi-check-circle]="setupProgress() >= 50" 
-                   [class.pi-circle]="setupProgress() < 50"
-                   [class.text-green-500]="setupProgress() >= 50"></i>
-                <span>Configuration des paramètres par défaut</span>
-              </div>
-              <div class="flex items-center gap-2" [class.opacity-50]="setupProgress() < 75">
-                <i class="pi" [class.pi-check-circle]="setupProgress() >= 75" 
-                   [class.pi-circle]="setupProgress() < 75"
-                   [class.text-green-500]="setupProgress() >= 75"></i>
-                <span>Vérification des permissions</span>
-              </div>
-              <div class="flex items-center gap-2" [class.opacity-50]="setupProgress() < 100">
-                <i class="pi" [class.pi-check-circle]="setupProgress() >= 100" 
-                   [class.pi-circle]="setupProgress() < 100"
-                   [class.text-green-500]="setupProgress() >= 100"></i>
-                <span>Finalisation</span>
-              </div>
+        <!-- ========================================== -->
+        <!-- ÉTAT 2: SUCCÈS (Icône verte + Message) -->
+        <!-- ========================================== -->
+        @if (isSuccess()) {
+          <div class="flex flex-col items-center justify-center py-6 space-y-4">
+            <!-- Icône de succès (grande) -->
+            <div class="w-20 h-20 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+              <i class="pi pi-check text-5xl text-green-600 dark:text-green-400"></i>
+            </div>
+
+            <!-- Message de succès -->
+            <div class="text-center space-y-2">
+              <h3 class="font-bold text-xl text-green-700 dark:text-green-400">
+                Configuration réussie !
+              </h3>
+              <p class="text-surface-600 dark:text-surface-400">
+                Votre serveur est maintenant configuré et prêt à être utilisé.
+              </p>
+            </div>
+
+            <!-- Optionnel: Warnings si setup partial -->
+            @if (isSetupPartial()) {
+              <p-message 
+                severity="warn" 
+                styleClass="w-full"
+                [closable]="false">
+                <div class="text-sm">
+                  <p class="font-semibold mb-1">⚠️ Configuration partielle</p>
+                  <p>{{ getWarningsText() }}</p>
+                </div>
+              </p-message>
+            }
+
+            <p-divider />
+
+            <!-- Bouton pour fermer -->
+            <div class="w-full flex justify-center gap-3">
+              <p-button 
+                label="Fermer" 
+                icon="pi pi-times"
+                [outlined]="true"
+                (onClick)="handleClose()" />
+              
+              <p-button 
+                label="Accéder au dashboard" 
+                icon="pi pi-arrow-right"
+                iconPos="right"
+                (onClick)="goToDashboard()" />
             </div>
           </div>
         }
 
-        <!-- STATE 2: Erreur -->
-        @if (isSetupFailed() && !configVisible()) {
-          <div class="space-y-4">
-            <p-message severity="error" styleClass="w-full">
-              <div class="flex flex-col gap-2">
-                <span class="font-semibold">Le setup a rencontré une erreur</span>
-                <span class="text-sm">{{ getErrorMessage() }}</span>
+        <!-- ========================================== -->
+        <!-- ÉTAT 3: ERREUR (Icône rouge + Message) -->
+        <!-- ========================================== -->
+        @if (isError()) {
+          <div class="flex flex-col items-center justify-center py-6 space-y-4">
+            <!-- Icône d'erreur (grande) -->
+            <div class="w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+              <i class="pi pi-times text-5xl text-red-600 dark:text-red-400"></i>
+            </div>
+
+            <!-- Message d'erreur -->
+            <div class="text-center space-y-2">
+              <h3 class="font-bold text-xl text-red-700 dark:text-red-400">
+                Erreur de configuration
+              </h3>
+              <p class="text-surface-600 dark:text-surface-400">
+                {{ getErrorMessage() }}
+              </p>
+            </div>
+
+            <!-- Message d'erreur détaillé -->
+            <p-message 
+              severity="error" 
+              styleClass="w-full"
+              [closable]="false">
+              <div class="text-sm">
+                <p class="font-semibold mb-1">Que s'est-il passé ?</p>
+                <p>{{ getErrorDetails() }}</p>
               </div>
             </p-message>
 
-            <div class="flex gap-2 justify-end">
+            <p-divider />
+
+            <!-- Boutons d'action -->
+            <div class="w-full flex justify-center gap-3">
+              <p-button 
+                label="Fermer" 
+                icon="pi pi-times"
+                [outlined]="true"
+                (onClick)="handleClose()" />
+              
               @if (canRetry()) {
                 <p-button 
                   label="Réessayer" 
                   icon="pi pi-refresh"
+                  severity="danger"
                   (onClick)="handleRetry()" />
               }
-              <p-button 
-                label="Fermer" 
-                severity="secondary"
-                [outlined]="true"
-                (onClick)="handleClose()" />
             </div>
-          </div>
-        }
-
-        <!-- STATE 3: Partial (warnings) -->
-        @if (isSetupPartial() && !configVisible()) {
-          <div class="space-y-4">
-            <p-message severity="warn" styleClass="w-full">
-              <div class="flex flex-col gap-2">
-                <span class="font-semibold">Configuration terminée avec des avertissements</span>
-                <span class="text-sm">{{ getWarningsText() }}</span>
-              </div>
-            </p-message>
-
-            <p class="text-sm text-surface-600 dark:text-surface-400">
-              Vous pouvez continuer et ajuster les paramètres plus tard depuis le dashboard.
-            </p>
-
-            <div class="flex gap-2 justify-end">
-              <p-button 
-                label="Continuer" 
-                icon="pi pi-arrow-right"
-                (onClick)="showConfig()" />
-            </div>
-          </div>
-        }
-
-        <!-- STATE 4: Success + Configuration Optionnelle -->
-        @if ((isSetupComplete() || isSetupPartial()) && configVisible()) {
-          <div class="space-y-6">
-            <!-- Success message -->
-            <p-message severity="success" styleClass="w-full" [closable]="false">
-              <div class="flex items-center gap-2">
-                <i class="pi pi-check-circle text-xl"></i>
-                <span class="font-semibold">Configuration terminée avec succès !</span>
-              </div>
-            </p-message>
-
-            <p-divider />
-
-            <!-- Config intro -->
-            <div>
-              <h3 class="font-semibold text-lg mb-2">
-                ⚙️ Configuration rapide (optionnel)
-              </h3>
-              <p class="text-sm text-surface-600 dark:text-surface-400">
-                Vous pouvez configurer quelques paramètres de base maintenant, 
-                ou le faire plus tard depuis le dashboard.
-              </p>
-            </div>
-
-            <!-- Locale -->
-            <div class="space-y-2">
-              <label class="block font-medium mb-2">
-                Langue de l'interface
-              </label>
-              <select 
-                [(ngModel)]="settings.locale"
-                class="w-full p-2 border rounded">
-                <option value="en">English</option>
-                <option value="fr">Français</option>
-                <option value="es">Español</option>
-              </select>
-            </div>
-
-            <p-divider />
-
-            <!-- Timezone -->
-            <div class="space-y-2">
-              <label class="block font-medium mb-2">
-                Fuseau horaire
-              </label>
-              <select 
-                [(ngModel)]="settings.timezone"
-                class="w-full p-2 border rounded">
-                <option value="UTC">UTC</option>
-                <option value="Europe/Paris">Europe/Paris</option>
-                <option value="America/New_York">America/New_York</option>
-                <option value="America/Los_Angeles">America/Los_Angeles</option>
-                <option value="Asia/Tokyo">Asia/Tokyo</option>
-              </select>
-            </div>
-
-            <!-- Actions -->
-            <div class="flex gap-2 justify-between pt-4">
-              <p-button 
-                label="Ignorer" 
-                severity="secondary"
-                [text]="true"
-                (onClick)="skipConfig()" />
-              
-              <p-button 
-                label="Sauvegarder" 
-                icon="pi pi-check"
-                [loading]="isSubmitting()"
-                (onClick)="submitConfig()" />
-            </div>
-
-            <!-- Premium teaser -->
-            <p-card styleClass="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 border border-purple-200 dark:border-purple-800">
-              <div class="flex items-start gap-3">
-                <i class="pi pi-star-fill text-yellow-500 text-2xl flex-shrink-0"></i>
-                <div>
-                  <p class="font-semibold mb-1">✨ Débloquez encore plus avec Premium</p>
-                  <p class="text-sm text-surface-700 dark:text-surface-300 mb-2">
-                    Historique de 90 jours, analytics avancées, automodération, et plus encore.
-                  </p>
-                  <p-button 
-                    label="Découvrir Premium" 
-                    [text]="true"
-                    size="small"
-                    icon="pi pi-arrow-right" />
-                </div>
-              </div>
-            </p-card>
           </div>
         }
       </div>
@@ -281,13 +219,24 @@ import { OnboardingFacadeService } from '@app/services/onboarding/onboarding-fac
     :host ::ng-deep {
       .p-dialog-header {
         border-bottom: 1px solid var(--surface-border);
+        padding: 1.5rem;
+      }
+      
+      .p-dialog-content {
+        padding: 0 1.5rem 1.5rem;
+      }
+
+      .p-progressspinner-circle {
+        stroke: var(--primary-color);
       }
     }
   `]
 })
 export class SetupOnboardingModalComponent {
   
+  // ============================================
   // INPUTS / OUTPUTS
+  // ============================================
   visible = input.required<boolean>();
   guildId = input.required<string>();
   guildName = input<string>('Serveur Discord');
@@ -295,70 +244,82 @@ export class SetupOnboardingModalComponent {
   visibleChange = output<boolean>();
   setupComplete = output<void>();
 
+  // ============================================
   // SERVICES
+  // ============================================
   protected readonly facade = inject(OnboardingFacadeService);
 
-  // STATE
-  protected configVisible = signal<boolean>(false);
-  protected isSubmitting = signal<boolean>(false);
+  // ============================================
+  // COMPUTED STATES
+  // ============================================
   
-  protected settings = {
-    locale: 'en',
-    timezone: 'UTC'
-  };
-
-  // COMPUTED
-  protected isSetupInProgress = this.facade.isSetupInProgress;
-  protected isSetupComplete = this.facade.isSetupComplete;
-  protected isSetupFailed = this.facade.isSetupFailed;
-  protected isSetupPartial = this.facade.isSetupPartial;
-  protected setupProgress = this.facade.setupProgress;
-  protected canRetry = this.facade.canRetry;
-
-  protected canClose = computed(() => {
-    return !this.isSetupInProgress();
+  // État de chargement (setup en cours)
+  protected isLoading = computed(() => {
+    return this.facade.isSetupInProgress();
   });
 
-  // LIFECYCLE
-  constructor() {
-    // Auto-show config when setup completes
-    effect(() => {
-      const complete = this.isSetupComplete();
-      const partial = this.isSetupPartial();
-      const visible = this.visible();
-      
-      if ((complete || partial) && visible && !this.configVisible()) {
-        setTimeout(() => {
-          this.configVisible.set(true);
-        }, 500);
-      }
-    });
-  }
+  // État de succès (setup terminé avec succès)
+  protected isSuccess = computed(() => {
+    return this.facade.isSetupComplete() || this.facade.isSetupPartial();
+  });
 
+  // État d'erreur (setup échoué)
+  protected isError = computed(() => {
+    return this.facade.isSetupFailed();
+  });
+
+  // Peut-on fermer le modal ?
+  protected canClose = computed(() => {
+    // On peut fermer si on n'est pas en train de charger
+    return !this.isLoading();
+  });
+
+  // Autres computed depuis facade
+  protected setupProgress = this.facade.setupProgress;
+  protected isSetupPartial = this.facade.isSetupPartial;
+  protected canRetry = this.facade.canRetry;
+
+  // ============================================
   // UI HELPERS
+  // ============================================
+
   protected getHeaderTitle(): string {
-    if (this.isSetupInProgress()) {
-      return 'Configuration du serveur';
+    if (this.isLoading()) {
+      return 'Configuration en cours...';
     }
-    if (this.isSetupFailed()) {
+    if (this.isSuccess()) {
+      return 'Configuration réussie';
+    }
+    if (this.isError()) {
       return 'Erreur de configuration';
     }
-    if (this.configVisible()) {
-      return 'Paramètres';
-    }
-    if (this.isSetupComplete() || this.isSetupPartial()) {
-      return 'Configuration terminée';
-    }
-    return 'Configuration';
+    return 'Configuration du serveur';
   }
 
   protected getCurrentStatusMessage(): string {
-    return this.facade.currentStepMessage() || 'Configuration en cours...';
+    return this.facade.currentStepMessage() || 'Initialisation...';
   }
 
   protected getErrorMessage(): string {
     const status = this.facade.setupStatus();
-    return status?.error?.message || 'Une erreur est survenue.';
+    if (status?.error?.message) {
+      return status.error.message;
+    }
+    return 'Une erreur est survenue lors de la configuration.';
+  }
+
+  protected getErrorDetails(): string {
+    const status = this.facade.setupStatus();
+    
+    if (status?.error?.code === 'USER_CANCELLED') {
+      return 'Vous avez annulé l\'invitation du bot. Vous pouvez réessayer quand vous le souhaitez.';
+    }
+    
+    if (status?.error?.resolution) {
+      return status.error.resolution;
+    }
+    
+    return 'Veuillez vérifier que le bot dispose des permissions nécessaires et réessayer.';
   }
 
   protected getWarningsText(): string {
@@ -367,37 +328,40 @@ export class SetupOnboardingModalComponent {
     return warnings.map(w => w.message).join('. ');
   }
 
+  // ============================================
   // ACTIONS
-  protected showConfig(): void {
-    this.configVisible.set(true);
-  }
-
-  protected async submitConfig(): Promise<void> {
-    this.isSubmitting.set(true);
-    
-    try {
-      await this.facade.updateGuildSettings(this.guildId(), this.settings);
-      this.setupComplete.emit();
-      this.handleClose();
-    } catch (error) {
-      console.error('[SetupModal] Failed to submit config:', error);
-    } finally {
-      this.isSubmitting.set(false);
-    }
-  }
-
-  protected async skipConfig(): Promise<void> {
-    await this.facade.skipConfiguration(this.guildId());
-    this.setupComplete.emit();
-    this.handleClose();
-  }
+  // ============================================
 
   protected async handleRetry(): Promise<void> {
+    console.log('[SetupModal] Retrying setup...');
     await this.facade.retrySetup(this.guildId());
   }
 
   protected handleClose(): void {
-    this.configVisible.set(false);
+    console.log('[SetupModal] Closing modal');
+    
+    // Si le setup est réussi, émettre l'événement setupComplete
+    if (this.isSuccess()) {
+      this.setupComplete.emit();
+    }
+    
+    // Fermer le modal
     this.visibleChange.emit(false);
+    
+    // Reset du facade
+    this.facade.reset();
+  }
+
+  protected goToDashboard(): void {
+    console.log('[SetupModal] Going to dashboard');
+    
+    // Émettre l'événement de completion
+    this.setupComplete.emit();
+    
+    // Fermer le modal
+    this.visibleChange.emit(false);
+    
+    // Le facade va gérer la navigation
+    // (ou on peut le faire ici directement)
   }
 }
