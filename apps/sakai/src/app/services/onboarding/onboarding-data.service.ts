@@ -1,18 +1,21 @@
+// apps/sakai/src/app/services/onboarding/onboarding-data.service.ts
+
 import { Injectable, signal, computed } from '@angular/core';
-import {
-  GuildSetupStatusDto,
-  QuickStartOptionsDto,
-  GuildSettingsDto,
+import { 
+  GuildSetupStatusDto, 
+  InitializationStatus 
 } from '@my-project/shared-types';
 
 /**
- * Service de gestion de l'état pour l'onboarding des guilds
+ * 🗄️ Service de gestion des données locales pour l'onboarding
  * 
  * Responsabilités:
  * - Stocker l'état du setup en cours
- * - Gérer le polling status
- * - Cache des options quick-start
- * - États de chargement et erreurs
+ * - Gérer les signals Angular pour réactivité
+ * - Calculer les états dérivés (isComplete, isFailed, etc.)
+ * - Cache temporaire des données
+ * 
+ * Pattern: Data Layer (pas d'appels HTTP)
  */
 @Injectable({
   providedIn: 'root'
@@ -20,205 +23,177 @@ import {
 export class OnboardingDataService {
   
   // ============================================
-  // SIGNALS PRIVÉS (État interne)
+  // SIGNALS - État du setup
   // ============================================
-
-  private _setupStatus = signal<GuildSetupStatusDto | null>(null);
-  private _quickStartOptions = signal<QuickStartOptionsDto | null>(null);
-  private _guildSettings = signal<GuildSettingsDto | null>(null);
-  private _inviteUrl = signal<string | null>(null);
-
-  // États de chargement
-  private _isLoadingStatus = signal<boolean>(false);
-  private _isLoadingQuickStart = signal<boolean>(false);
-  private _isSubmittingQuickStart = signal<boolean>(false);
-  private _isLoadingInviteUrl = signal<boolean>(false);
-
-  // Erreurs
-  private _error = signal<string | null>(null);
-
-  // Polling control
-  private _isPolling = signal<boolean>(false);
-  private _pollingAttempts = signal<number>(0);
-
-  // ============================================
-  // SIGNALS PUBLICS (Lecture seule)
-  // ============================================
-
-  readonly setupStatus = this._setupStatus.asReadonly();
-  readonly quickStartOptions = this._quickStartOptions.asReadonly();
-  readonly guildSettings = this._guildSettings.asReadonly();
-  readonly inviteUrl = this._inviteUrl.asReadonly();
-
-  readonly isLoadingStatus = this._isLoadingStatus.asReadonly();
-  readonly isLoadingQuickStart = this._isLoadingQuickStart.asReadonly();
-  readonly isSubmittingQuickStart = this._isSubmittingQuickStart.asReadonly();
-  readonly isLoadingInviteUrl = this._isLoadingInviteUrl.asReadonly();
-
-  readonly error = this._error.asReadonly();
-  readonly isPolling = this._isPolling.asReadonly();
-  readonly pollingAttempts = this._pollingAttempts.asReadonly();
-
-  // ============================================
-  // COMPUTED SIGNALS
-  // ============================================
-
+  
   /**
-   * Vérifie si le setup est terminé avec succès
+   * Status actuel du setup d'une guild
    */
-  readonly isSetupComplete = computed(() => {
-    const status = this._setupStatus();
-    return status?.status === 'ready';
-  });
+  private readonly _setupStatus = signal<GuildSetupStatusDto | null>(null);
+  readonly setupStatus = this._setupStatus.asReadonly();
 
   /**
-   * Vérifie si le setup est en cours
+   * Erreur globale (non liée au setup)
+   */
+  private readonly _error = signal<string | null>(null);
+  readonly error = this._error.asReadonly();
+
+  /**
+   * Flag de chargement global
+   */
+  private readonly _isLoading = signal<boolean>(false);
+  readonly isLoading = this._isLoading.asReadonly();
+
+  // ============================================
+  // COMPUTED - États dérivés
+  // ============================================
+
+  /**
+   * Le setup est-il en cours ?
    */
   readonly isSetupInProgress = computed(() => {
-    const status = this._setupStatus();
-    return status?.status === 'pending' || status?.status === 'initializing';
+    const status = this._setupStatus()?.status;
+    return status === InitializationStatus.PENDING || 
+           status === InitializationStatus.INITIALIZING;
   });
 
   /**
-   * Vérifie si le setup a échoué
+   * Le setup est-il terminé avec succès ?
+   */
+  readonly isSetupComplete = computed(() => {
+    return this._setupStatus()?.status === InitializationStatus.READY;
+  });
+
+  /**
+   * Le setup a-t-il échoué ?
    */
   readonly isSetupFailed = computed(() => {
-    const status = this._setupStatus();
-    return status?.status === 'error';
+    return this._setupStatus()?.status === InitializationStatus.ERROR;
   });
 
   /**
-   * Récupère le pourcentage de progression
+   * Le setup s'est-il terminé avec des warnings ?
+   */
+  readonly isSetupPartial = computed(() => {
+    return this._setupStatus()?.status === InitializationStatus.PARTIAL;
+  });
+
+  /**
+   * Progression du setup (0-100)
    */
   readonly setupProgress = computed(() => {
-    const status = this._setupStatus();
-    return status?.progress ?? 0;
+    return this._setupStatus()?.progress ?? 0;
   });
 
   /**
-   * Vérifie s'il y a des warnings
+   * Message d'étape actuelle
    */
-  readonly hasWarnings = computed(() => {
-    const status = this._setupStatus();
-    return (status?.warnings?.length ?? 0) > 0;
+  readonly currentStepMessage = computed(() => {
+    return this._setupStatus()?.currentStep ?? 'Initialisation...';
   });
 
   /**
-   * Vérifie si on peut continuer à poller
-   * (max 15 tentatives = 30 secondes à 2s d'intervalle)
-   */
-  readonly canContinuePolling = computed(() => {
-    return this._pollingAttempts() < 15;
-  });
-
-  /**
-   * Calcule le temps écoulé estimé
+   * Temps restant estimé (ms)
    */
   readonly estimatedTimeRemaining = computed(() => {
+    return this._setupStatus()?.estimatedTimeRemaining ?? null;
+  });
+
+  /**
+   * Peut-on retry le setup ?
+   */
+  readonly canRetry = computed(() => {
     const status = this._setupStatus();
-    if (!status) return null;
-
-    const progress = status.progress ?? 0;
-    const elapsed = status.elapsedTime ?? 0;
-
-    if (progress === 0) return null;
-    if (progress === 100) return 0;
-
-    // Estimation: (temps_écoulé / progression) * (100 - progression)
-    const totalEstimated = (elapsed / progress) * 100;
-    const remaining = totalEstimated - elapsed;
-
-    return Math.max(0, Math.round(remaining));
+    return status?.status === InitializationStatus.ERROR && 
+           status.error?.canRetry === true;
   });
 
   // ============================================
-  // SETTERS (Pour API service)
+  // MÉTHODES - Manipulation de l'état
   // ============================================
 
+  /**
+   * Met à jour le status du setup
+   */
   setSetupStatus(status: GuildSetupStatusDto | null): void {
     this._setupStatus.set(status);
   }
 
-  setQuickStartOptions(options: QuickStartOptionsDto | null): void {
-    this._quickStartOptions.set(options);
-  }
-
-  setGuildSettings(settings: GuildSettingsDto | null): void {
-    this._guildSettings.set(settings);
-  }
-
-  setInviteUrl(url: string | null): void {
-    this._inviteUrl.set(url);
-  }
-
-  setIsLoadingStatus(loading: boolean): void {
-    this._isLoadingStatus.set(loading);
-  }
-
-  setIsLoadingQuickStart(loading: boolean): void {
-    this._isLoadingQuickStart.set(loading);
-  }
-
-  setIsSubmittingQuickStart(loading: boolean): void {
-    this._isSubmittingQuickStart.set(loading);
-  }
-
-  setIsLoadingInviteUrl(loading: boolean): void {
-    this._isLoadingInviteUrl.set(loading);
-  }
-
+  /**
+   * Définit une erreur globale
+   */
   setError(error: string | null): void {
     this._error.set(error);
   }
 
-  setIsPolling(polling: boolean): void {
-    this._isPolling.set(polling);
+  /**
+   * Définit l'état de chargement
+   */
+  setLoading(isLoading: boolean): void {
+    this._isLoading.set(isLoading);
   }
-
-  incrementPollingAttempts(): void {
-    this._pollingAttempts.update(count => count + 1);
-  }
-
-  resetPollingAttempts(): void {
-    this._pollingAttempts.set(0);
-  }
-
-  // ============================================
-  // RESET
-  // ============================================
 
   /**
-   * Réinitialise complètement l'état du service
+   * Réinitialise complètement l'état
    */
   reset(): void {
     this._setupStatus.set(null);
-    this._quickStartOptions.set(null);
-    this._guildSettings.set(null);
-    this._inviteUrl.set(null);
-    this._isLoadingStatus.set(false);
-    this._isLoadingQuickStart.set(false);
-    this._isSubmittingQuickStart.set(false);
-    this._isLoadingInviteUrl.set(false);
     this._error.set(null);
-    this._isPolling.set(false);
-    this._pollingAttempts.set(0);
+    this._isLoading.set(false);
   }
 
   /**
-   * Réinitialise uniquement les états de chargement
+   * Met à jour uniquement la progression (utile pour polling)
    */
-  resetLoadingStates(): void {
-    this._isLoadingStatus.set(false);
-    this._isLoadingQuickStart.set(false);
-    this._isSubmittingQuickStart.set(false);
-    this._isLoadingInviteUrl.set(false);
+  updateProgress(progress: number, currentStep?: string): void {
+    const current = this._setupStatus();
+    if (current) {
+      this._setupStatus.set({
+        ...current,
+        progress,
+        currentStep: currentStep ?? current.currentStep
+      });
+    }
+  }
+
+  // ============================================
+  // HELPERS - Gestion des erreurs
+  // ============================================
+
+  /**
+   * Extrait un message d'erreur user-friendly
+   */
+  getErrorMessage(): string | null {
+    const status = this._setupStatus();
+    
+    // Erreur du setup
+    if (status?.error) {
+      return status.error.message;
+    }
+    
+    // Erreur globale
+    if (this._error()) {
+      return this._error();
+    }
+    
+    return null;
   }
 
   /**
-   * Réinitialise le polling
+   * Extrait les warnings si setup PARTIAL
    */
-  resetPolling(): void {
-    this._isPolling.set(false);
-    this._pollingAttempts.set(0);
+  getWarnings(): string[] {
+    const status = this._setupStatus();
+    if (status?.warnings) {
+      return status.warnings.map(w => w.message);
+    }
+    return [];
+  }
+
+  /**
+   * Vérifie si le setup peut être relancé
+   */
+  canRetrySetup(): boolean {
+    return this.canRetry();
   }
 }

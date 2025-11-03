@@ -1,75 +1,74 @@
-import { Injectable, inject } from '@angular/core';
+// apps/sakai/src/app/services/onboarding/onboarding-facade.service.ts
+
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
-import { firstValueFrom, interval, Subject, takeUntil, takeWhile } from 'rxjs';
-import { OnboardingDataService } from './onboarding-data.service';
-import { OnboardingApiService } from './onboarding-api.service';
-import { ErrorHandlerService } from '../error-handler.service';
 import { 
-  QuickStartAnswersDto,
-  InitializationStatus
+  InitializationStatus,
+  UpdateGuildSettingsDto 
 } from '@my-project/shared-types';
+import { OnboardingApiService } from './onboarding-api.service';
+import { OnboardingDataService } from './onboarding-data.service';
+import { firstValueFrom, interval, Subject, takeUntil, switchMap } from 'rxjs';
 
 /**
- * Service Facade pour l'onboarding des guilds
- * Interface publique pour les composants
+ * 🎯 Facade Service pour l'onboarding des guilds
  * 
  * Responsabilités:
- * - Orchestration du flow complet d'ajout du bot
- * - Gestion du polling du status
- * - Gestion du Quick Start Wizard
- * - Navigation après setup terminé
- * - Conversion Premium (tracking & prompts)
+ * - Orchestrer le flow complet d'onboarding
+ * - Gérer le polling automatique du setup status
+ * - Exposer une API simple aux composants
+ * - Gérer les erreurs et retry
+ * - Navigation automatique vers le dashboard
+ * 
+ * Pattern: Facade (interface publique)
  */
 @Injectable({
   providedIn: 'root'
 })
 export class OnboardingFacadeService {
-  private readonly onboardingData = inject(OnboardingDataService);
-  private readonly onboardingApi = inject(OnboardingApiService);
-  private readonly errorHandler = inject(ErrorHandlerService);
+  private readonly api = inject(OnboardingApiService);
+  private readonly dataService = inject(OnboardingDataService);
   private readonly router = inject(Router);
 
-  // Subject pour arrêter le polling
+  // ============================================
+  // POLLING MANAGEMENT
+  // ============================================
+
+  private pollingInterval = 2000; // 2 secondes
+  private maxPollingDuration = 30000; // 30 secondes max
+  private pollingStartTime = 0;
   private stopPolling$ = new Subject<void>();
 
   // ============================================
-  // EXPOSITION DES SIGNALS PUBLICS
+  // EXPOSER LES SIGNALS DU DATA SERVICE
   // ============================================
 
-  readonly setupStatus = this.onboardingData.setupStatus;
-  readonly quickStartOptions = this.onboardingData.quickStartOptions;
-  readonly guildSettings = this.onboardingData.guildSettings;
-  readonly inviteUrl = this.onboardingData.inviteUrl;
-
-  readonly isLoadingStatus = this.onboardingData.isLoadingStatus;
-  readonly isLoadingQuickStart = this.onboardingData.isLoadingQuickStart;
-  readonly isSubmittingQuickStart = this.onboardingData.isSubmittingQuickStart;
-  readonly isLoadingInviteUrl = this.onboardingData.isLoadingInviteUrl;
-
-  readonly error = this.onboardingData.error;
-  readonly isPolling = this.onboardingData.isPolling;
-  readonly pollingAttempts = this.onboardingData.pollingAttempts;
-
-  // Computed
-  readonly isSetupComplete = this.onboardingData.isSetupComplete;
-  readonly isSetupInProgress = this.onboardingData.isSetupInProgress;
-  readonly isSetupFailed = this.onboardingData.isSetupFailed;
-  readonly setupProgress = this.onboardingData.setupProgress;
-  readonly hasWarnings = this.onboardingData.hasWarnings;
-  readonly canContinuePolling = this.onboardingData.canContinuePolling;
-  readonly estimatedTimeRemaining = this.onboardingData.estimatedTimeRemaining;
+  readonly setupStatus = this.dataService.setupStatus;
+  readonly error = this.dataService.error;
+  readonly isLoading = this.dataService.isLoading;
+  
+  readonly isSetupInProgress = this.dataService.isSetupInProgress;
+  readonly isSetupComplete = this.dataService.isSetupComplete;
+  readonly isSetupFailed = this.dataService.isSetupFailed;
+  readonly isSetupPartial = this.dataService.isSetupPartial;
+  readonly setupProgress = this.dataService.setupProgress;
+  readonly currentStepMessage = this.dataService.currentStepMessage;
+  readonly estimatedTimeRemaining = this.dataService.estimatedTimeRemaining;
+  readonly canRetry = this.dataService.canRetry;
 
   // ============================================
-  // FLOW PRINCIPAL D'ONBOARDING
+  // FLOW PRINCIPAL - Ajouter le bot
   // ============================================
 
   /**
-   * Démarre le flow d'ajout du bot sur un serveur
+   * Démarre le flow d'onboarding complet pour une nouvelle guild
    * 
-   * Étapes:
-   * 1. Génère l'URL d'invitation OAuth
-   * 2. Ouvre Discord dans un nouvel onglet
-   * 3. Lance le polling du status après autorisation
+   * Flow:
+   * 1. Génère l'URL OAuth
+   * 2. Ouvre popup Discord
+   * 3. Une fois le bot ajouté, backend initie le setup
+   * 4. Démarre le polling du status
+   * 5. Affiche le wizard quand ready
    * 
    * @param guildId - ID de la guild Discord
    */
@@ -77,383 +76,312 @@ export class OnboardingFacadeService {
     console.log('[OnboardingFacade] Starting onboarding for guild:', guildId);
 
     try {
-      // 1. Générer l'URL d'invitation
-      this.onboardingData.setIsLoadingInviteUrl(true);
-      this.onboardingData.setError(null);
+      this.dataService.setLoading(true);
+      this.dataService.reset();
 
-      const response = await firstValueFrom(
-        this.onboardingApi.getInviteUrl(guildId)
+      // 1. Générer l'URL d'invitation
+      const { inviteUrl } = await firstValueFrom(
+        this.api.getInviteUrl(guildId)
       );
 
-      this.onboardingData.setInviteUrl(response.inviteUrl);
-      console.log('[OnboardingFacade] Invite URL generated:', response.inviteUrl);
+      console.log('[OnboardingFacade] Invite URL generated:', inviteUrl);
 
-      // 2. Ouvrir Discord dans un nouvel onglet
-      window.open(response.inviteUrl, '_blank');
+      // 2. Ouvrir la popup Discord pour autoriser le bot
+      const popup = window.open(
+        inviteUrl,
+        'discord-oauth',
+        'width=500,height=700'
+      );
 
-      // 3. Démarrer le polling après un court délai
-      // (Le temps que l'utilisateur autorise le bot)
-      setTimeout(() => {
-        void this.startPollingSetupStatus(guildId);
-      }, 3000); // 3 secondes de délai
+      if (!popup) {
+        throw new Error('Impossible d\'ouvrir la fenêtre d\'autorisation. Veuillez autoriser les popups.');
+      }
+
+      // 3. Attendre que la popup se ferme (= user a validé)
+      await this.waitForPopupClose(popup);
+
+      console.log('[OnboardingFacade] User closed popup, starting setup polling...');
+
+      // 4. Démarrer le polling du setup status
+      await this.startSetupPolling(guildId);
 
     } catch (error) {
-      console.error('[OnboardingFacade] Failed to start onboarding:', error);
-      this.errorHandler.handleError(error, 'Impossible de générer le lien d\'invitation');
-      this.onboardingData.setError('Échec de la génération du lien d\'invitation');
+      console.error('[OnboardingFacade] Onboarding failed:', error);
+      this.dataService.setError(
+        error instanceof Error ? error.message : 'Une erreur est survenue lors de l\'ajout du bot.'
+      );
     } finally {
-      this.onboardingData.setIsLoadingInviteUrl(false);
+      this.dataService.setLoading(false);
     }
   }
 
   /**
-   * Réactive un bot inactif sur un serveur
-   * Même flow que startOnboarding car on réinvite le bot
+   * Réactive un bot sur une guild inactive
+   * Similaire à startOnboarding mais peut skip le wizard si déjà configuré
    * 
    * @param guildId - ID de la guild Discord
    */
   async reactivateBot(guildId: string): Promise<void> {
     console.log('[OnboardingFacade] Reactivating bot for guild:', guildId);
-    return this.startOnboarding(guildId);
+
+    try {
+      this.dataService.setLoading(true);
+      this.dataService.reset();
+
+      // 1. Générer l'URL d'invitation
+      const { inviteUrl } = await firstValueFrom(
+        this.api.getInviteUrl(guildId)
+      );
+
+      // 2. Ouvrir la popup Discord
+      const popup = window.open(
+        inviteUrl,
+        'discord-oauth',
+        'width=500,height=700'
+      );
+
+      if (!popup) {
+        throw new Error('Impossible d\'ouvrir la fenêtre d\'autorisation. Veuillez autoriser les popups.');
+      }
+
+      // 3. Attendre la fermeture de la popup
+      await this.waitForPopupClose(popup);
+
+      console.log('[OnboardingFacade] Bot reactivated, starting setup polling...');
+
+      // 4. Polling du setup
+      await this.startSetupPolling(guildId);
+
+    } catch (error) {
+      console.error('[OnboardingFacade] Reactivation failed:', error);
+      this.dataService.setError(
+        error instanceof Error ? error.message : 'Une erreur est survenue lors de la réactivation du bot.'
+      );
+    } finally {
+      this.dataService.setLoading(false);
+    }
   }
 
   // ============================================
-  // POLLING DU STATUS
+  // POLLING DU SETUP STATUS
   // ============================================
 
   /**
-   * Démarre le polling du status de setup
-   * Vérifie toutes les 2 secondes si le setup est terminé
-   * 
-   * Arrêt automatique après:
-   * - Setup terminé (ready/error/partial)
-   * - 15 tentatives (30 secondes)
-   * - Appel manuel à stopPollingSetupStatus()
+   * Démarre le polling du status du setup
+   * Vérifie toutes les 2 secondes jusqu'à ce que le setup soit terminé
    * 
    * @param guildId - ID de la guild Discord
    */
-  async startPollingSetupStatus(guildId: string): Promise<void> {
-    console.log('[OnboardingFacade] Starting setup status polling for guild:', guildId);
+  private async startSetupPolling(guildId: string): Promise<void> {
+    console.log('[OnboardingFacade] Starting setup polling for guild:', guildId);
 
-    // Reset polling state
-    this.onboardingData.resetPolling();
-    this.onboardingData.setIsPolling(true);
+    this.pollingStartTime = Date.now();
+    this.stopPolling$ = new Subject<void>();
 
-    // Créer un observable qui poll toutes les 2 secondes
-    interval(2000)
+    // Polling interval
+    interval(this.pollingInterval)
       .pipe(
         takeUntil(this.stopPolling$),
-        takeWhile(() => this.onboardingData.canContinuePolling())
+        switchMap(() => this.api.getSetupStatus(guildId))
       )
       .subscribe({
-        next: async () => {
-          try {
-            await this.fetchSetupStatus(guildId);
-            this.onboardingData.incrementPollingAttempts();
+        next: (status) => {
+          console.log('[OnboardingFacade] Setup status:', status);
+          
+          // Mettre à jour l'état
+          this.dataService.setSetupStatus(status);
 
-            // Arrêter si setup terminé
-            if (
-              this.onboardingData.isSetupComplete() ||
-              this.onboardingData.isSetupFailed()
-            ) {
-              this.stopPollingSetupStatus();
-              await this.handleSetupCompleted(guildId);
-            }
-          } catch (error) {
-            console.error('[OnboardingFacade] Polling error:', error);
-            // Continue polling même en cas d'erreur
+          // Vérifier si le setup est terminé
+          if (this.isSetupFinished(status.status)) {
+            console.log('[OnboardingFacade] Setup finished with status:', status.status);
+            this.stopPollingSetupStatus();
+            this.handleSetupComplete(guildId, status.status);
+          }
+
+          // Timeout si trop long
+          if (Date.now() - this.pollingStartTime > this.maxPollingDuration) {
+            console.warn('[OnboardingFacade] Setup polling timeout');
+            this.stopPollingSetupStatus();
+            this.dataService.setError('Le setup prend trop de temps. Veuillez réessayer.');
           }
         },
-        complete: () => {
-          console.log('[OnboardingFacade] Polling stopped');
-          this.onboardingData.setIsPolling(false);
-
-          // Si on a atteint la limite sans succès
-          if (!this.onboardingData.isSetupComplete()) {
-            this.onboardingData.setError(
-              'Le setup prend plus de temps que prévu. Veuillez rafraîchir la page.'
-            );
-          }
+        error: (error) => {
+          console.error('[OnboardingFacade] Polling error:', error);
+          this.stopPollingSetupStatus();
+          this.dataService.setError('Erreur lors de la vérification du setup.');
         }
       });
   }
 
   /**
-   * Arrête le polling du status
+   * Arrête le polling du setup
    */
-  stopPollingSetupStatus(): void {
-    console.log('[OnboardingFacade] Stopping setup status polling');
+  private stopPollingSetupStatus(): void {
+    console.log('[OnboardingFacade] Stopping setup polling');
     this.stopPolling$.next();
-    this.onboardingData.setIsPolling(false);
+    this.stopPolling$.complete();
   }
 
   /**
-   * Récupère le status du setup une seule fois
-   * 
-   * @param guildId - ID de la guild Discord
+   * Vérifie si un status indique que le setup est terminé
    */
-  async fetchSetupStatus(guildId: string): Promise<void> {
-    try {
-      this.onboardingData.setIsLoadingStatus(true);
-      this.onboardingData.setError(null);
-
-      const status = await firstValueFrom(
-        this.onboardingApi.getSetupStatus(guildId)
-      );
-
-      this.onboardingData.setSetupStatus(status);
-      console.log('[OnboardingFacade] Setup status fetched:', status);
-
-    } catch (error) {
-      console.error('[OnboardingFacade] Failed to fetch setup status:', error);
-      // Ne pas throw l'erreur pour ne pas casser le polling
-    } finally {
-      this.onboardingData.setIsLoadingStatus(false);
-    }
-  }
-
-  /**
-   * Retry un setup qui a échoué
-   * 
-   * @param guildId - ID de la guild Discord
-   * @param force - Forcer le retry même si en cours
-   */
-  async retrySetup(guildId: string, force: boolean = false): Promise<void> {
-    console.log('[OnboardingFacade] Retrying setup for guild:', guildId);
-
-    try {
-      this.onboardingData.setIsLoadingStatus(true);
-      this.onboardingData.setError(null);
-
-      const status = await firstValueFrom(
-        this.onboardingApi.retrySetup(guildId, force)
-      );
-
-      this.onboardingData.setSetupStatus(status);
-
-      // Relancer le polling
-      await this.startPollingSetupStatus(guildId);
-
-    } catch (error) {
-      console.error('[OnboardingFacade] Failed to retry setup:', error);
-      this.errorHandler.handleError(error, 'Échec de la relance du setup');
-      this.onboardingData.setError('Impossible de relancer le setup');
-    } finally {
-      this.onboardingData.setIsLoadingStatus(false);
-    }
+  private isSetupFinished(status: InitializationStatus): boolean {
+    return status === InitializationStatus.READY ||
+           status === InitializationStatus.ERROR ||
+           status === InitializationStatus.PARTIAL;
   }
 
   // ============================================
-  // QUICK START WIZARD
+  // GESTION DE LA FIN DU SETUP
   // ============================================
 
   /**
-   * Récupère les options pour le Quick Start Wizard
-   * 
-   * @param guildId - ID de la guild Discord
+   * Appelé quand le setup est terminé (ready, error, ou partial)
    */
-  async loadQuickStartOptions(guildId: string): Promise<void> {
-    console.log('[OnboardingFacade] Loading quick start options for guild:', guildId);
-
-    try {
-      this.onboardingData.setIsLoadingQuickStart(true);
-      this.onboardingData.setError(null);
-
-      const options = await firstValueFrom(
-        this.onboardingApi.getQuickStartOptions(guildId)
-      );
-
-      this.onboardingData.setQuickStartOptions(options);
-      console.log('[OnboardingFacade] Quick start options loaded:', options);
-
-    } catch (error) {
-      console.error('[OnboardingFacade] Failed to load quick start options:', error);
-      this.errorHandler.handleError(error, 'Impossible de charger les options');
-      this.onboardingData.setError('Échec du chargement des options');
-    } finally {
-      this.onboardingData.setIsLoadingQuickStart(false);
-    }
-  }
-
-  /**
-   * Soumet les réponses du Quick Start Wizard
-   * Configure automatiquement les modules selon les choix
-   * 
-   * @param guildId - ID de la guild Discord
-   * @param answers - Réponses du wizard
-   */
-  async submitQuickStartAnswers(
+  private async handleSetupComplete(
     guildId: string, 
-    answers: QuickStartAnswersDto
+    status: InitializationStatus
   ): Promise<void> {
-    console.log('[OnboardingFacade] Submitting quick start answers for guild:', guildId);
+    console.log('[OnboardingFacade] Handling setup complete:', status);
+
+    if (status === InitializationStatus.READY || 
+        status === InitializationStatus.PARTIAL) {
+      
+      // Setup terminé avec succès
+      // Le composant affichera automatiquement le wizard si nécessaire
+      console.log('[OnboardingFacade] Setup complete, ready for configuration');
+
+    } else if (status === InitializationStatus.ERROR) {
+      console.error('[OnboardingFacade] Setup failed');
+      // L'erreur est déjà dans le status
+    }
+  }
+
+  // ============================================
+  // SETTINGS - Mise à jour directe
+  // ============================================
+
+  /**
+   * Met à jour les settings d'une guild
+   * Utilisé par le wizard ou à tout moment
+   * 
+   * @param guildId - ID de la guild
+   * @param updates - Settings à mettre à jour
+   */
+  async updateGuildSettings(
+    guildId: string, 
+    updates: Omit<UpdateGuildSettingsDto, 'guildId'>
+  ): Promise<void> {
+    console.log('[OnboardingFacade] Updating guild settings:', updates);
 
     try {
-      this.onboardingData.setIsSubmittingQuickStart(true);
-      this.onboardingData.setError(null);
+      this.dataService.setLoading(true);
 
-      const response = await firstValueFrom(
-        this.onboardingApi.submitQuickStartAnswers(guildId, answers)
+      await firstValueFrom(
+        this.api.updateSettings(guildId, updates)
       );
 
-      console.log('[OnboardingFacade] Quick start answers submitted:', response);
+      console.log('[OnboardingFacade] Settings updated successfully');
 
-      // Afficher un message de succès
-      this.errorHandler.showSuccess(
-        'Configuration appliquée avec succès ! Votre bot est prêt à l\'emploi.'
-      );
-
-      // Rediriger vers le dashboard
+      // Navigation vers le dashboard
       await this.navigateToDashboard(guildId);
 
     } catch (error) {
-      console.error('[OnboardingFacade] Failed to submit quick start answers:', error);
-      this.errorHandler.handleError(error, 'Échec de la configuration');
-      this.onboardingData.setError('Impossible d\'appliquer la configuration');
+      console.error('[OnboardingFacade] Failed to update settings:', error);
+      this.dataService.setError('Impossible de sauvegarder vos préférences. Veuillez réessayer.');
     } finally {
-      this.onboardingData.setIsSubmittingQuickStart(false);
+      this.dataService.setLoading(false);
     }
   }
 
   /**
-   * Skip le wizard et utiliser les defaults
-   * 
-   * @param guildId - ID de la guild Discord
+   * Skip la configuration et redirige directement vers le dashboard
+   * Utilise les valeurs par défaut
    */
-  async skipQuickStart(guildId: string): Promise<void> {
-    console.log('[OnboardingFacade] Skipping quick start for guild:', guildId);
-
-    // Soumettre des réponses vides pour garder les defaults
-    const emptyAnswers: QuickStartAnswersDto = {
-      guildId,
-      enableStats: false,
-      enableInviteTracking: false,
-      enableAutomod: false,
-      enableWelcome: false
-    };
-
-    await this.submitQuickStartAnswers(guildId, emptyAnswers);
+  async skipConfiguration(guildId: string): Promise<void> {
+    console.log('[OnboardingFacade] Skipping configuration for guild:', guildId);
+    
+    // Pas besoin de modifier les settings, les defaults sont déjà en DB
+    await this.navigateToDashboard(guildId);
   }
 
   // ============================================
-  // SETTINGS
+  // RETRY SETUP
   // ============================================
 
   /**
-   * Récupère les settings d'une guild
-   * 
-   * @param guildId - ID de la guild Discord
+   * Réessaie un setup qui a échoué
    */
-  async loadSettings(guildId: string): Promise<void> {
-    console.log('[OnboardingFacade] Loading settings for guild:', guildId);
+  async retrySetup(guildId: string): Promise<void> {
+    console.log('[OnboardingFacade] Retrying setup for guild:', guildId);
 
     try {
-      const settings = await firstValueFrom(
-        this.onboardingApi.getSettings(guildId)
+      this.dataService.reset();
+      this.dataService.setLoading(true);
+
+      // Appeler l'endpoint de retry
+      const status = await firstValueFrom(
+        this.api.retrySetup(guildId, false)
       );
 
-      this.onboardingData.setGuildSettings(settings);
-      console.log('[OnboardingFacade] Settings loaded:', settings);
+      this.dataService.setSetupStatus(status);
+
+      // Redémarrer le polling
+      await this.startSetupPolling(guildId);
 
     } catch (error) {
-      console.error('[OnboardingFacade] Failed to load settings:', error);
-      this.errorHandler.handleError(error, 'Impossible de charger les paramètres');
+      console.error('[OnboardingFacade] Retry setup failed:', error);
+      this.dataService.setError('Impossible de relancer le setup. Veuillez réessayer plus tard.');
+    } finally {
+      this.dataService.setLoading(false);
     }
   }
 
   // ============================================
-  // NAVIGATION & COMPLETION
+  // NAVIGATION
   // ============================================
-
-  /**
-   * Gère la complétion du setup
-   * Affiche un message et redirige vers le dashboard
-   * 
-   * @param guildId - ID de la guild Discord
-   */
-  private async handleSetupCompleted(guildId: string): Promise<void> {
-    const status = this.onboardingData.setupStatus();
-
-    if (status?.status === 'ready') {
-      console.log('[OnboardingFacade] Setup completed successfully!');
-
-      // Charger les options du Quick Start Wizard
-      await this.loadQuickStartOptions(guildId);
-
-      // Le composant affichera automatiquement le wizard
-      // car isSetupComplete() retournera true
-
-    } else if (status?.status === 'error') {
-      console.error('[OnboardingFacade] Setup failed:', status.error);
-      this.errorHandler.handleError(
-        { message: 'Le setup a rencontré des erreurs. Veuillez réessayer.' },
-        'Setup'
-      );
-    } else if (status?.status === 'partial') {
-      console.warn('[OnboardingFacade] Setup completed with warnings:', status.warnings);
-      this.errorHandler.showWarning(
-        'Le setup est terminé mais certaines fonctionnalités sont limitées.'
-      );
-
-      // Charger quand même le wizard
-      await this.loadQuickStartOptions(guildId);
-    }
-  }
 
   /**
    * Navigue vers le dashboard du serveur
-   * 
-   * @param guildId - ID de la guild Discord
    */
-  async navigateToDashboard(guildId: string): Promise<void> {
+  private async navigateToDashboard(guildId: string): Promise<void> {
     console.log('[OnboardingFacade] Navigating to dashboard for guild:', guildId);
 
-    // TODO: Adapter selon ta structure de routes
-    // Exemple: /guild/:guildId/dashboard ou /dashboard
-    await this.router.navigate(['/dashboard']);
+    // TODO: Adapter selon votre structure de routes
+    // Exemples possibles:
+    // - /dashboard/:guildId
+    // - /guild/:guildId/dashboard
+    // - /dashboard (avec guildId stocké dans un service de contexte)
+    
+    await this.router.navigate(['/dashboard', guildId]);
   }
 
   // ============================================
-  // PREMIUM FEATURES
+  // HELPERS
   // ============================================
 
   /**
-   * Vérifie si une feature est Premium
-   * Utilisé pour afficher les badges "Premium"
-   * 
-   * @param featureName - Nom de la feature
-   * @returns true si Premium
+   * Attend que la popup Discord OAuth se ferme
    */
-  isPremiumFeature(featureName: string): boolean {
-    // TODO: Définir quelles features sont Premium
-    const premiumFeatures = [
-      'backfill',
-      'advanced_automod',
-      'custom_commands',
-      'advanced_analytics'
-    ];
+  private waitForPopupClose(popup: Window): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const checkInterval = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 500);
 
-    return premiumFeatures.includes(featureName);
+      // Timeout après 5 minutes
+      setTimeout(() => {
+        clearInterval(checkInterval);
+        if (!popup.closed) {
+          popup.close();
+          reject(new Error('Timeout: La fenêtre d\'autorisation n\'a pas été fermée.'));
+        }
+      }, 300000);
+    });
   }
-
-  /**
-   * Affiche un prompt pour upgrade vers Premium
-   * Optimisé pour la conversion
-   * 
-   * @param featureName - Feature qui a trigger le prompt
-   */
-  showPremiumPrompt(featureName: string): void {
-    console.log('[OnboardingFacade] Showing premium prompt for:', featureName);
-
-    // TODO: Afficher une modal ou toast avec CTA Premium
-    this.errorHandler.showInfo(
-      `🎯 Cette fonctionnalité est réservée aux abonnés Premium. Upgrade maintenant !`
-    );
-  }
-
-  // ============================================
-  // RESET
-  // ============================================
 
   /**
    * Réinitialise complètement l'état de l'onboarding
@@ -461,6 +389,6 @@ export class OnboardingFacadeService {
   reset(): void {
     console.log('[OnboardingFacade] Resetting onboarding state');
     this.stopPollingSetupStatus();
-    this.onboardingData.reset();
+    this.dataService.reset();
   }
 }

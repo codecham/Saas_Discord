@@ -1,31 +1,29 @@
 // apps/sakai/src/app/components/guild-onboarding/setup-onboarding-modal.component.ts
-import { Component, inject, input, output, computed, effect } from '@angular/core';
+
+import { Component, inject, input, output, computed, effect, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
 
 // PrimeNG
 import { DialogModule } from 'primeng/dialog';
 import { ButtonModule } from 'primeng/button';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { MessageModule } from 'primeng/message';
-import { StepsModule } from 'primeng/steps';
 import { CheckboxModule } from 'primeng/checkbox';
-import { SelectModule } from 'primeng/select';
-import { InputTextModule } from 'primeng/inputtext';
 import { DividerModule } from 'primeng/divider';
+import { CardModule } from 'primeng/card';
 
 // Services & Types
 import { OnboardingFacadeService } from '@app/services/onboarding/onboarding-facade.service';
-import { QuickStartAnswersDto } from '@my-project/shared-types';
 
 /**
- * 🎯 Modal d'onboarding avec:
- * - Polling automatique du setup status
- * - Affichage de la progression
- * - Quick Start Wizard
- * - Gestion erreurs avec retry
- * - Navigation auto vers dashboard
+ * 🎯 Modal d'onboarding simplifiée - Sans QuickStart backend
+ * 
+ * Features:
+ * - ✅ Affichage progression du setup (polling automatique)
+ * - ✅ Configuration optionnelle (locale/timezone)
+ * - ✅ Gestion des erreurs avec retry
+ * - ✅ UX fluide et moderne
  */
 @Component({
   selector: 'app-setup-onboarding-modal',
@@ -37,11 +35,9 @@ import { QuickStartAnswersDto } from '@my-project/shared-types';
     ButtonModule,
     ProgressBarModule,
     MessageModule,
-    StepsModule,
     CheckboxModule,
-    SelectModule,
-    InputTextModule,
-    DividerModule
+    DividerModule,
+    CardModule
   ],
   template: `
     <p-dialog
@@ -54,10 +50,19 @@ import { QuickStartAnswersDto } from '@my-project/shared-types';
       [style]="{ width: '90vw', maxWidth: '600px' }"
       (onHide)="handleClose()">
       
-      <!-- Header -->
+      <!-- HEADER -->
       <ng-template #header>
         <div class="flex items-center gap-3">
-          <i class="pi pi-cog text-2xl"></i>
+          @if (isSetupInProgress()) {
+            <i class="pi pi-spin pi-spinner text-2xl text-primary"></i>
+          } @else if (isSetupComplete() || configVisible()) {
+            <i class="pi pi-check-circle text-2xl text-green-500"></i>
+          } @else if (isSetupFailed()) {
+            <i class="pi pi-times-circle text-2xl text-red-500"></i>
+          } @else {
+            <i class="pi pi-cog text-2xl"></i>
+          }
+          
           <div>
             <div class="font-semibold text-xl">{{ getHeaderTitle() }}</div>
             <div class="text-sm text-surface-600 dark:text-surface-400">
@@ -67,286 +72,270 @@ import { QuickStartAnswersDto } from '@my-project/shared-types';
         </div>
       </ng-template>
 
-      <!-- Content -->
+      <!-- CONTENT -->
       <div class="pt-4">
-        <!-- Loading State -->
+        
+        <!-- STATE 1: Setup en cours -->
         @if (isSetupInProgress()) {
           <div class="space-y-6">
             <!-- Progress Bar -->
             <div>
               <div class="flex justify-between items-center mb-2">
-                <span class="text-sm font-medium">Configuration en cours...</span>
+                <span class="text-sm font-medium">{{ getCurrentStatusMessage() }}</span>
                 <span class="text-sm text-surface-600 dark:text-surface-400">
-                  {{ onboardingFacade.setupProgress() }}%
+                  {{ setupProgress() }}%
                 </span>
               </div>
               <p-progressBar 
-                [value]="onboardingFacade.setupProgress()"
+                [value]="setupProgress()" 
                 [showValue]="false"
-                [style]="{ height: '8px' }" />
+                styleClass="h-2" />
             </div>
 
-            <!-- Status Message -->
-            <div class="text-center py-4">
-              <div class="mb-4">
-                <i class="pi pi-spin pi-spinner text-4xl text-primary"></i>
+            <!-- Info card -->
+            <p-card styleClass="bg-primary-50 dark:bg-primary-950 border border-primary-200 dark:border-primary-800">
+              <div class="flex gap-3">
+                <i class="pi pi-info-circle text-primary text-xl flex-shrink-0"></i>
+                <div class="text-sm">
+                  <p class="font-semibold mb-1">⚡ Configuration ultra-rapide</p>
+                  <p class="text-surface-700 dark:text-surface-300">
+                    Nous configurons votre serveur en quelques secondes seulement !
+                  </p>
+                </div>
               </div>
-              <p class="text-lg font-medium mb-2">
-                {{ getCurrentStatusMessage() }}
-              </p>
-              <p class="text-sm text-surface-600 dark:text-surface-400">
-                Temps restant estimé: {{ getEstimatedTimeRemaining() }}
-              </p>
+            </p-card>
+
+            <!-- Steps detail -->
+            <div class="space-y-2 text-sm">
+              <div class="flex items-center gap-2" [class.opacity-50]="setupProgress() < 25">
+                <i class="pi" [class.pi-check-circle]="setupProgress() >= 25" 
+                   [class.pi-circle]="setupProgress() < 25"
+                   [class.text-green-500]="setupProgress() >= 25"></i>
+                <span>Création du profil serveur</span>
+              </div>
+              <div class="flex items-center gap-2" [class.opacity-50]="setupProgress() < 50">
+                <i class="pi" [class.pi-check-circle]="setupProgress() >= 50" 
+                   [class.pi-circle]="setupProgress() < 50"
+                   [class.text-green-500]="setupProgress() >= 50"></i>
+                <span>Configuration des paramètres par défaut</span>
+              </div>
+              <div class="flex items-center gap-2" [class.opacity-50]="setupProgress() < 75">
+                <i class="pi" [class.pi-check-circle]="setupProgress() >= 75" 
+                   [class.pi-circle]="setupProgress() < 75"
+                   [class.text-green-500]="setupProgress() >= 75"></i>
+                <span>Vérification des permissions</span>
+              </div>
+              <div class="flex items-center gap-2" [class.opacity-50]="setupProgress() < 100">
+                <i class="pi" [class.pi-check-circle]="setupProgress() >= 100" 
+                   [class.pi-circle]="setupProgress() < 100"
+                   [class.text-green-500]="setupProgress() >= 100"></i>
+                <span>Finalisation</span>
+              </div>
             </div>
-
-            <!-- Info message -->
-            <p-message 
-              severity="info"
-              text="Veuillez patienter pendant que nous configurons votre serveur. Cette étape ne prend généralement que quelques secondes."
-              [closable]="false" />
-
-            <!-- Warnings if any -->
-            @if (onboardingFacade.hasWarnings()) {
-              <p-message 
-                severity="warn"
-                [text]="getWarningsText()"
-                [closable]="false" />
-            }
           </div>
         }
 
-        <!-- Error State -->
-        @if (isSetupFailed()) {
-          <div class="space-y-6">
-            <p-message 
-              severity="error"
-              [closable]="false">
-              <ng-template #content>
-                <div class="flex flex-col gap-2">
-                  <div class="font-semibold">Erreur lors de la configuration</div>
-                  <div class="text-sm">{{ onboardingFacade.error() }}</div>
-                </div>
-              </ng-template>
+        <!-- STATE 2: Erreur -->
+        @if (isSetupFailed() && !configVisible()) {
+          <div class="space-y-4">
+            <p-message severity="error" styleClass="w-full">
+              <div class="flex flex-col gap-2">
+                <span class="font-semibold">Le setup a rencontré une erreur</span>
+                <span class="text-sm">{{ getErrorMessage() }}</span>
+              </div>
             </p-message>
 
-            <!-- Possible causes -->
-            <div class="bg-surface-50 dark:bg-surface-800 rounded-lg p-4">
-              <div class="font-semibold mb-2 text-sm">Causes possibles:</div>
-              <ul class="list-disc list-inside text-sm space-y-1 text-surface-700 dark:text-surface-300">
-                <li>Le bot n'a pas rejoint le serveur</li>
-                <li>Permissions insuffisantes sur le serveur</li>
-                <li>Problème de connexion temporaire</li>
-              </ul>
-            </div>
-
-            <!-- Actions -->
-            <div class="flex gap-3">
+            <div class="flex gap-2 justify-end">
+              @if (canRetry()) {
+                <p-button 
+                  label="Réessayer" 
+                  icon="pi pi-refresh"
+                  (onClick)="handleRetry()" />
+              }
               <p-button 
-                label="Réessayer"
-                icon="pi pi-refresh"
-                [loading]="onboardingFacade.isLoadingStatus()"
-                (onClick)="retrySetup()"
-                class="flex-1" />
-              <p-button 
-                label="Réinviter le bot"
-                icon="pi pi-external-link"
+                label="Fermer" 
                 severity="secondary"
                 [outlined]="true"
-                (onClick)="reopenInvite()"
-                class="flex-1" />
+                (onClick)="handleClose()" />
             </div>
           </div>
         }
 
-        <!-- Success State - Wizard -->
-        @if (isSetupComplete() && !wizardSubmitted()) {
+        <!-- STATE 3: Partial (warnings) -->
+        @if (isSetupPartial() && !configVisible()) {
+          <div class="space-y-4">
+            <p-message severity="warn" styleClass="w-full">
+              <div class="flex flex-col gap-2">
+                <span class="font-semibold">Configuration terminée avec des avertissements</span>
+                <span class="text-sm">{{ getWarningsText() }}</span>
+              </div>
+            </p-message>
+
+            <p class="text-sm text-surface-600 dark:text-surface-400">
+              Vous pouvez continuer et ajuster les paramètres plus tard depuis le dashboard.
+            </p>
+
+            <div class="flex gap-2 justify-end">
+              <p-button 
+                label="Continuer" 
+                icon="pi pi-arrow-right"
+                (onClick)="showConfig()" />
+            </div>
+          </div>
+        }
+
+        <!-- STATE 4: Success + Configuration Optionnelle -->
+        @if ((isSetupComplete() || isSetupPartial()) && configVisible()) {
           <div class="space-y-6">
             <!-- Success message -->
-            <div class="text-center py-4">
-              <div class="mb-4">
-                <i class="pi pi-check-circle text-5xl text-green-500"></i>
+            <p-message severity="success" styleClass="w-full" [closable]="false">
+              <div class="flex items-center gap-2">
+                <i class="pi pi-check-circle text-xl"></i>
+                <span class="font-semibold">Configuration terminée avec succès !</span>
               </div>
-              <p class="text-lg font-semibold mb-2">
-                🎉 Serveur configuré avec succès !
-              </p>
+            </p-message>
+
+            <p-divider />
+
+            <!-- Config intro -->
+            <div>
+              <h3 class="font-semibold text-lg mb-2">
+                ⚙️ Configuration rapide (optionnel)
+              </h3>
               <p class="text-sm text-surface-600 dark:text-surface-400">
-                Configurez quelques options de base pour démarrer
+                Vous pouvez configurer quelques paramètres de base maintenant, 
+                ou le faire plus tard depuis le dashboard.
               </p>
             </div>
 
-            <p-divider />
-
-            <!-- Quick Start Wizard -->
-            <div class="space-y-5">
-              <div class="font-semibold text-lg">Configuration rapide</div>
-
-              <!-- Stats tracking -->
-              <div class="flex items-start gap-3 p-4 bg-surface-50 dark:bg-surface-800 rounded-lg">
-                <p-checkbox 
-                  [(ngModel)]="wizardAnswers.enableStats"
-                  [binary]="true"
-                  inputId="enableStats" />
-                <div class="flex-1">
-                  <label for="enableStats" class="font-medium cursor-pointer">
-                    Activer le suivi des statistiques
-                  </label>
-                  <p class="text-sm text-surface-600 dark:text-surface-400 mt-1">
-                    Suivez l'activité des membres, les messages et l'utilisation du vocal
-                  </p>
-                </div>
-              </div>
-
-              <!-- Invite tracking -->
-              <div class="flex items-start gap-3 p-4 bg-surface-50 dark:bg-surface-800 rounded-lg">
-                <p-checkbox 
-                  [(ngModel)]="wizardAnswers.enableInviteTracking"
-                  [binary]="true"
-                  inputId="enableInvites" />
-                <div class="flex-1">
-                  <label for="enableInvites" class="font-medium cursor-pointer">
-                    Tracker les invitations
-                  </label>
-                  <p class="text-sm text-surface-600 dark:text-surface-400 mt-1">
-                    Savoir qui invite de nouveaux membres sur votre serveur
-                  </p>
-                </div>
-              </div>
-
-              <!-- Mod log channel -->
-              @if (channelOptions().length > 0) {
-                <div class="space-y-2">
-                  <label class="font-medium">Canal de logs (optionnel)</label>
-                  <p-select
-                    [(ngModel)]="wizardAnswers.modLogChannelId"
-                    [options]="channelOptions()"
-                    optionLabel="name"
-                    optionValue="id"
-                    placeholder="Sélectionner un canal"
-                    [showClear]="true"
-                    [filter]="true"
-                    filterBy="name"
-                    appendTo="body"
-                    class="w-full">
-                    <ng-template #selectedItem let-option>
-                      @if (option) {
-                        <div class="flex items-center gap-2">
-                          <i class="pi pi-hashtag text-sm"></i>
-                          <span>{{ option.name }}</span>
-                        </div>
-                      }
-                    </ng-template>
-                    <ng-template let-option #item>
-                      <div class="flex items-center gap-2">
-                        <i class="pi pi-hashtag text-sm"></i>
-                        <span>{{ option.name }}</span>
-                      </div>
-                    </ng-template>
-                  </p-select>
-                  <p class="text-xs text-surface-600 dark:text-surface-400">
-                    Les actions de modération seront enregistrées dans ce canal
-                  </p>
-                </div>
-              }
+            <!-- Locale -->
+            <div class="space-y-2">
+              <label class="block font-medium mb-2">
+                Langue de l'interface
+              </label>
+              <select 
+                [(ngModel)]="settings.locale"
+                class="w-full p-2 border rounded">
+                <option value="en">English</option>
+                <option value="fr">Français</option>
+                <option value="es">Español</option>
+              </select>
             </div>
 
             <p-divider />
+
+            <!-- Timezone -->
+            <div class="space-y-2">
+              <label class="block font-medium mb-2">
+                Fuseau horaire
+              </label>
+              <select 
+                [(ngModel)]="settings.timezone"
+                class="w-full p-2 border rounded">
+                <option value="UTC">UTC</option>
+                <option value="Europe/Paris">Europe/Paris</option>
+                <option value="America/New_York">America/New_York</option>
+                <option value="America/Los_Angeles">America/Los_Angeles</option>
+                <option value="Asia/Tokyo">Asia/Tokyo</option>
+              </select>
+            </div>
 
             <!-- Actions -->
-            <div class="flex gap-3">
+            <div class="flex gap-2 justify-between pt-4">
               <p-button 
-                label="Ignorer"
+                label="Ignorer" 
                 severity="secondary"
-                [outlined]="true"
-                (onClick)="skipWizard()"
-                class="flex-1" />
+                [text]="true"
+                (onClick)="skipConfig()" />
+              
               <p-button 
-                label="Continuer"
-                icon="pi pi-arrow-right"
-                iconPos="right"
-                [loading]="onboardingFacade.isSubmittingQuickStart()"
-                (onClick)="submitWizard()"
-                class="flex-1" />
+                label="Sauvegarder" 
+                icon="pi pi-check"
+                [loading]="isSubmitting()"
+                (onClick)="submitConfig()" />
             </div>
-          </div>
-        }
 
-        <!-- Wizard Submitted - Redirecting -->
-        @if (wizardSubmitted()) {
-          <div class="text-center py-8">
-            <div class="mb-4">
-              <i class="pi pi-spin pi-spinner text-4xl text-primary"></i>
-            </div>
-            <p class="text-lg font-medium mb-2">
-              Configuration enregistrée !
-            </p>
-            <p class="text-sm text-surface-600 dark:text-surface-400">
-              Redirection vers le dashboard...
-            </p>
+            <!-- Premium teaser -->
+            <p-card styleClass="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950 border border-purple-200 dark:border-purple-800">
+              <div class="flex items-start gap-3">
+                <i class="pi pi-star-fill text-yellow-500 text-2xl flex-shrink-0"></i>
+                <div>
+                  <p class="font-semibold mb-1">✨ Débloquez encore plus avec Premium</p>
+                  <p class="text-sm text-surface-700 dark:text-surface-300 mb-2">
+                    Historique de 90 jours, analytics avancées, automodération, et plus encore.
+                  </p>
+                  <p-button 
+                    label="Découvrir Premium" 
+                    [text]="true"
+                    size="small"
+                    icon="pi pi-arrow-right" />
+                </div>
+              </div>
+            </p-card>
           </div>
         }
       </div>
     </p-dialog>
-  `
+  `,
+  styles: [`
+    :host ::ng-deep {
+      .p-dialog-header {
+        border-bottom: 1px solid var(--surface-border);
+      }
+    }
+  `]
 })
 export class SetupOnboardingModalComponent {
-  // Inputs
+  
+  // INPUTS / OUTPUTS
   visible = input.required<boolean>();
   guildId = input.required<string>();
   guildName = input<string>('Serveur Discord');
 
-  // Outputs
   visibleChange = output<boolean>();
   setupComplete = output<void>();
 
-  // Services
-  protected readonly onboardingFacade = inject(OnboardingFacadeService);
-  private readonly router = inject(Router);
+  // SERVICES
+  protected readonly facade = inject(OnboardingFacadeService);
 
-  // Wizard state
-  protected wizardSubmitted = computed(() => false); // Will be managed by signal if needed
-  protected wizardAnswers: QuickStartAnswersDto = {
-    guildId: '',
-    enableStats: true,
-    enableInviteTracking: true,
-    modLogChannelId: null
+  // STATE
+  protected configVisible = signal<boolean>(false);
+  protected isSubmitting = signal<boolean>(false);
+  
+  protected settings = {
+    locale: 'en',
+    timezone: 'UTC'
   };
 
-  // Computed
-  protected channelOptions = computed(() => {
-    const options = this.onboardingFacade.quickStartOptions();
-    return options?.availableChannels || [];
-  });
-
-  protected isSetupInProgress = computed(() => {
-    return this.onboardingFacade.isSetupInProgress();
-  });
-
-  protected isSetupComplete = computed(() => {
-    return this.onboardingFacade.isSetupComplete();
-  });
-
-  protected isSetupFailed = computed(() => {
-    return this.onboardingFacade.isSetupFailed();
-  });
+  // COMPUTED
+  protected isSetupInProgress = this.facade.isSetupInProgress;
+  protected isSetupComplete = this.facade.isSetupComplete;
+  protected isSetupFailed = this.facade.isSetupFailed;
+  protected isSetupPartial = this.facade.isSetupPartial;
+  protected setupProgress = this.facade.setupProgress;
+  protected canRetry = this.facade.canRetry;
 
   protected canClose = computed(() => {
-    // Can't close while setup is in progress
     return !this.isSetupInProgress();
   });
 
+  // LIFECYCLE
   constructor() {
-    // Load quick start options when setup is complete
+    // Auto-show config when setup completes
     effect(() => {
-      if (this.isSetupComplete() && this.visible()) {
-        const guildId = this.guildId();
-        if (guildId) {
-          this.wizardAnswers.guildId = guildId;
-          this.onboardingFacade.loadQuickStartOptions(guildId);
-        }
+      const complete = this.isSetupComplete();
+      const partial = this.isSetupPartial();
+      const visible = this.visible();
+      
+      if ((complete || partial) && visible && !this.configVisible()) {
+        setTimeout(() => {
+          this.configVisible.set(true);
+        }, 500);
       }
     });
   }
 
+  // UI HELPERS
   protected getHeaderTitle(): string {
     if (this.isSetupInProgress()) {
       return 'Configuration du serveur';
@@ -354,84 +343,61 @@ export class SetupOnboardingModalComponent {
     if (this.isSetupFailed()) {
       return 'Erreur de configuration';
     }
-    if (this.isSetupComplete()) {
+    if (this.configVisible()) {
+      return 'Paramètres';
+    }
+    if (this.isSetupComplete() || this.isSetupPartial()) {
       return 'Configuration terminée';
     }
     return 'Configuration';
   }
 
   protected getCurrentStatusMessage(): string {
-    const statusData = this.onboardingFacade.setupStatus();
-    const status = statusData?.status;
-    
-    switch (status) {
-      case 'pending':
-        return 'Préparation de la configuration...';
-      case 'initializing':
-        return 'Récupération des données du serveur...';
-      default:
-        return 'Configuration en cours...';
-    }
+    return this.facade.currentStepMessage() || 'Configuration en cours...';
   }
 
-  protected getEstimatedTimeRemaining(): string {
-    const ms = this.onboardingFacade.estimatedTimeRemaining();
-    if (!ms || ms <= 0) return 'Quelques secondes';
-    const seconds = Math.ceil(ms / 1000);
-    return `${seconds}s`;
+  protected getErrorMessage(): string {
+    const status = this.facade.setupStatus();
+    return status?.error?.message || 'Une erreur est survenue.';
   }
 
   protected getWarningsText(): string {
-    const statusData = this.onboardingFacade.setupStatus();
-    const warnings = statusData?.warnings || [];
+    const status = this.facade.setupStatus();
+    const warnings = status?.warnings || [];
     return warnings.map(w => w.message).join('. ');
   }
 
-  protected async retrySetup(): Promise<void> {
-    const guildId = this.guildId();
-    if (!guildId) return;
-    
-    await this.onboardingFacade.retrySetup(guildId, true);
+  // ACTIONS
+  protected showConfig(): void {
+    this.configVisible.set(true);
   }
 
-  protected async reopenInvite(): Promise<void> {
-    const guildId = this.guildId();
-    if (!guildId) return;
+  protected async submitConfig(): Promise<void> {
+    this.isSubmitting.set(true);
+    
+    try {
+      await this.facade.updateGuildSettings(this.guildId(), this.settings);
+      this.setupComplete.emit();
+      this.handleClose();
+    } catch (error) {
+      console.error('[SetupModal] Failed to submit config:', error);
+    } finally {
+      this.isSubmitting.set(false);
+    }
+  }
 
-    // Close modal and restart onboarding flow
+  protected async skipConfig(): Promise<void> {
+    await this.facade.skipConfiguration(this.guildId());
+    this.setupComplete.emit();
     this.handleClose();
-    await this.onboardingFacade.startOnboarding(guildId);
   }
 
-  protected async skipWizard(): Promise<void> {
-    const guildId = this.guildId();
-    if (!guildId) return;
-
-    await this.onboardingFacade.skipQuickStart(guildId);
-    this.navigateToDashboard();
-  }
-
-  protected async submitWizard(): Promise<void> {
-    const guildId = this.guildId();
-    if (!guildId) return;
-
-    this.wizardAnswers.guildId = guildId;
-    await this.onboardingFacade.submitQuickStartAnswers(guildId, this.wizardAnswers);
-    
-    // Small delay for better UX
-    setTimeout(() => {
-      this.navigateToDashboard();
-    }, 1000);
+  protected async handleRetry(): Promise<void> {
+    await this.facade.retrySetup(this.guildId());
   }
 
   protected handleClose(): void {
-    if (!this.canClose()) return;
+    this.configVisible.set(false);
     this.visibleChange.emit(false);
-  }
-
-  private navigateToDashboard(): void {
-    this.setupComplete.emit();
-    this.handleClose();
-    this.onboardingFacade.navigateToDashboard(this.guildId());
   }
 }

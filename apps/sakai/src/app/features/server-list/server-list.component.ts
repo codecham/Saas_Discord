@@ -1,3 +1,4 @@
+// apps/sakai/src/app/features/server-list/server-list.component.ts
 import { Component, inject, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
@@ -81,41 +82,37 @@ import { SetupOnboardingModalComponent } from '@app/components/guild-onboarding/
           </p>
           <p-button 
             label="Rafraîchir" 
-            icon="pi pi-refresh" 
+            icon="pi pi-refresh"
             (onClick)="refreshGuilds()" />
         </div>
       }
 
-      <!-- Tabs avec les listes -->
+      <!-- Guilds List avec Tabs -->
       @if (!guildFacade.isLoading() && totalGuildsCount() > 0) {
-        <p-tabs [value]="0" styleClass="w-full">
+        <p-tabs [value]="0">
           <p-tablist>
+            <!-- Tab Serveurs Actifs -->
             <p-tab [value]="0">
-              Serveurs actifs
-              @if (guildFacade.activeGuilds().length > 0) {
-                <p-tag 
-                  [value]="guildFacade.activeGuilds().length.toString()" 
-                  severity="success"
-                  styleClass="ml-2" />
-              }
+              <div class="flex items-center gap-2">
+                <i class="pi pi-check-circle text-green-500"></i>
+                <span>Actifs ({{ guildFacade.activeGuilds().length }})</span>
+              </div>
             </p-tab>
+
+            <!-- Tab Serveurs Inactifs -->
             <p-tab [value]="1">
-              Serveurs inactifs
-              @if (guildFacade.inactiveGuilds().length > 0) {
-                <p-tag 
-                  [value]="guildFacade.inactiveGuilds().length.toString()" 
-                  severity="warn"
-                  styleClass="ml-2" />
-              }
+              <div class="flex items-center gap-2">
+                <i class="pi pi-exclamation-triangle text-orange-500"></i>
+                <span>Inactifs ({{ guildFacade.inactiveGuilds().length }})</span>
+              </div>
             </p-tab>
+
+            <!-- Tab Serveurs Non Ajoutés -->
             <p-tab [value]="2">
-              Non configurés
-              @if (guildFacade.notAddedGuilds().length > 0) {
-                <p-tag 
-                  [value]="guildFacade.notAddedGuilds().length.toString()" 
-                  severity="info"
-                  styleClass="ml-2" />
-              }
+              <div class="flex items-center gap-2">
+                <i class="pi pi-plus-circle text-blue-500"></i>
+                <span>À configurer ({{ guildFacade.notAddedGuilds().length }})</span>
+              </div>
             </p-tab>
           </p-tablist>
 
@@ -142,7 +139,7 @@ import { SetupOnboardingModalComponent } from '@app/components/guild-onboarding/
                                 </div>
                               } @else {
                                 <div class="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm absolute inset-0 m-auto flex items-center justify-center text-white text-4xl font-bold shadow-xl border-4 border-white dark:border-surface-800">
-                                  {{ guild.name.charAt(0).toUpperCase() }}
+                                  {{ guild.name?.charAt(0).toUpperCase() || '?' }}
                                 </div>
                               }
                             </div>
@@ -155,22 +152,29 @@ import { SetupOnboardingModalComponent } from '@app/components/guild-onboarding/
                                   {{ guild.name }}
                                 </div>
                                 <div class="flex flex-wrap gap-2">
+                                  <p-tag severity="success" value="Actif" icon="pi pi-check-circle" />
                                   @if (guild.owner) {
-                                    <p-tag value="OWNER" icon="pi pi-crown" severity="warn" />
+                                    <p-tag severity="info" value="Propriétaire" icon="pi pi-crown" />
                                   }
-                                  <p-tag value="ADMIN" icon="pi pi-shield" severity="info" />
-                                  <p-tag value="BOT ACTIF" icon="pi pi-check-circle" severity="success" />
                                 </div>
+                              </div>
+
+                              <!-- Stats -->
+                              <div class="flex flex-col gap-2 text-sm text-surface-600 dark:text-surface-400 mb-4">
+                                @if (guild.botAddedAt) {
+                                  <div class="flex items-center gap-2">
+                                    <i class="pi pi-calendar"></i>
+                                    <span>Ajouté {{ formatDate(guild.botAddedAt) }}</span>
+                                  </div>
+                                }
                               </div>
 
                               <!-- Action Button -->
                               <div class="mt-auto">
                                 <p-button 
-                                  label="Gérer ce serveur" 
-                                  icon="pi pi-cog"
-                                  severity="info"
+                                  label="Ouvrir le dashboard" 
+                                  icon="pi pi-arrow-right"
                                   styleClass="w-full"
-                                  [loading]="selectedGuildId === guild.id"
                                   (onClick)="selectGuild(guild)" />
                               </div>
                             </div>
@@ -185,7 +189,7 @@ import { SetupOnboardingModalComponent } from '@app/components/guild-onboarding/
                   <i class="pi pi-inbox text-6xl text-surface-400 mb-4"></i>
                   <div class="text-xl font-semibold mb-2">Aucun serveur actif</div>
                   <p class="text-surface-600 dark:text-surface-400">
-                    Vous n'avez pas encore configuré de serveur avec le bot.
+                    Ajoutez le bot à vos serveurs pour commencer !
                   </p>
                 </div>
               }
@@ -216,33 +220,23 @@ import { SetupOnboardingModalComponent } from '@app/components/guild-onboarding/
                                 </div>
                               } @else {
                                 <div class="w-24 h-24 rounded-full bg-gradient-to-br from-orange-300 to-yellow-500 opacity-60 absolute inset-0 m-auto flex items-center justify-center text-white text-4xl font-bold shadow-xl border-4 border-white dark:border-surface-800">
-                                  {{ guild.name.charAt(0).toUpperCase() }}
+                                  {{ guild.name?.charAt(0).toUpperCase() || '?' }}
                                 </div>
                               }
                             </div>
 
                             <!-- Content -->
                             <div class="p-6 flex-1 flex flex-col">
-                              <!-- Guild Name + Badges -->
                               <div class="mb-4">
                                 <div class="text-lg font-bold mb-2" [title]="guild.name">
                                   {{ guild.name }}
                                 </div>
-                                <div class="flex flex-wrap gap-2">
-                                  @if (guild.owner) {
-                                    <p-tag value="OWNER" icon="pi pi-crown" severity="warn" />
-                                  }
-                                  <p-tag value="ADMIN" icon="pi pi-shield" severity="info" />
-                                </div>
+                                <p-tag severity="warn" value="Inactif" icon="pi pi-exclamation-triangle" />
                               </div>
 
-                              <!-- Info inactivité -->
-                              @if (guild.botRemovedAt) {
-                                <div class="text-sm text-orange-700 dark:text-orange-300 mb-4 bg-orange-100 dark:bg-orange-900/30 p-3 rounded">
-                                  <i class="pi pi-info-circle mr-2"></i>
-                                  Inactif depuis {{ formatDate(guild.botRemovedAt) }}
-                                </div>
-                              }
+                              <p class="text-sm text-surface-600 dark:text-surface-400 mb-4">
+                                Le bot a été retiré de ce serveur. Réinvitez-le pour reprendre le suivi.
+                              </p>
 
                               <!-- Action Button - RÉACTIVER -->
                               <div class="mt-auto">
@@ -266,19 +260,19 @@ import { SetupOnboardingModalComponent } from '@app/components/guild-onboarding/
                   <i class="pi pi-check-circle text-6xl text-green-500 mb-4"></i>
                   <div class="text-xl font-semibold mb-2">Aucun serveur inactif</div>
                   <p class="text-surface-600 dark:text-surface-400">
-                    Le bot est actif sur tous vos serveurs configurés !
+                    Le bot est présent sur tous vos serveurs actifs !
                   </p>
                 </div>
               }
             </p-tabpanel>
 
-            <!-- Panel Serveurs Non Configurés -->
+            <!-- Panel Serveurs Non Ajoutés -->
             <p-tabpanel [value]="2">
-              <p-message severity="info" styleClass="w-full mb-4">
-                🚀 Ajoutez le bot à ces serveurs pour commencer à les administrer avec notre plateforme.
-              </p-message>
-
               @if (guildFacade.notAddedGuilds().length > 0) {
+                <p-message severity="info" styleClass="w-full mb-4">
+                  ℹ️ Ces serveurs n'ont pas encore le bot. Ajoutez-le pour commencer à les administrer.
+                </p-message>
+
                 <p-dataview [value]="guildFacade.notAddedGuilds()" layout="grid">
                   <ng-template #grid let-guilds>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -290,31 +284,34 @@ import { SetupOnboardingModalComponent } from '@app/components/guild-onboarding/
                               @if (guild.icon) {
                                 <div class="absolute inset-0 flex items-center justify-center">
                                   <img 
-                                    class="w-24 h-24 rounded-full shadow-xl border-4 border-white dark:border-surface-800 grayscale"
+                                    class="w-24 h-24 rounded-full shadow-xl border-4 border-white dark:border-surface-800 opacity-75"
                                     [src]="getGuildIconUrl(guild)" 
                                     [alt]="guild.name" />
                                 </div>
                               } @else {
-                                <div class="w-24 h-24 rounded-full bg-white/30 absolute inset-0 m-auto flex items-center justify-center text-white text-4xl font-bold shadow-xl border-4 border-white dark:border-surface-800">
-                                  {{ guild.name.charAt(0).toUpperCase() }}
+                                <div class="w-24 h-24 rounded-full bg-white/30 backdrop-blur-sm absolute inset-0 m-auto flex items-center justify-center text-white text-4xl font-bold shadow-xl border-4 border-white dark:border-surface-800">
+                                  {{ guild.name?.charAt(0).toUpperCase() || '?' }}
                                 </div>
                               }
                             </div>
 
                             <!-- Content -->
                             <div class="p-6 flex-1 flex flex-col">
-                              <!-- Guild Name + Badges -->
                               <div class="mb-4">
                                 <div class="text-lg font-bold mb-2" [title]="guild.name">
                                   {{ guild.name }}
                                 </div>
                                 <div class="flex flex-wrap gap-2">
+                                  <p-tag severity="secondary" value="Non configuré" icon="pi pi-plus-circle" />
                                   @if (guild.owner) {
-                                    <p-tag value="OWNER" icon="pi pi-crown" severity="warn" />
+                                    <p-tag severity="info" value="Propriétaire" icon="pi pi-crown" />
                                   }
-                                  <p-tag value="ADMIN" icon="pi pi-shield" severity="info" />
                                 </div>
                               </div>
+
+                              <p class="text-sm text-surface-600 dark:text-surface-400 mb-4">
+                                Le bot n'est pas encore présent sur ce serveur. Ajoutez-le pour commencer !
+                              </p>
 
                               <!-- Action Button - AJOUTER -->
                               <div class="mt-auto">
@@ -366,7 +363,7 @@ import { SetupOnboardingModalComponent } from '@app/components/guild-onboarding/
       }
     </div>
 
-    <!-- 🆕 Modal d'onboarding -->
+    <!-- Modal d'onboarding -->
     <app-setup-onboarding-modal
       [visible]="showOnboardingModal()"
       [guildId]="onboardingGuildId()"
@@ -386,16 +383,14 @@ export class ServerListComponent implements OnInit {
   private readonly router = inject(Router);
   
   protected selectedGuildId: string | null = null;
-
-  // Track which guild is being processed for onboarding
   private processingGuildId: string | null = null;
 
-  // 🆕 Modal state
+  // Modal state
   protected showOnboardingModal = signal(false);
   protected onboardingGuildId = signal('');
   protected onboardingGuildName = signal('');
 
-  // Computed pour le total de guilds
+  // Computed
   totalGuildsCount = computed(() => {
     return (
       this.guildFacade.activeGuilds().length +
@@ -432,7 +427,7 @@ export class ServerListComponent implements OnInit {
   }
 
   /**
-   * 🆕 Ajoute le bot à une guild non configurée
+   * Ajoute le bot à une guild non configurée
    */
   async addBot(guild: GuildWithBotStatusDTO): Promise<void> {
     console.log('[ServerList] Adding bot to guild:', guild.id, guild.name);
@@ -452,7 +447,6 @@ export class ServerListComponent implements OnInit {
       console.error('[ServerList] Failed to add bot:', error);
       this.closeOnboardingModal();
     } finally {
-      // Reset après un délai
       setTimeout(() => {
         this.processingGuildId = null;
       }, 1000);
@@ -460,7 +454,7 @@ export class ServerListComponent implements OnInit {
   }
 
   /**
-   * 🆕 Réactive le bot sur une guild inactive
+   * Réactive le bot sur une guild inactive
    */
   async reactivateBot(guild: GuildWithBotStatusDTO): Promise<void> {
     console.log('[ServerList] Reactivating bot for guild:', guild.id, guild.name);
@@ -487,12 +481,11 @@ export class ServerListComponent implements OnInit {
   }
 
   /**
-   * 🆕 Ferme la modal d'onboarding
+   * Ferme la modal d'onboarding
    */
   protected closeOnboardingModal(): void {
     this.showOnboardingModal.set(false);
     
-    // Reset après animation de fermeture
     setTimeout(() => {
       this.onboardingGuildId.set('');
       this.onboardingGuildName.set('');
@@ -500,11 +493,10 @@ export class ServerListComponent implements OnInit {
   }
 
   /**
-   * 🆕 Gère la fin du setup
+   * Gère la fin du setup
    */
   protected handleSetupComplete(): void {
     console.log('[ServerList] Setup complete, refreshing guilds...');
-    // Rafraîchir la liste des guilds pour mettre à jour les états
     this.refreshGuilds();
   }
 
@@ -548,12 +540,5 @@ export class ServerListComponent implements OnInit {
       const years = Math.floor(diffDays / 365);
       return `${years}a`;
     }
-  }
-
-  /**
-   * Navigate to server list (for back button)
-   */
-  protected navigateToServerList(): void {
-    this.router.navigate(['/server-list']);
   }
 }

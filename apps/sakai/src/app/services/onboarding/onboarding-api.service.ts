@@ -1,24 +1,25 @@
+// apps/sakai/src/app/services/onboarding/onboarding-api.service.ts
+
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { environment } from '@environments/environment';
 import {
   GuildSetupStatusDto,
-  QuickStartOptionsDto,
-  QuickStartAnswersDto,
-  QuickStartResponseDto,
   GuildSettingsDto,
   UpdateGuildSettingsDto
 } from '@my-project/shared-types';
 import { Observable } from 'rxjs';
 
 /**
- * Service API pour l'onboarding des guilds
+ * 🌐 Service API pour l'onboarding des guilds
  * 
  * Responsabilités:
  * - Appels HTTP vers le backend
  * - Gestion des endpoints /guilds/:guildId/setup/*
  * - Gestion des endpoints /guilds/:guildId/settings
  * - Pas de logique métier (juste HTTP)
+ * 
+ * Pattern: API Layer (uniquement HTTP)
  */
 @Injectable({
   providedIn: 'root'
@@ -58,36 +59,10 @@ export class OnboardingApiService {
     );
   }
 
-  /**
-   * Récupère les options pour le Quick Start Wizard
-   * Channels disponibles, recommendations, etc.
-   * 
-   * @param guildId - ID de la guild Discord
-   * @returns Observable des options du wizard
-   */
-  getQuickStartOptions(guildId: string): Observable<QuickStartOptionsDto> {
-    return this.http.get<QuickStartOptionsDto>(
-      `${this.baseUrl}/${guildId}/setup/quick-start`
-    );
-  }
-
-  /**
-   * Soumet les réponses du Quick Start Wizard
-   * Configure les modules et settings selon les choix
-   * 
-   * @param guildId - ID de la guild Discord
-   * @param answers - Réponses du wizard
-   * @returns Observable de la réponse avec next steps
-   */
-  submitQuickStartAnswers(
-    guildId: string, 
-    answers: QuickStartAnswersDto
-  ): Observable<QuickStartResponseDto> {
-    return this.http.post<QuickStartResponseDto>(
-      `${this.baseUrl}/${guildId}/setup/quick-start`,
-      answers
-    );
-  }
+  // ============================================
+  // NOTE: Pas de QuickStart dans le backend
+  // Le wizard modifie directement les settings après le setup
+  // ============================================
 
   /**
    * Génère l'URL d'invitation Discord OAuth pour ajouter le bot
