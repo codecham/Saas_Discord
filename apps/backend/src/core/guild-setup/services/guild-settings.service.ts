@@ -6,8 +6,6 @@ import {
   UpdateGuildSettingsDto,
   CreateGuildSettingsDto,
   InitializationStatus,
-  BackfillStatus,
-  AutoModLevel,
 } from '@my-project/shared-types';
 
 /**
@@ -33,37 +31,12 @@ export class GuildSettingsService {
         // Initialisation
         initializationStatus: InitializationStatus.PENDING,
 
-        // Modules (avec overrides du DTO si fournis)
-        moduleStats: dto.moduleStats ?? true,
-        moduleModeration: false,
-        moduleInvites: dto.moduleInvites ?? true,
-        moduleAutomod: false,
-        moduleWelcome: false,
-
-        // Config stats
-        statsBackfillDays: 0,
-        statsBackfillStatus: BackfillStatus.NONE,
-        statsBackfillProgress: 0,
-        statsRetentionDays: 90,
-
-        // Config modération
-        autoModLevel: AutoModLevel.MEDIUM,
-
-        // Config invites
-        trackInvites: true,
-        inviteAnalytics: true,
-
         // Locale
         locale: dto.locale ?? 'en',
         timezone: dto.timezone ?? 'UTC',
-
-        // Permissions (vides par défaut)
-        adminRoleIds: [],
-        modRoleIds: [],
       },
     });
 
-    this.logger.log(`Settings created for guild ${dto.guildId}`);
     return this.mapToDto(settings);
   }
 
@@ -71,6 +44,8 @@ export class GuildSettingsService {
    * Récupérer les settings d'une guild
    */
   async get(guildId: string): Promise<GuildSettingsDto> {
+    this.logger.log(`Getting settings for guild ${guildId}`);
+
     const settings = await this.prisma.guildSettings.findUnique({
       where: { guildId },
     });
@@ -89,6 +64,7 @@ export class GuildSettingsService {
     const count = await this.prisma.guildSettings.count({
       where: { guildId },
     });
+
     return count > 0;
   }
 
@@ -98,23 +74,13 @@ export class GuildSettingsService {
   async update(dto: UpdateGuildSettingsDto): Promise<GuildSettingsDto> {
     this.logger.log(`Updating settings for guild ${dto.guildId}`);
 
-    // Vérifier que les settings existent
-    const exists = await this.exists(dto.guildId);
-    if (!exists) {
-      throw new NotFoundException(
-        `Settings not found for guild ${dto.guildId}`,
-      );
-    }
-
-    // Préparer les données à update (enlever guildId)
-    const { guildId, ...updateData } = dto;
+    const { guildId, ...data } = dto;
 
     const settings = await this.prisma.guildSettings.update({
       where: { guildId },
-      data: updateData,
+      data,
     });
 
-    this.logger.log(`Settings updated for guild ${dto.guildId}`);
     return this.mapToDto(settings);
   }
 
@@ -149,29 +115,16 @@ export class GuildSettingsService {
   }
 
   /**
-   * Mettre à jour la progression du backfill
+   * Supprimer les settings (cascade delete normalement géré par Prisma)
    */
-  async updateBackfillProgress(
-    guildId: string,
-    status: BackfillStatus,
-    progress: number,
-  ): Promise<GuildSettingsDto> {
-    const data: any = {
-      statsBackfillStatus: status,
-      statsBackfillProgress: progress,
-    };
+  async delete(guildId: string): Promise<void> {
+    this.logger.log(`Deleting settings for guild ${guildId}`);
 
-    // Si terminé, set date
-    if (status === BackfillStatus.COMPLETED) {
-      data.statsBackfilledAt = new Date();
-    }
-
-    const settings = await this.prisma.guildSettings.update({
+    await this.prisma.guildSettings.delete({
       where: { guildId },
-      data,
     });
 
-    return this.mapToDto(settings);
+    this.logger.log(`Settings deleted for guild ${guildId}`);
   }
 
   /**
@@ -188,29 +141,7 @@ export class GuildSettingsService {
       initializationError: settings.initializationError,
       initializedAt: settings.initializedAt?.toISOString() ?? null,
 
-      // Modules
-      moduleStats: settings.moduleStats,
-      moduleModeration: settings.moduleModeration,
-      moduleInvites: settings.moduleInvites,
-      moduleAutomod: settings.moduleAutomod,
-      moduleWelcome: settings.moduleWelcome,
-
-      // Config stats
-      statsBackfillDays: settings.statsBackfillDays,
-      statsBackfillStatus: settings.statsBackfillStatus as BackfillStatus,
-      statsBackfillProgress: settings.statsBackfillProgress,
-      statsRetentionDays: settings.statsRetentionDays,
-      statsBackfilledAt: settings.statsBackfilledAt?.toISOString() ?? null,
-
-      // Config modération
-      modLogChannelId: settings.modLogChannelId,
-      autoModLevel: settings.autoModLevel as AutoModLevel,
-
-      // Config invites
-      trackInvites: settings.trackInvites,
-      inviteAnalytics: settings.inviteAnalytics,
-
-      // Locale
+      // Locale & timezone
       locale: settings.locale,
       timezone: settings.timezone,
 
@@ -222,18 +153,5 @@ export class GuildSettingsService {
       createdAt: settings.createdAt.toISOString(),
       updatedAt: settings.updatedAt.toISOString(),
     };
-  }
-
-  /**
-   * Supprimer les settings (cascade delete normalement géré par Prisma)
-   */
-  async delete(guildId: string): Promise<void> {
-    this.logger.log(`Deleting settings for guild ${guildId}`);
-
-    await this.prisma.guildSettings.delete({
-      where: { guildId },
-    });
-
-    this.logger.log(`Settings deleted for guild ${guildId}`);
   }
 }

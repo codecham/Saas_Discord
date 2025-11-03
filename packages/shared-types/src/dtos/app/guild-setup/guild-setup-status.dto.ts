@@ -1,5 +1,3 @@
-// packages/shared-types/src/dtos/app/guild-setup/guild-setup-status.dto.ts
-
 import { InitializationStatus, SetupErrorSeverity } from './guild-setup.enums';
 
 /**

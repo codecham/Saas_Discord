@@ -48,10 +48,10 @@ export class GuildSettingsController {
    *
    * @example PATCH /api/guilds/123456789/settings
    * Body: {
-   *   "moduleStats": true,
-   *   "moduleModeration": true,
-   *   "modLogChannelId": "987654321",
-   *   "autoModLevel": "high"
+   *   "locale": "fr",
+   *   "timezone": "Europe/Paris",
+   *   "adminRoleIds": ["role_id_1", "role_id_2"],
+   *   "modRoleIds": ["role_id_3"]
    * }
    */
   @Patch()

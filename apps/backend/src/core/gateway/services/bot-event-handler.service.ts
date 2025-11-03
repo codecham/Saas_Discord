@@ -1,5 +1,4 @@
-// apps/backend/src/modules/gateway/services/bot-event-handler.service.ts
-
+/* eslint-disable @typescript-eslint/require-await */
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BotEventDto, EventType, GuildDTO } from '@my-project/shared-types';
@@ -19,32 +18,22 @@ export class BotEventHandlerService {
     switch (event.type) {
       case EventType.GUILD_SYNC:
         await this.handleGuildsSync(event.data);
-        this.logger.log(
-          `Guild sync event recu: ${JSON.stringify(event, null, 2)}`,
-        );
+        this.logger.log(`Guild sync event received`);
         break;
       case EventType.GUILD_CREATE:
         await this.handleGuildCreate(event.data);
-        this.logger.log(
-          `Guild Create event recu: ${JSON.stringify(event, null, 2)}`,
-        );
+        this.logger.log(`Guild Create event received for: ${event.data.name}`);
         break;
       case EventType.GUILD_DELETE:
         await this.handleGuildDelete(event.data);
-        this.logger.log(
-          `Guild Delete event recu: ${JSON.stringify(event, null, 2)}`,
-        );
+        this.logger.log(`Guild Delete event received`);
         break;
       case EventType.GUILD_UPDATE:
         await this.handleGuildUpdate(event.data);
-        this.logger.log(
-          `Guild Update event recu: ${JSON.stringify(event, null, 2)}`,
-        );
+        this.logger.log(`Guild Update event received`);
         break;
       default:
-        this.logger.log(
-          `Evenement inconnu reçu: ${JSON.stringify(event, null, 2)}`,
-        );
+        this.logger.log(`Unknown event type received: ${event.type}`);
         break;
     }
   }
@@ -55,43 +44,24 @@ export class BotEventHandlerService {
 
   /**
    * Synchronise l'ensemble des guilds Discord avec la base de données
-   * Marque d'abord toutes les guilds comme inactives, puis met à jour ou crée chaque guild
-   * Les guilds non présentes dans guildsData resteront inactives
+   * DÉSACTIVÉ pour l'instant
    */
   private async handleGuildsSync(guildsData: GuildDTO[]): Promise<void> {
-    this.logger.log(`GUILD_SYNC DISABLE`);
+    this.logger.log(`GUILD_SYNC DISABLED ${JSON.stringify(guildsData)}`);
     return;
-    try {
-      // Marquer toutes les guilds comme inactives
-      await this.prisma.guild.updateMany({
-        data: { isActive: false },
-      });
-
-      // Mettre à jour ou créer chaque guild
-      for (const guildData of guildsData) {
-        await this.upsertGuild(guildData, true);
-      }
-
-      this.logger.log(
-        `✅ Synchronisation terminée: ${guildsData.length} guilds`,
-      );
-    } catch (error) {
-      this.logger.error('Erreur lors de la synchronisation des guilds:', error);
-      throw error;
-    }
   }
 
   /**
    * Gère la création d'une nouvelle guild
-   * NOUVEAU: Appelle le GuildSetupService pour initialiser complètement la guild
+   * Version simplifiée - Appelle juste le GuildSetupService
    */
   private async handleGuildCreate(guildData: any): Promise<void> {
     try {
       this.logger.log(
-        `🆕 Nouvelle guild détectée: ${guildData.name} (${guildData.id})`,
+        `🆕 New guild detected: ${guildData.name} (${guildData.id})`,
       );
 
-      // Appeler le service de setup pour initialisation complète
+      // Appel simplifié avec seulement les données de base
       const result = await this.guildSetupService.initializeGuild(
         guildData.id,
         {
@@ -99,23 +69,19 @@ export class BotEventHandlerService {
           icon: guildData.icon,
           ownerId: guildData.ownerId,
           memberCount: guildData.memberCount,
-          channels: guildData.channels,
-          roles: guildData.roles,
         },
       );
 
       if (result.success) {
         this.logger.log(
-          `✅ Guild initialisée avec succès: ${guildData.name} (Status: ${result.status.status})`,
+          `✅ Guild initialized successfully: ${guildData.name} (Status: ${result.status.status})`,
         );
       } else {
-        this.logger.warn(
-          `⚠️ Guild initialisée avec warnings: ${guildData.name}`,
-        );
+        this.logger.error(`❌ Failed to initialize guild: ${guildData.name}`);
       }
     } catch (error) {
       this.logger.error(
-        `❌ Erreur lors de l'initialisation de la guild ${guildData.id}:`,
+        `Error handling GUILD_CREATE for ${guildData.id}:`,
         error,
       );
       // Ne pas throw pour ne pas bloquer le traitement des autres events
@@ -125,10 +91,10 @@ export class BotEventHandlerService {
   /**
    * Gère la suppression d'une guild (bot kicked/banned)
    */
-  private async handleGuildDelete(guildData: GuildDTO): Promise<void> {
-    this.logger.log(`GUILD_DELETE DISABLE`);
-    return;
+  private async handleGuildDelete(guildData: any): Promise<void> {
     try {
+      this.logger.log(`Guild left: ${guildData.id}`);
+
       await this.prisma.guild.update({
         where: { guildId: guildData.id },
         data: {
@@ -137,57 +103,35 @@ export class BotEventHandlerService {
         },
       });
 
-      this.logger.log(`✅ Guild marquée comme inactive: ${guildData.id}`);
+      this.logger.log(`✅ Guild ${guildData.id} marked as inactive`);
     } catch (error) {
       this.logger.error(
-        `Erreur lors de la suppression de la guild ${guildData.id}:`,
+        `Error handling GUILD_DELETE for ${guildData.id}:`,
         error,
       );
-      throw error;
     }
   }
 
   /**
    * Gère la mise à jour d'une guild
    */
-  private async handleGuildUpdate(guildData: GuildDTO): Promise<void> {
-    this.logger.log(`GUILD_DELETE DISABLE`);
-    return;
+  private async handleGuildUpdate(guildData: any): Promise<void> {
     try {
-      await this.upsertGuild(guildData, true);
-      this.logger.log(`✅ Guild mise à jour: ${guildData.id}`);
+      await this.prisma.guild.update({
+        where: { guildId: guildData.id },
+        data: {
+          name: guildData.name,
+          icon: guildData.icon,
+          ownerDiscordId: guildData.ownerId,
+        },
+      });
+
+      this.logger.log(`✅ Guild ${guildData.id} updated`);
     } catch (error) {
       this.logger.error(
-        `Erreur lors de la mise à jour de la guild ${guildData.id}:`,
+        `Error handling GUILD_UPDATE for ${guildData.id}:`,
         error,
       );
-      throw error;
     }
-  }
-
-  /**
-   * Upsert d'une guild dans la base de données
-   */
-  private async upsertGuild(
-    guildData: GuildDTO,
-    isActive: boolean,
-  ): Promise<void> {
-    await this.prisma.guild.upsert({
-      where: { guildId: guildData.id },
-      create: {
-        guildId: guildData.id,
-        name: guildData.name ?? 'Unknown Guild',
-        icon: guildData.icon,
-        ownerDiscordId: guildData.ownerId ?? 'unknown',
-        isActive,
-        botAddedAt: new Date(),
-      },
-      update: {
-        name: guildData.name ?? 'Unknown Guild',
-        icon: guildData.icon,
-        ownerDiscordId: guildData.ownerId ?? 'unknown',
-        isActive,
-      },
-    });
   }
 }

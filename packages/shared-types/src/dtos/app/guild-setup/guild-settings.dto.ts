@@ -1,10 +1,8 @@
-// packages/shared-types/src/dtos/app/guild-setup/guild-settings.dto.ts
-
-import { InitializationStatus, BackfillStatus, AutoModLevel } from './guild-setup.enums';
+import { InitializationStatus } from './guild-setup.enums';
 
 /**
- * Configuration complète d'une guild
- * Correspond au model GuildSettings de Prisma
+ * Configuration globale d'une guild
+ * Correspond au model GuildSettings de Prisma (version nettoyée)
  */
 export interface GuildSettingsDto {
   id: string;
@@ -16,36 +14,6 @@ export interface GuildSettingsDto {
   initializationStatus: InitializationStatus;
   initializationError?: string | null;
   initializedAt?: string | null; // ISO date
-  
-  // ═══════════════════════════════════════
-  // MODULES ACTIVÉS
-  // ═══════════════════════════════════════
-  moduleStats: boolean;
-  moduleModeration: boolean;
-  moduleInvites: boolean;
-  moduleAutomod: boolean;
-  moduleWelcome: boolean;
-  
-  // ═══════════════════════════════════════
-  // CONFIGURATION STATS
-  // ═══════════════════════════════════════
-  statsBackfillDays: number; // 0 = aucun, 7 = free, 30/60/90 = premium
-  statsBackfillStatus: BackfillStatus;
-  statsBackfillProgress: number; // 0-100
-  statsRetentionDays: number;
-  statsBackfilledAt?: string | null; // ISO date
-  
-  // ═══════════════════════════════════════
-  // CONFIGURATION MODÉRATION
-  // ═══════════════════════════════════════
-  modLogChannelId?: string | null;
-  autoModLevel: AutoModLevel;
-  
-  // ═══════════════════════════════════════
-  // CONFIGURATION INVITES
-  // ═══════════════════════════════════════
-  trackInvites: boolean;
-  inviteAnalytics: boolean;
   
   // ═══════════════════════════════════════
   // LOCALE & TIMEZONE
@@ -73,25 +41,6 @@ export interface GuildSettingsDto {
 export interface UpdateGuildSettingsDto {
   guildId: string;
   
-  // Modules
-  moduleStats?: boolean;
-  moduleModeration?: boolean;
-  moduleInvites?: boolean;
-  moduleAutomod?: boolean;
-  moduleWelcome?: boolean;
-  
-  // Config stats
-  statsBackfillDays?: number;
-  statsRetentionDays?: number;
-  
-  // Config modération
-  modLogChannelId?: string | null;
-  autoModLevel?: AutoModLevel;
-  
-  // Config invites
-  trackInvites?: boolean;
-  inviteAnalytics?: boolean;
-  
   // Locale & timezone
   locale?: string;
   timezone?: string;
@@ -110,6 +59,6 @@ export interface CreateGuildSettingsDto {
   // Override des defaults si besoin
   locale?: string;
   timezone?: string;
-  moduleStats?: boolean;
-  moduleInvites?: boolean;
 }
+
+
