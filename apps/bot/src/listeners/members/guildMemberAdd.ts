@@ -3,6 +3,7 @@ import { Listener } from '@sapphire/framework';
 import { GuildMember } from 'discord.js';
 import { BotEventDto, EventType, MemberAddEventData } from '@my-project/shared-types';
 import { isListenerEnabled } from '../../config/listeners.config';
+import { welcomeModule } from '../../modules/welcome/welcome.module';
 
 /**
  * Listener pour l'événement GUILD_MEMBER_ADD
@@ -18,10 +19,19 @@ import { isListenerEnabled } from '../../config/listeners.config';
 export class GuildMemberAddListener extends Listener {
   
   public override async run(member: GuildMember): Promise<void> {
-    if (!isListenerEnabled('GUILD_MEMBER_ADD')) {
+
+    if (member.user.bot) {
       return;
     }
 
+    if (isListenerEnabled('GUILD_MEMBER_ADD')) {
+      this.sendEvent(member);
+    }
+
+    await welcomeModule.sendWelcomeMessage(member);
+  }
+
+  private sendEvent(member: GuildMember) {
     const eventData = this.extractMemberData(member);
 
     const event: BotEventDto = {

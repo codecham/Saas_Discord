@@ -6,6 +6,8 @@ import { GatewayIntentBits } from 'discord.js';
 import { WebSocketService } from './services/websocket.service';
 import { logger } from './lib/logger/winston.config';
 import { EventBatcher } from './services/eventBatcher.service';
+import { moduleLoader } from './modules/module-loader/module-loader.service';
+import { welcomeModule } from './modules/welcome/welcome.module';
 
 declare module '@sapphire/pieces' {
 	interface Container {
@@ -53,7 +55,16 @@ const main = async () => {
 		logger.info('🤖 Bot démarrage...');
 		const token = process.env.DISCORD_TOKEN;
 		if (!token) throw new Error('Token not define in .env');
-		
+
+		moduleLoader.register(welcomeModule);
+		client.once('ready', async () => {
+			console.log(`Bot logged in as ${client.user?.tag}`);
+			
+			// ✅ Charger tous les modules actifs
+			await moduleLoader.loadAllModules();
+			
+			console.log('✅ Bot ready with all modules loaded');
+		});
 		await client.login();
 		
 		logger.info('🤖 Bot connecté à Discord');

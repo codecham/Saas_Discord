@@ -120,4 +120,27 @@ export class GatewayClientService implements OnModuleInit {
     this.socket.emit('broadcast-to-bots', data);
     return true;
   }
+
+  /**
+   * Notifie le bot d'un changement de module
+   */
+  notifyModuleChange(data: {
+    guildId: string;
+    moduleId: string;
+    action: 'enabled' | 'disabled' | 'config_updated';
+    config?: any;
+    timestamp: Date;
+  }) {
+    if (!this.socket?.connected) {
+      this.logger.warn('Gateway non connectée, notification ignorée');
+      return false;
+    }
+
+    this.logger.log(
+      `📤 Notifying module change: ${data.action} - ${data.moduleId} in guild ${data.guildId}`,
+    );
+
+    this.socket.emit('module:change', data);
+    return true;
+  }
 }

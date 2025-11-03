@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import {
   Injectable,
   Logger,
@@ -9,7 +11,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { ModuleRegistry } from '../registry/module.registry';
 import {
   GuildModuleConfig,
-  ModuleChangeEvent,
   CheckLimitRequest,
   CheckLimitResponse,
   SubscriptionPlan,
@@ -263,10 +264,62 @@ export class ModuleManagerService {
   }
 
   /**
-   * TODO: Notifier le Bot via Gateway
+   * Récupère toutes les guilds où un module est activé
+   * Retourne les configs spécifiques au module
    */
-  private notifyBot(event: ModuleChangeEvent): void {
-    // À implémenter avec le service Gateway
-    this.logger.debug('TODO: Notify bot', event);
+  async getEnabledGuilds(
+    moduleId: string,
+  ): Promise<Array<{ guildId: string; config: any }>> {
+    // Récupérer les guild_modules activés
+    const guildModules = await this.prisma.guildModule.findMany({
+      where: {
+        moduleId,
+        enabled: true,
+      },
+      select: {
+        guildId: true,
+        config: true,
+      },
+    });
+
+    // Si le module a une table de config spécifique, la charger aussi
+    if (moduleId === 'welcome') {
+      // S'il n'y a pas de guild_modules, retourner tableau vide
+      if (guildModules.length === 0) {
+        return [];
+      }
+
+      const welcomeConfigs = await this.prisma.welcomeConfig.findMany({
+        where: {
+          enabled: true,
+          guildId: {
+            in: guildModules.map((gm) => gm.guildId),
+          },
+        },
+      });
+
+      // Retourner les configs spécifiques au module welcome
+      return welcomeConfigs.map((wc) => ({
+        guildId: wc.guildId,
+        config: {
+          id: wc.id,
+          enabled: wc.enabled,
+          channelId: wc.channelId,
+          messageType: wc.messageType,
+          messageContent: wc.messageContent,
+          embedColor: wc.embedColor,
+          embedTitle: wc.embedTitle,
+          embedDescription: wc.embedDescription,
+          embedThumbnail: wc.embedThumbnail,
+          embedFooter: wc.embedFooter,
+        },
+      }));
+    }
+
+    // Pour les autres modules futurs, retourner la config générique
+    return guildModules.map((gm) => ({
+      guildId: gm.guildId,
+      config: (gm.config as Record<string, any>) || {},
+    }));
   }
 }

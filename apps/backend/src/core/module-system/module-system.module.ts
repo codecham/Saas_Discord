@@ -3,6 +3,7 @@ import { ModuleRegistry } from './registry/module.registry';
 import { ModuleManagerService } from './services/module-manager.service';
 import { ModuleSystemController } from './controllers/module-system.controller';
 import { PrismaModule } from '../prisma/prisma.module';
+import { WELCOME_MODULE } from 'src/modules/welcome/welcome.definition';
 
 /**
  * 🧩 Module System Module
@@ -26,5 +27,6 @@ export class ModuleSystemModule implements OnModuleInit {
     // TODO: Importer et enregistrer tous les modules ici
     // Sera fait en Phase 3
     console.log('📦 Module System initialized');
+    this.moduleRegistry.register(WELCOME_MODULE);
   }
 }

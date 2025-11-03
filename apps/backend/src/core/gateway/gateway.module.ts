@@ -15,5 +15,6 @@ import { GuildSetupModule } from '../guild-setup/guild-setup.module';
     BotEventHandlerService,
   ],
   controllers: [GatewayController],
+  exports: [GatewayClientService],
 })
 export class GatewayModule {}

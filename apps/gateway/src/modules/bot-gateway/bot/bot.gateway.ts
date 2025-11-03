@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -144,6 +145,26 @@ export class BotGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.botConnectionService.broadcastToAllBots('from-backend', data);
     this.logger.debug('Message diffusé à tous les bots');
+  }
+
+  /**
+   * Relaie les événements de modules du backend vers les bots
+   */
+  @SubscribeMessage('module:change')
+  handleModuleChange(
+    @MessageBody() data: any,
+    @ConnectedSocket() client: Socket,
+  ) {
+    // Vérifier que ça vient du backend
+    if (client.id !== this.backendSocket?.id) {
+      this.logger.warn('module:change from non-backend client');
+      return;
+    }
+
+    this.logger.log(
+      `📢 Relaying module:change to bots: ${data.action} - ${data.moduleId}`,
+    );
+    this.botConnectionService.broadcastToAllBots('module:change', data);
   }
 
   /**

@@ -47,6 +47,15 @@ export class ModuleSystemController {
   }
 
   /**
+   * GET /modules/enabled/:moduleId
+   * Récupère toutes les guilds où un module est activé avec leurs configs
+   */
+  @Get('enabled/:moduleId')
+  async getEnabledGuilds(@Param('moduleId') moduleId: string) {
+    return this.moduleManager.getEnabledGuilds(moduleId);
+  }
+
+  /**
    * GET /modules/:guildId
    * Liste les modules d'un serveur
    */

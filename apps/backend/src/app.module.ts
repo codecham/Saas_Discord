@@ -14,6 +14,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { EventsModule } from './core/events/events.module';
 import { GuildSetupModule } from './core/guild-setup/guild-setup.module';
 import { ModuleSystemModule } from './core/module-system/module-system.module';
+import { WelcomeModule } from './modules/welcome/welcome.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { ModuleSystemModule } from './core/module-system/module-system.module';
     EventsModule,
     GuildSetupModule,
     ModuleSystemModule,
+    WelcomeModule,
   ],
   controllers: [AppController],
   providers: [

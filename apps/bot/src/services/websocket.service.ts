@@ -1,9 +1,9 @@
-// src/services/gateway-client.service.ts
 import { io, Socket } from 'socket.io-client';
 import { container } from '@sapphire/framework';
 import type { BotEventDto } from '@my-project/shared-types';
 import { BOT_CONFIG } from '../config/bot.config';
 import { EventStorageService } from './eventStorage.service';
+import { ModuleEventsHandler } from './module-events-handler';
 
 export class WebSocketService {
   private socket: Socket;
@@ -47,6 +47,8 @@ export class WebSocketService {
     this.socket.on('connect_error', (error) => {
       container.logger.error('Erreur de connexion à la gateway:', error.message);
     });
+
+    ModuleEventsHandler.setupListeners(this.socket);
   }
 
   private async processPendingEvents() {
