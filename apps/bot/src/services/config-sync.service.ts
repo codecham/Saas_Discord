@@ -1,5 +1,3 @@
-// apps/bot/src/services/config-sync.service.ts
-
 import { container } from '@sapphire/framework';
 import fetch from 'node-fetch';
 

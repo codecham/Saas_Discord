@@ -18,19 +18,19 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // MESSAGES
   // ==========================================
   MESSAGE_CREATE: {
-    enabled: true,
+    enabled: false,
     description: 'Nouveau message créé'
   },
   MESSAGE_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Message modifié'
   },
   MESSAGE_DELETE: {
-    enabled: true,
+    enabled: false,
     description: 'Message supprimé'
   },
   MESSAGE_DELETE_BULK: {
-    enabled: true,
+    enabled: false,
     description: 'Suppression en masse de messages'
   },
 
@@ -38,15 +38,15 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // MEMBRES
   // ==========================================
   GUILD_MEMBER_ADD: {
-    enabled: true,
+    enabled: false,
     description: 'Nouveau membre rejoint le serveur'
   },
   GUILD_MEMBER_REMOVE: {
-    enabled: true,
+    enabled: false,
     description: 'Membre quitte le serveur'
   },
   GUILD_MEMBER_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Informations du membre mises à jour'
   },
 
@@ -54,19 +54,19 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // MODÉRATION
   // ==========================================
   GUILD_BAN_ADD: {
-    enabled: true,
+    enabled: false,
     description: 'Membre banni'
   },
   GUILD_BAN_REMOVE: {
-    enabled: true,
+    enabled: false,
     description: 'Ban levé'
   },
   GUILD_AUDIT_LOG_ENTRY_CREATE: {
-    enabled: true,
+    enabled: false,
     description: 'Nouvelle entrée dans les logs d\'audit (timeouts, etc.)'
   },
   AUTO_MODERATION_ACTION_EXECUTION: {
-    enabled: true,
+    enabled: false,
     description: 'Action d\'auto-modération exécutée'
   },
 
@@ -74,19 +74,19 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // RÉACTIONS
   // ==========================================
   MESSAGE_REACTION_ADD: {
-    enabled: true,
+    enabled: false,
     description: 'Réaction ajoutée à un message'
   },
   MESSAGE_REACTION_REMOVE: {
-    enabled: true,
+    enabled: false,
     description: 'Réaction retirée d\'un message'
   },
   MESSAGE_REACTION_REMOVE_ALL: {
-    enabled: true,
+    enabled: false,
     description: 'Toutes les réactions retirées'
   },
   MESSAGE_REACTION_REMOVE_EMOJI: {
-    enabled: true,
+    enabled: false,
     description: 'Emoji spécifique retiré'
   },
 
@@ -94,7 +94,7 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // VOICE
   // ==========================================
   VOICE_STATE_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'État vocal modifié (join/leave/mute/etc.)'
   },
 
@@ -102,19 +102,19 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // CHANNELS
   // ==========================================
   CHANNEL_CREATE: {
-    enabled: true,
+    enabled: false,
     description: 'Nouveau channel créé'
   },
   CHANNEL_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Channel modifié'
   },
   CHANNEL_DELETE: {
-    enabled: true,
+    enabled: false,
     description: 'Channel supprimé'
   },
   CHANNEL_PINS_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Messages épinglés modifiés'
   },
 
@@ -122,15 +122,15 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // RÔLES
   // ==========================================
   ROLE_CREATE: {
-    enabled: true,
+    enabled: false,
     description: 'Nouveau rôle créé'
   },
   ROLE_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Rôle modifié'
   },
   ROLE_DELETE: {
-    enabled: true,
+    enabled: false,
     description: 'Rôle supprimé'
   },
 
@@ -138,11 +138,11 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // INVITATIONS
   // ==========================================
   INVITE_CREATE: {
-    enabled: true,
+    enabled: false,
     description: 'Invitation créée'
   },
   INVITE_DELETE: {
-    enabled: true,
+    enabled: false,
     description: 'Invitation supprimée'
   },
 
@@ -150,19 +150,19 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // THREADS
   // ==========================================
   THREAD_CREATE: {
-    enabled: true,
+    enabled: false,
     description: 'Nouveau thread créé'
   },
   THREAD_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Thread modifié'
   },
   THREAD_DELETE: {
-    enabled: true,
+    enabled: false,
     description: 'Thread supprimé'
   },
   THREAD_MEMBERS_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Membres du thread modifiés'
   },
 
@@ -170,15 +170,15 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // EMOJIS
   // ==========================================
   EMOJI_CREATE: {
-    enabled: true,
+    enabled: false,
     description: 'Nouvel emoji créé'
   },
   EMOJI_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Emoji modifié'
   },
   EMOJI_DELETE: {
-    enabled: true,
+    enabled: false,
     description: 'Emoji supprimé'
   },
 
@@ -186,15 +186,15 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // STICKERS
   // ==========================================
   GUILD_STICKER_CREATE: {
-    enabled: true,
+    enabled: false,
     description: 'Nouveau sticker créé'
   },
   GUILD_STICKER_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Sticker modifié'
   },
   GUILD_STICKER_DELETE: {
-    enabled: true,
+    enabled: false,
     description: 'Sticker supprimé'
   },
 
@@ -202,23 +202,23 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // ÉVÉNEMENTS PLANIFIÉS
   // ==========================================
   GUILD_SCHEDULED_EVENT_CREATE: {
-    enabled: true,
+    enabled: false,
     description: 'Événement planifié créé'
   },
   GUILD_SCHEDULED_EVENT_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Événement planifié modifié'
   },
   GUILD_SCHEDULED_EVENT_DELETE: {
-    enabled: true,
+    enabled: false,
     description: 'Événement planifié supprimé'
   },
   GUILD_SCHEDULED_EVENT_USER_ADD: {
-    enabled: true,
+    enabled: false,
     description: 'Utilisateur intéressé par l\'événement'
   },
   GUILD_SCHEDULED_EVENT_USER_REMOVE: {
-    enabled: true,
+    enabled: false,
     description: 'Utilisateur n\'est plus intéressé'
   },
 
@@ -226,7 +226,7 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // WEBHOOKS
   // ==========================================
   WEBHOOKS_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Webhooks du channel modifiés'
   },
 
@@ -234,15 +234,15 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // STAGE
   // ==========================================
   STAGE_INSTANCE_CREATE: {
-    enabled: true,
+    enabled: false,
     description: 'Stage instance créée'
   },
   STAGE_INSTANCE_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Stage instance modifiée'
   },
   STAGE_INSTANCE_DELETE: {
-    enabled: true,
+    enabled: false,
     description: 'Stage instance supprimée'
   },
 
@@ -250,19 +250,19 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // INTÉGRATIONS
   // ==========================================
   GUILD_INTEGRATIONS_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Intégrations du serveur modifiées'
   },
   INTEGRATION_CREATE: {
-    enabled: true,
+    enabled: false,
     description: 'Nouvelle intégration créée'
   },
   INTEGRATION_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Intégration modifiée'
   },
   INTEGRATION_DELETE: {
-    enabled: true,
+    enabled: false,
     description: 'Intégration supprimée'
   },
 
@@ -270,7 +270,7 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // UTILISATEUR
   // ==========================================
   USER_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Informations utilisateur Discord modifiées'
   },
   PRESENCE_UPDATE: {
@@ -286,7 +286,7 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // INTERACTIONS
   // ==========================================
   INTERACTION_CREATE: {
-    enabled: true,
+    enabled: false,
     description: 'Interaction créée (slash commands, boutons, etc.)'
   },
 
@@ -294,15 +294,15 @@ export const LISTENERS_CONFIG: Record<string, ListenerConfig> = {
   // AUTOMOD
   // ==========================================
   AUTO_MODERATION_RULE_CREATE: {
-    enabled: true,
+    enabled: false,
     description: 'Règle d\'auto-modération créée'
   },
   AUTO_MODERATION_RULE_UPDATE: {
-    enabled: true,
+    enabled: false,
     description: 'Règle d\'auto-modération modifiée'
   },
   AUTO_MODERATION_RULE_DELETE: {
-    enabled: true,
+    enabled: false,
     description: 'Règle d\'auto-modération supprimée'
   },
 };

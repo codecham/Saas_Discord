@@ -1,82 +1,59 @@
-import { BotEventDto, EventType, GuildDTO } from '@my-project/shared-types';
+// apps/bot/src/listeners/ready.ts
+
 import { ApplyOptions } from '@sapphire/decorators';
 import { Listener } from '@sapphire/framework';
-import type { StoreRegistryValue } from '@sapphire/pieces';
-import { blue, gray, green, magenta, magentaBright, white, yellow } from 'colorette';
-import { EventBatcher } from '../services/eventBatcher.service';
+import { logger } from '../lib/logger/winston.config';
 
-const dev = process.env.NODE_ENV !== 'production';
+/**
+ * Listener pour l'événement 'clientReady' de Discord
+ * 
+ * Ce listener est déclenché une seule fois (once: true) lorsque le bot
+ * est complètement connecté et prêt à recevoir des événements Discord.
+ * 
+ * ⚠️ IMPORTANT : Ce listener ne fait RIEN volontairement !
+ * 
+ * Toute la logique d'initialisation a été déplacée dans BotStartupService
+ * et est appelée depuis index.ts lors de l'événement 'clientReady'.
+ * 
+ * Ce listener existe uniquement pour que Sapphire puisse charger correctement
+ * le système de listeners. Si on le supprime, Sapphire pourrait avoir des
+ * problèmes de chargement.
+ * 
+ * Architecture :
+ * 
+ *   index.ts (client.once('clientReady'))
+ *        ↓
+ *   BotStartupService.initialize()
+ *        ↓
+ *   [Toute la logique d'initialisation]
+ * 
+ *   ready.ts (Listener Sapphire)
+ *        ↓
+ *   [Rien - juste pour Sapphire]
+ * 
+ * Note: Utilise 'clientReady' au lieu de 'ready' pour éviter le warning de dépréciation
+ */
+@ApplyOptions<Listener.Options>({ 
+	once: true,
+	event: 'clientReady'
+})
+export class ReadyListener extends Listener {
 
-const guildSYNC = true;
-
-@ApplyOptions<Listener.Options>({ once: true })
-export class UserEvent extends Listener {
-	private readonly style = dev ? yellow : blue;
-	private eventBatcher: EventBatcher;
-
-	public constructor(context: Listener.Context, options: Listener.Options) {
-		super(context, options);
-		this.eventBatcher = new EventBatcher();
-	}
-
-	public override run() {
-		this.printBanner();
-		this.printStoreDebugInformation();
-		(this.container as any).eventBatcher = this.eventBatcher;
-		if (guildSYNC)
-			this.sendGuildListToBackEnd();
-	}
-
-	private printBanner() {
-		const success = green('+');
-
-		const llc = dev ? magentaBright : white;
-		const blc = dev ? magenta : blue;
-
-		const line01 = llc('');
-		const line02 = llc('');
-		const line03 = llc('');
-
-		// Offset Pad
-		const pad = ' '.repeat(7);
-
-		console.log(
-			String.raw`
-${line01} ${pad}${blc('1.0.0')}
-${line02} ${pad}[${success}] Gateway
-${line03}${dev ? ` ${pad}${blc('<')}${llc('/')}${blc('>')} ${llc('DEVELOPMENT MODE')}` : ''}
-		`.trim()
-		);
-	}
-
-	private printStoreDebugInformation() {
-		const { client, logger } = this.container;
-		const stores = [...client.stores.values()];
-		const last = stores.pop()!;
-
-		for (const store of stores) logger.info(this.styleStore(store, false));
-		logger.info(this.styleStore(last, true));
-	}
-
-	private styleStore(store: StoreRegistryValue, last: boolean) {
-		return gray(`${last ? '└─' : '├─'} Loaded ${this.style(store.size.toString().padEnd(3, ' '))} ${store.name}.`);
-	}
-
-	private sendGuildListToBackEnd() {
-		const guilds: GuildDTO[] = this.container.client.guilds.cache.map((guild) => ({
-			id: guild.id,
-			name: guild.name,
-			icon: guild.icon,
-			ownerId: guild.ownerId,
-			memberCount: guild.memberCount
-		}));
-		const guildSyncDto: BotEventDto = {
-			type: EventType.GUILD_SYNC,
-			guildId: '',
-			timestamp: Date.now(),
-			data: guilds,
-		}
-		this.container.logger.info(`GUILDS: ${JSON.stringify(guilds, null, guilds.length)}`);
-		this.container.ws.sendToBackend([guildSyncDto]);
+	/**
+	 * Exécuté une fois que le bot est connecté et prêt
+	 * 
+	 * Ce listener ne fait rien car toute l'initialisation est gérée
+	 * dans index.ts via BotStartupService.
+	 * 
+	 * Il existe uniquement pour que le framework Sapphire fonctionne correctement.
+	 */
+	public override run(): void {
+		logger.debug('[ReadyListener] Événement clientReady déclenché (Sapphire)');
+		
+		// ℹ️ Toute la logique d'initialisation est dans index.ts
+		// via client.once('clientReady') et BotStartupService.initialize()
+		
+		// Ce listener Sapphire sert juste à ce que le framework
+		// charge correctement le système de listeners
 	}
 }
