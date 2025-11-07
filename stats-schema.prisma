@@ -1,0 +1,167 @@
+// ============================================
+// STATS MODULE - PRISMA SCHEMA
+// ============================================
+// Ce fichier contient les 4 models à AJOUTER dans apps/backend/prisma/schema.prisma
+//
+// INSTRUCTIONS:
+// 1. Copier ces models à la fin de votre schema.prisma existant
+// 2. Lancer: npx prisma migrate dev --name add_stats_module
+// 3. Lancer: npx prisma generate
+// 4. Exécuter le fichier timescaledb.sql (voir tâche 1.3)
+
+// ============================================
+// 1. STATS EVENTS (Hypertable TimescaleDB)
+// ============================================
+
+/// Events bruts Discord pour le module Stats
+/// Hypertable TimescaleDB avec rétention configurable
+/// Rétention: 7j (free) / 30j (premium) / illimité (enterprise)
+model StatsEvent {
+  // PK composite (requis pour hypertable)
+  id        String   @default(cuid())
+  timestamp DateTime @db.Timestamptz
+  
+  // Identification
+  guildId   String   @map("guild_id") @db.VarChar(20)
+  
+  // Type d'event
+  type      String   // MESSAGE_CREATE, VOICE_JOIN, VOICE_LEAVE, MEMBER_JOIN, MEMBER_LEAVE, REACTION_ADD
+  
+  // Métadonnées event
+  userId    String?  @map("user_id") @db.VarChar(20)
+  channelId String?  @map("channel_id") @db.VarChar(20)
+  messageId String?  @map("message_id") @db.VarChar(20)
+  
+  // Données additionnelles (JSON)
+  metadata  Json?    @db.JsonB
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@id([id, timestamp])  // PK composite requis pour TimescaleDB hypertable
+  @@map("stats_events")
+  // NOTE: Les index sont créés dans la migration SQL TimescaleDB
+}
+
+// ============================================
+// 2. STATS AGGREGATED 5MIN (Continuous Aggregate)
+// ============================================
+
+/// Agrégations toutes les 5 minutes (Continuous Aggregate TimescaleDB)
+/// Calculé automatiquement par TimescaleDB depuis stats_events
+/// Rétention: 7j (free) / 90j (premium) / illimité (enterprise)
+model StatsAggregated5min {
+  // PK composite
+  guildId String   @map("guild_id") @db.VarChar(20)
+  bucket  DateTime @db.Timestamptz  // time_bucket('5 minutes', timestamp)
+  
+  // Métriques de base
+  messageCount  Int @default(0) @map("message_count")
+  reactionCount Int @default(0) @map("reaction_count")
+  activeUsers   Int @default(0) @map("active_users")
+  
+  // Vocal (estimation basique, sera affiné par cron)
+  voiceJoins  Int @default(0) @map("voice_joins")
+  voiceLeaves Int @default(0) @map("voice_leaves")
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@id([guildId, bucket])
+  @@map("stats_aggregated_5min")
+  // NOTE: Les index sont créés dans la migration SQL TimescaleDB
+}
+
+// ============================================
+// 3. STATS AGGREGATED DAILY (Continuous Aggregate)
+// ============================================
+
+/// Agrégations quotidiennes (Continuous Aggregate TimescaleDB)
+/// Calculé automatiquement par TimescaleDB depuis stats_events
+/// Rétention: 30j (free) / illimité (premium/enterprise)
+model StatsAggregatedDaily {
+  // PK composite
+  guildId String   @map("guild_id") @db.VarChar(20)
+  day     DateTime @db.Date  // time_bucket('1 day', timestamp)
+  
+  // Métriques de base
+  totalMessages       Int @default(0) @map("total_messages")
+  totalReactions      Int @default(0) @map("total_reactions")
+  totalActiveUsers    Int @default(0) @map("total_active_users")
+  totalVoiceMinutes   Int @default(0) @map("total_voice_minutes")
+  
+  // Membres
+  totalMembersJoined  Int @default(0) @map("total_members_joined")
+  totalMembersLeft    Int @default(0) @map("total_members_left")
+  
+  // Top channels (JSON array)
+  topChannels         Json? @map("top_channels") @db.JsonB
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@id([guildId, day])
+  @@map("stats_aggregated_daily")
+  // NOTE: Les index sont créés dans la migration SQL TimescaleDB
+}
+
+// ============================================
+// 4. STATS MEMBER CUMULATIVE
+// ============================================
+
+/// Stats cumulatives par membre (Table standard PostgreSQL)
+/// Compteurs totaux depuis le début pour chaque membre
+/// Pas de rétention (données gardées tant que le membre est sur le serveur)
+model StatsMemberCumulative {
+  id String @id @default(cuid())
+  
+  // Identification
+  guildId String @map("guild_id") @db.VarChar(20)
+  userId  String @map("user_id") @db.VarChar(20)
+  
+  // Compteurs cumulatifs
+  totalMessages       Int @default(0) @map("total_messages")
+  totalReactions      Int @default(0) @map("total_reactions")
+  totalVoiceMinutes   Int @default(0) @map("total_voice_minutes")
+  
+  // Dernière activité
+  lastMessageAt DateTime? @map("last_message_at") @db.Timestamptz
+  lastVoiceAt   DateTime? @map("last_voice_at") @db.Timestamptz
+  lastSeenAt    DateTime? @map("last_seen_at") @db.Timestamptz
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([guildId, userId], name: "stats_member_cumulative_guild_user_unique")
+  @@map("stats_member_cumulative")
+  @@index([guildId])
+  @@index([guildId, userId])
+}
+
+// ============================================
+// NOTES D'IMPLÉMENTATION
+// ============================================
+//
+// 1. TIMESCALEDB SETUP:
+//    - StatsEvent doit être converti en hypertable
+//    - StatsAggregated5min et StatsAggregatedDaily sont des continuous aggregates
+//    - Voir fichier timescaledb.sql (tâche 1.3) pour la configuration complète
+//
+// 2. INDEXES:
+//    - Les index sont créés dans la migration SQL TimescaleDB
+//    - Ne pas ajouter @@index ici pour éviter les conflits
+//
+// 3. VOCAL TRACKING:
+//    - Le temps vocal est calculé via un cron job qui lit VOICE_JOIN/VOICE_LEAVE
+//    - Voir StatsAggregationService pour l'implémentation
+//
+// 4. RETENTION POLICIES:
+//    - Configurées dans TimescaleDB (voir timescaledb.sql)
+//    - Différentes par plan (free/premium/enterprise)
+//
+// 5. CONTINUOUS AGGREGATES:
+//    - Rafraîchis automatiquement toutes les 5 minutes par TimescaleDB
+//    - Pas besoin de cron jobs pour les aggregates

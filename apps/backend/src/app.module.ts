@@ -11,7 +11,6 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { RedisModule } from './core/redis/redis.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
-import { EventsModule } from './core/events/events.module';
 import { GuildSetupModule } from './core/guild-setup/guild-setup.module';
 import { ModuleSystemModule } from './core/module-system/module-system.module';
 import { WelcomeModule } from './modules/welcome/welcome.module';
@@ -39,7 +38,6 @@ import { WelcomeModule } from './modules/welcome/welcome.module';
     GatewayModule,
     DiscordModule,
     RedisModule,
-    EventsModule,
     GuildSetupModule,
     ModuleSystemModule,
     WelcomeModule,

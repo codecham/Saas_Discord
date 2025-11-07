@@ -3,7 +3,6 @@ import { io, Socket } from 'socket.io-client';
 import type { BotEventDto } from '@my-project/shared-types';
 import { PrismaService } from '../../prisma/prisma.service';
 import { BotEventHandlerService } from './bot-event-handler.service';
-import { EventsService } from '../../events/core/events.service';
 
 @Injectable()
 export class GatewayClientService implements OnModuleInit {
@@ -14,7 +13,6 @@ export class GatewayClientService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly botEventHandlerService: BotEventHandlerService,
-    private readonly eventsService: EventsService,
   ) {
     this.gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:3001';
   }
@@ -55,42 +53,16 @@ export class GatewayClientService implements OnModuleInit {
     });
   }
 
-  // private async handleBotEvent(events: BotEventDto[]) {
-  //   // Normaliser en array
-
-  //   this.logger.log(`Event recieved[${events.length}]:`);
-  //   for (const event of events) {
-  //     await this.botEventHandlerService.processEvent(event);
-  //   }
-  // }
-
   private async handleBotEvent(events: BotEventDto[]) {
     this.logger.log(`📥 Events reçus [${events.length}]`);
 
-    // 🆕 ÉTAPE 1 : Persister TOUS les events dans TimescaleDB
-    try {
-      const count = await this.eventsService.processBatch(events);
-      this.logger.log(`✅ ${count} events persistés dans TimescaleDB`);
-    } catch (error) {
-      this.logger.error(
-        `❌ Erreur persistance events: ${error.message}`,
-        error.stack,
-      );
-      // On continue même en cas d'erreur pour ne pas bloquer le traitement
-    }
-
-    // ⚠️ ÉTAPE 2 : TEMPORAIRE - Traiter les events Guild avec l'ancien système
-    // TODO: À supprimer quand les processors seront implémentés
     for (const event of events) {
-      // Traiter uniquement les events Guild (GUILD_SYNC, GUILD_CREATE, GUILD_UPDATE, GUILD_DELETE)
-      if (event.type.startsWith('GUILD_')) {
-        try {
-          await this.botEventHandlerService.processEvent(event);
-        } catch (error) {
-          this.logger.error(
-            `❌ Erreur traitement event ${event.type}: ${error.message}`,
-          );
-        }
+      try {
+        await this.botEventHandlerService.processEvent(event);
+      } catch (error) {
+        this.logger.error(
+          `❌ Erreur traitement event ${event.type}: ${error.message}`,
+        );
       }
     }
   }
