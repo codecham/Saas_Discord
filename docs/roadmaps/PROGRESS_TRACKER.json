@@ -1,6 +1,6 @@
 {
   "meta": {
-    "lastUpdate": "2025-11-06T00:00:00.000Z",
+    "lastUpdate": "2025-11-07T04:18:38.709Z",
     "version": "2.0.0",
     "projectName": "Discord Admin App - MVP Refonte"
   },
@@ -12,15 +12,16 @@
       "id": "1.1",
       "name": "Architecture & Schema Stats Module",
       "phase": "phase-1",
-      "status": "not_started",
+      "status": "in_progress",
       "progress": 0,
-      "estimatedHoursRemaining": 8
+      "estimatedHoursRemaining": 8,
+      "startedAt": "2025-11-07T04:18:38.708Z"
     }
   },
   "phases": {
     "phase-1": {
       "name": "Stats Module Backend",
-      "status": "not_started",
+      "status": "in_progress",
       "duration": "5-7 jours",
       "tasks": {
         "total": 23,
