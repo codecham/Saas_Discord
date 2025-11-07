@@ -38,12 +38,6 @@
     "clean:docker": "docker-compose -f infrastructure/docker/docker-compose.dev.yml down && docker volume prune -f",
     "clean:builds": "rm -rf apps/*/dist && rm -rf packages/*/dist && rm -rf apps/frontend/.angular",
     "docker-stop": "docker stop $(docker ps -a -q)",
-    "progress": "ts-node scripts/progress-cli.mts status",
-    "progress:next": "ts-node scripts/progress-cli.mts next",
-    "progress:start": "ts-node scripts/progress-cli.mts start",
-    "progress:update": "ts-node scripts/progress-cli.mts progress",
-    "progress:complete": "ts-node scripts/progress-cli.mts complete",
-    "progress:note": "ts-node scripts/progress-cli.mts note"
   },
   "devDependencies": {
     "concurrently": "^8.0.0",
