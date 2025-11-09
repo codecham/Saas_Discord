@@ -325,54 +325,6 @@ welcome_configs (
 )
 ```
 
-#### TimescaleDB (extension PostgreSQL)
-
-**Usage** : Données de séries temporelles (module Stats)
-
-**Hypertables :**
-```sql
--- Events bruts (rétention 7-30j)
-stats_events (
-  time, guild_id, event_type,
-  user_id, channel_id, metadata (JSONB)
-)
-
--- Agrégations 5 minutes (rétention 7-90j)
-stats_aggregated_5min (
-  bucket, guild_id, channel_id,
-  message_count, unique_users, reaction_count
-)
-
--- Agrégations quotidiennes (rétention 30j-∞)
-stats_aggregated_daily (
-  bucket, guild_id,
-  total_messages, total_voice_minutes,
-  unique_active_users
-)
-
--- Stats cumulatives par membre
-stats_member_cumulative (
-  guild_id, user_id,
-  total_messages, total_voice_minutes,
-  total_reactions, join_date
-)
-```
-
-**Continuous Aggregates :**
-```sql
--- Auto-agrégation 5min
-CREATE MATERIALIZED VIEW stats_aggregated_5min
-WITH (timescaledb.continuous) AS
-SELECT
-  time_bucket('5 minutes', time) AS bucket,
-  guild_id,
-  COUNT(*) AS message_count,
-  COUNT(DISTINCT user_id) AS unique_users
-FROM stats_events
-WHERE event_type = 'MESSAGE_CREATE'
-GROUP BY bucket, guild_id;
-```
-
 #### Redis
 
 **Usage** : Cache & sessions
@@ -427,7 +379,7 @@ export const WELCOME_MODULE: ModuleDefinition = {
   availability: {
     free: true,
     premium: true,
-    enterprise: true,
+    max: true,
   },
 
   // Limites par plan (-1 = illimité)
@@ -474,7 +426,7 @@ enum ModuleCategory {
 enum SubscriptionPlan {
   FREE = 'free',
   PREMIUM = 'premium',
-  ENTERPRISE = 'enterprise',
+  max = 'max',
 }
 ```
 
@@ -1728,7 +1680,7 @@ model Guild {
   icon          String?
   ownerId       String   @map("owner_id")
   memberCount   Int      @default(0) @map("member_count")
-  subscription  String   @default("free") // 'free' | 'premium' | 'enterprise'
+  subscription  String   @default("free") // 'free' | 'premium' | 'max'
   joinedAt      DateTime @default(now()) @map("joined_at")
   leftAt        DateTime? @map("left_at")
   createdAt     DateTime @default(now()) @map("created_at")
@@ -2486,7 +2438,7 @@ export const MY_MODULE: ModuleDefinition = {
   name: 'My Module',
   description: 'Description',
   category: ModuleCategory.UTILITY,
-  availability: { free: true, premium: true, enterprise: true },
+  availability: { free: true, premium: true, max: true },
   limits: {
     free: { resource: 10 },
     premium: { resource: -1 },
