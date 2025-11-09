@@ -37,7 +37,7 @@
     "clean:soft": "rm -rf node_modules && rm -rf apps/*/node_modules && rm -rf packages/*/node_modules",
     "clean:docker": "docker-compose -f infrastructure/docker/docker-compose.dev.yml down && docker volume prune -f",
     "clean:builds": "rm -rf apps/*/dist && rm -rf packages/*/dist && rm -rf apps/frontend/.angular",
-    "docker-stop": "docker stop $(docker ps -a -q)",
+    "docker-stop": "docker stop $(docker ps -a -q)"
   },
   "devDependencies": {
     "concurrently": "^8.0.0",

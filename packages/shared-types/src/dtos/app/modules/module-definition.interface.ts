@@ -22,7 +22,7 @@ export enum ModuleCategory {
 export enum SubscriptionPlan {
   FREE = 'free',
   PREMIUM = 'premium',
-  ENTERPRISE = 'enterprise',
+  MAX = 'max',
 }
 
 /**
@@ -45,7 +45,7 @@ export interface ModuleLimits {
 export interface ModuleAvailability {
   free: boolean;
   premium: boolean;
-  enterprise: boolean;
+  max: boolean;
 }
 
 /**
@@ -87,7 +87,7 @@ export interface ModuleDefinition {
   limits?: {
     free?: ModuleLimits;
     premium?: ModuleLimits;
-    enterprise?: ModuleLimits;
+    max?: ModuleLimits;
   };
   
   // Dépendances (si nécessaire)

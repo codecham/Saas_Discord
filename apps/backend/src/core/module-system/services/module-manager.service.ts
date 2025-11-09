@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import {
   Injectable,
   Logger,
@@ -214,7 +212,7 @@ export class ModuleManagerService {
       limit: limitValue,
       current: currentCount,
       plan,
-      upgradeRequired: !allowed && plan !== SubscriptionPlan.ENTERPRISE,
+      upgradeRequired: !allowed && plan !== SubscriptionPlan.MAX,
     };
   }
 

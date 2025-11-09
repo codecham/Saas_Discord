@@ -15,7 +15,7 @@ export const WELCOME_MODULE: ModuleDefinition = {
   availability: {
     free: true,
     premium: true,
-    enterprise: true,
+    max: true,
   },
 
   limits: {
@@ -25,7 +25,7 @@ export const WELCOME_MODULE: ModuleDefinition = {
     premium: {
       messages: -1, // Illimité
     },
-    enterprise: {
+    max: {
       messages: -1, // Illimité
     },
   },

@@ -255,7 +255,7 @@ Au reconnect → Restore + send batch
 
 **Structure (prévue) :**
 ```typescript
-apps/frontend/src/app/
+apps/sakai/src/app/
 ├── core/
 │   ├── services/         # API clients
 │   ├── guards/           # Auth guards
@@ -1504,20 +1504,171 @@ export class MessageCreateStatsListener extends Listener {
 }
 ```
 
-#### Frontend (À faire)
+### ✅ Frontend Angular (~60% complété)
 
-**Composants prévus :**
-```
-apps/frontend/src/app/features/modules/stats/
-├── pages/
-│   ├── stats-dashboard/      # Dashboard principal
-│   ├── stats-timeline/       # Graphiques temporels
-│   └── stats-leaderboard/    # Classements
-└── components/
-    ├── metric-card/          # Card métrique
-    ├── activity-chart/       # Chart activité
-    └── member-rank/          # Rang d'un membre
-```
+#### Infrastructure & Core ✅
+- [x] Architecture routing complète avec lazy loading
+- [x] Auth guard + Guest guard + Guild guard
+- [x] JWT Interceptor avec auto-injection tokens
+- [x] Template Sakai intégré (layout, navigation, thèmes dark/light)
+- [x] Pattern Facade (API + Data + Facade services)
+- [x] Angular 20 Signals pour réactivité
+- [x] Error handling global avec toasts
+- [x] Loading states (skeleton) partout
+
+#### Authentification ✅ (100%)
+- [x] Login Discord OAuth avec state CSRF
+- [x] Callback handler sécurisé
+- [x] JWT + Refresh tokens (httpOnly cookies pour sécurité)
+- [x] Auto-refresh tokens avant expiration
+- [x] Guards protection routes (auth + guest + guild)
+- [x] Pages : `/auth/login`, `/auth/callback`
+
+#### Gestion Serveurs (Guilds) ✅ (100%)
+- [x] Liste serveurs Discord de l'utilisateur
+- [x] Sélection serveur actif avec persistence
+- [x] Informations détaillées serveur (icône, nom, membres, etc.)
+- [x] Cache intelligent avec TTL (5 min)
+- [x] Auto-loading au login
+- [x] Pages : `/server-list`, `/server-info`, `/dashboard`
+- [x] Services complets : `guild-facade`, `guild-api`, `guild-data`
+
+#### Gestion Membres ✅ (90%)
+- [x] Liste complète membres avec pagination
+- [x] Filtres rapides (tous, admins, bots, timeout)
+- [x] Recherche temps réel (nom, username, nickname)
+- [x] Lazy loading des membres restants
+- [x] Actions de modération via modals PrimeNG élégantes :
+  - [x] Kick membre avec raison
+  - [x] Ban membre avec raison + delete message days
+  - [x] Timeout membre avec sélection durée (60s, 5min, 10min, 1h, 1j, 1 semaine)
+  - [x] Change nickname avec validation
+- [x] Affichage rôles membres
+- [x] Statistiques par catégorie (admins, bots, timeout, etc.)
+- [x] Cache avec TTL
+- [x] Pages : `/members`
+- [x] Services complets : `member-facade`, `member-api`, `member-data`
+- [x] Composants : `member-roles`, `member-action-modals`
+
+#### Gestion Channels ✅ (80%)
+- [x] Liste complète channels (text, voice, category, forum, etc.)
+- [x] Filtrage par type de channel
+- [x] Filtrage par catégorie
+- [x] Recherche temps réel
+- [x] Channels groupés par catégorie et triés
+- [x] Actions CRUD complètes :
+  - [x] Create channel
+  - [x] Modify channel (nom, topic, nsfw, slowmode, etc.)
+  - [x] Delete channel
+  - [x] Clone channel
+  - [x] Edit permissions (rôles/membres)
+  - [x] Delete permissions
+- [x] Statistiques globales (total par type)
+- [x] Cache avec TTL
+- [x] Services complets : `channel-facade`, `channel-api`, `channel-data`
+
+#### Gestion Utilisateur ✅ (100%)
+- [x] Profil utilisateur Discord
+- [x] Avatar, username, discriminator
+- [x] Auto-loading au login
+- [x] Cache en mémoire
+- [x] Services complets : `user-facade`, `user-api`, `user-data`
+
+#### Outils Développement ✅
+- [x] Endpoint Tester (test manuel des endpoints API)
+- [x] Error Handler global avec MessageService
+- [x] Toast notifications PrimeNG
+- [x] Documentation component
+
+### 🔄 En cours (~15%)
+
+#### Module Welcome (Frontend)
+- [x] Backend 100% opérationnel
+- [ ] Frontend 0% implémenté
+- [ ] À faire :
+  - [ ] Page configuration `/modules/welcome/config`
+  - [ ] Message editor avec variables `{user}`, `{server}`, etc.
+  - [ ] Channel selector (dropdown)
+  - [ ] Preview message temps réel
+  - [ ] Embed builder (Premium)
+  - [ ] Services : `welcome-facade`, `welcome-api`, `welcome-data`
+
+#### Module Stats (Frontend)
+- [x] Backend ~70% opérationnel
+- [x] Frontend structure créée (10%)
+- [ ] À compléter :
+  - [ ] Dashboard stats serveur
+  - [ ] Charts timeline (messages, vocal)
+  - [ ] Leaderboards membres actifs
+  - [ ] Métriques temps réel
+  - [ ] Composants réutilisables :
+    - [ ] `MetricCard` - Affichage KPI
+    - [ ] `TimelineChart` - Graphique temporel
+    - [ ] `LeaderboardTable` - Classement membres
+  - [ ] Services : `statistics-facade` (structure vide actuellement)
+
+#### Statistiques Membres
+- [x] Structure page `/members/:userId/stats` (20%)
+- [x] Layout basique
+- [ ] Connexion backend Stats
+- [ ] Charts activité membre
+- [ ] Historique rôles
+- [ ] Timeline messages/vocal
+
+### ⏳ À faire (~25%)
+
+#### Modules Additionnels (Frontend)
+Aucune implémentation frontend pour :
+- [ ] Module Automod (0%)
+- [ ] Module Tickets (0%)
+- [ ] Module Leveling (0%)
+- [ ] Module Economy (0%)
+
+#### Fonctionnalités Manquantes
+
+##### Gestion des Rôles (0%)
+- [ ] Liste des rôles du serveur
+- [ ] Création/modification/suppression rôles
+- [ ] Attribution de rôles aux membres (bulk)
+- [ ] Gestion permissions rôles
+- [ ] Hiérarchie et couleurs des rôles
+- [ ] Services : `role-facade`, `role-api`, `role-data`
+
+##### Logs d'Audit (0%)
+- [ ] Liste des actions modération
+- [ ] Filtres par type d'action (kick, ban, timeout, etc.)
+- [ ] Filtres par modérateur
+- [ ] Timeline des événements
+- [ ] Export des logs (CSV, JSON)
+- [ ] Services : `audit-facade`, `audit-api`, `audit-data`
+
+##### Paramètres Serveur (0%)
+- [ ] Modifier nom/icône/banner serveur
+- [ ] Gestion des régions
+- [ ] Niveaux de vérification
+- [ ] Notifications système
+- [ ] Permissions par défaut
+- [ ] Services : `settings-facade`, `settings-api`, `settings-data`
+
+##### Dashboard Analytics Avancé (20%)
+- [ ] Vue d'ensemble serveur avec KPIs
+- [ ] Graphiques activité (messages, membres, vocal)
+- [ ] Stats temps réel
+- [ ] Tendances (croissance, engagement)
+- [ ] Prédictions AI (optionnel)
+
+##### WebSocket Real-Time (0%)
+- [ ] Connexion Socket.IO frontend ↔ Gateway
+- [ ] Notifications temps réel (nouveaux membres, etc.)
+- [ ] Updates membres/channels en direct
+- [ ] Status bot connecté (vert/rouge)
+- [ ] Service : `websocket.service.ts`
+
+##### Tests (0%)
+- [ ] Tests unitaires services (Jest/Jasmine)
+- [ ] Tests guards et interceptors
+- [ ] Tests E2E (Cypress/Playwright)
+- [ ] Coverage > 70%
 
 ---
 
