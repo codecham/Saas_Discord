@@ -4,6 +4,7 @@ import { ModuleManagerService } from './services/module-manager.service';
 import { ModuleSystemController } from './controllers/module-system.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { WELCOME_MODULE } from 'src/modules/welcome/welcome.definition';
+import { SubscriptionModule } from '../subscription/subscription.module';
 
 /**
  * 🧩 Module System Module
@@ -12,7 +13,7 @@ import { WELCOME_MODULE } from 'src/modules/welcome/welcome.definition';
  * S'occupe de l'enregistrement et de la gestion des modules.
  */
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, SubscriptionModule],
   providers: [ModuleRegistry, ModuleManagerService],
   controllers: [ModuleSystemController],
   exports: [ModuleRegistry, ModuleManagerService],

@@ -71,6 +71,7 @@ model Guild {
   settings      GuildSettings?
   modules       GuildModule[]
   welcomeConfig WelcomeConfig?
+  subscription  GuildSubscription?
   
   // Métadonnées
   createdAt DateTime @default(now()) @map("created_at")
@@ -97,6 +98,120 @@ model GuildSettings {
   guild                 Guild    @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
   
   @@map("guild_settings")
+}
+
+// ============================================
+// SUBSCRIPTION SYSTEM
+// ============================================
+
+/// Enum pour les plans d'abonnement
+enum SubscriptionPlan {
+  FREE
+  PRO
+  MAX
+  
+  @@map("subscription_plan")
+}
+
+/// Enum pour le statut de l'abonnement
+enum SubscriptionStatus {
+  ACTIVE      // Abonnement actif et payé
+  CANCELLED   // Annulé mais toujours actif jusqu'à la fin de période
+  EXPIRED     // Période terminée, retour au FREE
+  SUSPENDED   // Suspendu (ex: paiement échoué)
+  TRIAL       // En période d'essai (optionnel pour plus tard)
+  
+  @@map("subscription_status")
+}
+
+/// Abonnement d'une guild
+/// Une guild ne peut avoir qu'un seul abonnement actif à la fois
+model GuildSubscription {
+  id        String   @id @default(cuid())
+  guildId   String   @unique @map("guild_id") @db.VarChar(20)
+  
+  // Plan actuel
+  plan      SubscriptionPlan @default(FREE)
+  status    SubscriptionStatus @default(ACTIVE)
+  
+  // Période d'abonnement (null si FREE)
+  startDate DateTime? @map("start_date") @db.Timestamptz
+  endDate   DateTime? @map("end_date") @db.Timestamptz
+  
+  // Propriétaire de l'abonnement (celui qui paie)
+  // Important : peut être différent de l'owner de la guild
+  subscriberDiscordId String? @map("subscriber_discord_id") @db.VarChar(20)
+  
+  // Métadonnées pour le futur système de paiement
+  // Ces champs seront utilisés plus tard pour Stripe/PayPal/etc
+  paymentProvider     String?  @map("payment_provider")      // "stripe", "paypal", etc
+  paymentCustomerId   String?  @map("payment_customer_id")   // ID client chez le provider
+  paymentSubscriptionId String? @map("payment_subscription_id") // ID subscription chez le provider
+  
+  // Auto-renewal (pour plus tard)
+  autoRenew Boolean @default(true) @map("auto_renew")
+  
+  // Historique
+  previousPlan SubscriptionPlan? @map("previous_plan")
+  upgradedAt   DateTime?         @map("upgraded_at") @db.Timestamptz
+  downgradedAt DateTime?         @map("downgraded_at") @db.Timestamptz
+  cancelledAt  DateTime?         @map("cancelled_at") @db.Timestamptz
+  
+  // Timestamps
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  
+  // Relations
+  guild            Guild                      @relation(fields: [guildId], references: [guildId], onDelete: Cascade)
+  paymentHistory   SubscriptionPaymentHistory[]
+  
+  @@index([guildId])
+  @@index([status])
+  @@index([subscriberDiscordId])
+  @@index([endDate])
+  @@map("guild_subscriptions")
+}
+
+/// Historique des paiements liés à un abonnement
+/// Permet de garder une trace de tous les paiements
+/// IMPORTANT : Seul le subscriber a accès à ces données
+model SubscriptionPaymentHistory {
+  id            String   @id @default(cuid())
+  subscriptionId String  @map("subscription_id")
+  
+  // Informations de paiement
+  amount        Decimal  @db.Decimal(10, 2)
+  currency      String   @default("EUR") @db.VarChar(3)
+  
+  // Statut du paiement
+  status        String   // "pending", "completed", "failed", "refunded"
+  
+  // Provider info (pour le futur)
+  paymentProvider   String?  @map("payment_provider")
+  paymentIntentId   String?  @map("payment_intent_id")   // ID transaction chez le provider
+  paymentMethod     String?  @map("payment_method")      // "card", "paypal", etc
+  
+  // Période couverte par ce paiement
+  periodStart   DateTime @map("period_start") @db.Timestamptz
+  periodEnd     DateTime @map("period_end") @db.Timestamptz
+  
+  // Métadonnées
+  failureReason String?  @map("failure_reason")
+  refundedAt    DateTime? @map("refunded_at") @db.Timestamptz
+  refundReason  String?  @map("refund_reason")
+  
+  // Timestamps
+  paidAt    DateTime? @map("paid_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  
+  // Relations
+  subscription GuildSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([paidAt])
+  @@map("subscription_payment_history")
 }
 
 // ============================================

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/require-await */
 import {
   Controller,
   Get,
@@ -11,9 +10,12 @@ import {
 } from '@nestjs/common';
 import { ModuleRegistry } from '../registry/module.registry';
 import { ModuleManagerService } from '../services/module-manager.service';
-import * as sharedTypes from '@my-project/shared-types';
-// import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-// import { GuildAdminGuard } from '../../auth/guards/guild-admin.guard';
+import { SubscriptionService } from '../../subscription/services/subscription.service';
+import type {
+  EnableModuleDto,
+  DisableModuleDto,
+  CheckLimitRequest,
+} from '@my-project/shared-types';
 
 /**
  * 🎛️ Module System Controller
@@ -26,6 +28,7 @@ export class ModuleSystemController {
   constructor(
     private readonly moduleRegistry: ModuleRegistry,
     private readonly moduleManager: ModuleManagerService,
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
   /**
@@ -33,31 +36,25 @@ export class ModuleSystemController {
    * Liste tous les modules disponibles
    */
   @Get()
+  // eslint-disable-next-line @typescript-eslint/require-await
   async getAllModules() {
     return this.moduleRegistry.getAllModules();
   }
 
   /**
-   * GET /modules/available/:plan
-   * Liste les modules disponibles pour un plan
+   * GET /modules/available/:guildId
+   * Liste les modules disponibles pour le plan de la guild
    */
-  @Get('available/:plan')
-  async getAvailableModules(@Param('plan') plan: sharedTypes.SubscriptionPlan) {
-    return this.moduleRegistry.getAvailableModules(plan);
-  }
-
-  /**
-   * GET /modules/enabled/:moduleId
-   * Récupère toutes les guilds où un module est activé avec leurs configs
-   */
-  @Get('enabled/:moduleId')
-  async getEnabledGuilds(@Param('moduleId') moduleId: string) {
-    return this.moduleManager.getEnabledGuilds(moduleId);
+  @Get('available/:guildId')
+  async getAvailableModules(@Param('guildId') guildId: string) {
+    const plan = await this.subscriptionService.getGuildPlan(guildId);
+    const sharedPlan = this.convertPrismaToSharedPlan(plan);
+    return this.moduleRegistry.getAvailableModules(sharedPlan);
   }
 
   /**
    * GET /modules/:guildId
-   * Liste les modules d'un serveur
+   * Liste les modules d'un serveur avec leur config
    */
   @Get(':guildId')
   async getGuildModules(@Param('guildId') guildId: string) {
@@ -66,22 +63,14 @@ export class ModuleSystemController {
 
   /**
    * POST /modules/:guildId/enable
-   * Active un module
+   * Active un module pour un serveur
    */
   @Post(':guildId/enable')
   async enableModule(
     @Param('guildId') guildId: string,
-    @Body() dto: sharedTypes.EnableModuleDto,
+    @Body() dto: EnableModuleDto,
   ) {
-    // TODO: Récupérer le plan depuis la DB (guild.subscription)
-    const plan = sharedTypes.SubscriptionPlan.FREE;
-
-    return this.moduleManager.enableModule(
-      guildId,
-      dto.moduleId,
-      plan,
-      dto.config,
-    );
+    return this.moduleManager.enableModule(guildId, dto.moduleId, dto.config);
   }
 
   /**
@@ -92,23 +81,39 @@ export class ModuleSystemController {
   @HttpCode(HttpStatus.OK)
   async disableModule(
     @Param('guildId') guildId: string,
-    @Body() dto: sharedTypes.DisableModuleDto,
+    @Body() dto: DisableModuleDto,
   ) {
     return this.moduleManager.disableModule(guildId, dto.moduleId);
   }
 
   /**
    * POST /modules/:guildId/check-limit
-   * Vérifie une limite
+   * Vérifie si une limite est respectée
    */
   @Post(':guildId/check-limit')
   async checkLimit(
     @Param('guildId') guildId: string,
-    @Body() request: sharedTypes.CheckLimitRequest,
+    @Body() request: CheckLimitRequest,
   ) {
-    // TODO: Récupérer le plan depuis la DB
-    const plan = sharedTypes.SubscriptionPlan.FREE;
+    return this.moduleManager.checkLimit({
+      guildId: request.guildId,
+      moduleId: request.moduleId,
+      resource: request.resource,
+      currentCount: request.currentCount,
+    });
+  }
 
-    return this.moduleManager.checkLimit(request, plan);
+  /**
+   * Convertit un SubscriptionPlan Prisma en SubscriptionPlan Shared
+   * (Copie de la méthode du service pour éviter une dépendance)
+   */
+  private convertPrismaToSharedPlan(prismaPlan: any): any {
+    // Simple mapping string to string
+    const mapping: Record<string, string> = {
+      FREE: 'free',
+      PRO: 'premium',
+      MAX: 'max',
+    };
+    return mapping[prismaPlan] || 'free';
   }
 }

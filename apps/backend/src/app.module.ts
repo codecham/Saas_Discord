@@ -14,6 +14,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { GuildSetupModule } from './core/guild-setup/guild-setup.module';
 import { ModuleSystemModule } from './core/module-system/module-system.module';
 import { WelcomeModule } from './modules/welcome/welcome.module';
+import { SubscriptionModule } from './core/subscription/subscription.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { WelcomeModule } from './modules/welcome/welcome.module';
     GuildSetupModule,
     ModuleSystemModule,
     WelcomeModule,
+    SubscriptionModule,
   ],
   controllers: [AppController],
   providers: [

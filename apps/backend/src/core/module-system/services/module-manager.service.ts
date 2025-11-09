@@ -1,110 +1,116 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  ForbiddenException,
-  BadRequestException,
-} from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-return */
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ModuleRegistry } from '../registry/module.registry';
-import {
-  GuildModuleConfig,
-  CheckLimitRequest,
-  CheckLimitResponse,
-  SubscriptionPlan,
-  ModuleStatus,
-} from '@my-project/shared-types';
+import { GuildModuleConfig, SubscriptionPlan } from '@my-project/shared-types';
+import { SubscriptionService } from '../../subscription/services/subscription.service';
+import { SubscriptionPlan as PrismaSubscriptionPlan } from '@prisma/client';
 
 /**
- * 🎛️ Module Manager Service
+ * 🎮 Module Manager Service
  *
- * Responsabilités :
- * - Enable/Disable modules pour un serveur
- * - CRUD sur guild_modules
- * - Vérifier limites avant actions
- * - Notifier le Bot des changements
+ * Service pour gérer l'activation/désactivation des modules par serveur.
+ * Vérifie les limites selon le plan d'abonnement via le SubscriptionService (core).
  */
 @Injectable()
 export class ModuleManagerService {
-  private readonly logger = new Logger(ModuleManagerService.name);
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly moduleRegistry: ModuleRegistry,
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
   /**
    * Active un module pour un serveur
+   *
+   * @param guildId - ID Discord du serveur
+   * @param moduleId - ID du module à activer
+   * @param config - Configuration initiale du module (optionnel)
+   * @returns Configuration du module activé
    */
   async enableModule(
     guildId: string,
     moduleId: string,
-    plan: SubscriptionPlan,
     config?: Record<string, any>,
   ): Promise<GuildModuleConfig> {
-    // 1. Vérifier que le module existe
+    // Récupérer le plan d'abonnement de la guild
+    const prismaPlan = await this.subscriptionService.getGuildPlan(guildId);
+    const plan = this.convertPrismaToSharedPlan(prismaPlan);
+
+    // Vérifier que le module existe
     const moduleDef = this.moduleRegistry.getModule(moduleId);
     if (!moduleDef) {
-      throw new NotFoundException(`Module "${moduleId}" not found`);
+      throw new BadRequestException(`Module ${moduleId} not found`);
     }
 
-    // 2. Vérifier disponibilité pour le plan
-    if (!this.moduleRegistry.isModuleAvailable(moduleId, plan)) {
-      throw new ForbiddenException(
-        `Module "${moduleId}" not available for ${plan} plan`,
+    // Vérifier que le module est disponible pour ce plan
+    const isAvailable = this.moduleRegistry.isModuleAvailable(moduleId, plan);
+    if (!isAvailable) {
+      throw new BadRequestException(
+        `Module ${moduleId} is not available for plan ${plan}`,
       );
     }
 
-    // 3. Vérifier dépendances
-    const enabledModules = await this.getEnabledModuleIds(guildId);
+    // Vérifier les dépendances
+    const enabledModuleIds = await this.getEnabledModuleIds(guildId);
     const missingDeps = this.moduleRegistry.checkDependencies(
       moduleId,
-      enabledModules,
+      enabledModuleIds,
     );
+
     if (missingDeps.length > 0) {
       throw new BadRequestException(
-        `Missing required modules: ${missingDeps.join(', ')}`,
+        `Missing dependencies: ${missingDeps.join(', ')}`,
       );
     }
 
-    // 4. Enable dans la DB
+    // Activer ou mettre à jour le module
     const guildModule = await this.prisma.guildModule.upsert({
       where: {
-        guildId_moduleId: { guildId, moduleId },
+        guildId_moduleId: {
+          guildId,
+          moduleId,
+        },
+      },
+      update: {
+        enabled: true,
+        enabledAt: new Date(),
+        config: config ?? undefined,
       },
       create: {
         guildId,
         moduleId,
         enabled: true,
         enabledAt: new Date(),
-        config: config || {},
-      },
-      update: {
-        enabled: true,
-        enabledAt: new Date(),
-        disabledAt: null,
-        config: config || {},
+        config: config ?? undefined,
       },
     });
 
-    this.logger.log(`✅ Module "${moduleId}" enabled for guild ${guildId}`);
-
-    // 5. TODO: Notifier le Bot via Gateway
-    // await this.notifyBot({ ... });
-
-    return this.mapToGuildModuleConfig(guildModule);
+    return this.mapToGuildModuleConfig(guildModule, moduleDef);
   }
 
   /**
    * Désactive un module pour un serveur
+   *
+   * @param guildId - ID Discord du serveur
+   * @param moduleId - ID du module à désactiver
+   * @returns Configuration du module désactivé
    */
   async disableModule(
     guildId: string,
     moduleId: string,
   ): Promise<GuildModuleConfig> {
+    const moduleDef = this.moduleRegistry.getModule(moduleId);
+    if (!moduleDef) {
+      throw new BadRequestException(`Module ${moduleId} not found`);
+    }
+
     const guildModule = await this.prisma.guildModule.update({
       where: {
-        guildId_moduleId: { guildId, moduleId },
+        guildId_moduleId: {
+          guildId,
+          moduleId,
+        },
       },
       data: {
         enabled: false,
@@ -112,212 +118,209 @@ export class ModuleManagerService {
       },
     });
 
-    this.logger.log(`❌ Module "${moduleId}" disabled for guild ${guildId}`);
-
-    // TODO: Notifier le Bot
-    // await this.notifyBot({ ... });
-
-    return this.mapToGuildModuleConfig(guildModule);
+    return this.mapToGuildModuleConfig(guildModule, moduleDef);
   }
 
   /**
    * Vérifie si un module est activé pour un serveur
+   *
+   * @param guildId - ID Discord du serveur
+   * @param moduleId - ID du module
+   * @returns true si activé
    */
   async isModuleEnabled(guildId: string, moduleId: string): Promise<boolean> {
     const guildModule = await this.prisma.guildModule.findUnique({
       where: {
-        guildId_moduleId: { guildId, moduleId },
+        guildId_moduleId: {
+          guildId,
+          moduleId,
+        },
       },
     });
 
-    return guildModule?.enabled || false;
+    return guildModule?.enabled ?? false;
   }
 
   /**
    * Récupère tous les modules d'un serveur
+   *
+   * @param guildId - ID Discord du serveur
+   * @returns Liste des configurations de modules
    */
   async getGuildModules(guildId: string): Promise<GuildModuleConfig[]> {
     const guildModules = await this.prisma.guildModule.findMany({
       where: { guildId },
     });
 
-    return guildModules.map((gm) => this.mapToGuildModuleConfig(gm));
+    return guildModules.map((gm) => {
+      const moduleDef = this.moduleRegistry.getModule(gm.moduleId);
+      return this.mapToGuildModuleConfig(gm, moduleDef);
+    });
   }
 
   /**
-   * Récupère les IDs des modules actifs
+   * Récupère les IDs des modules activés pour un serveur
+   *
+   * @param guildId - ID Discord du serveur
+   * @returns Liste des IDs de modules activés
    */
   async getEnabledModuleIds(guildId: string): Promise<string[]> {
     const guildModules = await this.prisma.guildModule.findMany({
-      where: { guildId, enabled: true },
-      select: { moduleId: true },
+      where: {
+        guildId,
+        enabled: true,
+      },
+      select: {
+        moduleId: true,
+      },
     });
 
     return guildModules.map((gm) => gm.moduleId);
   }
 
   /**
-   * Vérifie une limite pour un module
+   * Vérifie si une limite est respectée pour un module
+   *
+   * Combine la vérification du registry avec le plan actuel de la guild
+   *
+   * @param params - Paramètres de vérification
+   * @param params.guildId - ID Discord du serveur
+   * @param params.moduleId - ID du module
+   * @param params.resource - Nom de la ressource limitée (ex: 'rules', 'channels')
+   * @param params.currentCount - Nombre actuel de ressources utilisées
+   * @returns Résultat de la vérification avec la limite
    */
-  async checkLimit(
-    request: CheckLimitRequest,
-    plan: SubscriptionPlan,
-  ): Promise<CheckLimitResponse> {
-    const { guildId, moduleId, resource, currentCount } = request;
+  async checkLimit(params: {
+    guildId: string;
+    moduleId: string;
+    resource: string;
+    currentCount: number;
+  }): Promise<{
+    allowed: boolean;
+    limit: number;
+    current: number;
+    remaining: number;
+  }> {
+    const { guildId, moduleId, resource, currentCount } = params;
 
-    // Vérifier si module activé
-    const isEnabled = await this.isModuleEnabled(guildId, moduleId);
-    if (!isEnabled) {
-      return {
-        allowed: false,
-        limit: 0,
-        current: currentCount,
-        plan,
-        upgradeRequired: false,
-      };
-    }
+    // Récupérer le plan de la guild
+    const prismaPlan = await this.subscriptionService.getGuildPlan(guildId);
+    const plan = this.convertPrismaToSharedPlan(prismaPlan);
 
-    // Récupérer limite
+    // Vérifier avec le registry
+    const allowed = this.moduleRegistry.checkLimit(
+      moduleId,
+      plan,
+      resource,
+      currentCount,
+    );
+
     const limitValue = this.moduleRegistry.getLimitValue(
       moduleId,
       plan,
       resource,
     );
-
-    // Pas de limite définie = autorisé
-    if (limitValue === undefined) {
-      return {
-        allowed: true,
-        limit: -1,
-        current: currentCount,
-        plan,
-      };
-    }
-
-    // Illimité
-    if (limitValue === -1) {
-      return {
-        allowed: true,
-        limit: -1,
-        current: currentCount,
-        plan,
-      };
-    }
-
-    // Vérifier limite
-    const allowed = currentCount < limitValue;
+    const limit = limitValue ?? 0;
 
     return {
       allowed,
-      limit: limitValue,
+      limit,
       current: currentCount,
-      plan,
-      upgradeRequired: !allowed && plan !== SubscriptionPlan.MAX,
+      remaining: limit === -1 ? -1 : Math.max(0, limit - currentCount),
     };
   }
 
   /**
-   * Met à jour la config d'un module
+   * Met à jour la configuration d'un module
+   *
+   * @param guildId - ID Discord du serveur
+   * @param moduleId - ID du module
+   * @param config - Nouvelle configuration
+   * @returns Configuration mise à jour
    */
   async updateModuleConfig(
     guildId: string,
     moduleId: string,
     config: Record<string, any>,
   ): Promise<GuildModuleConfig> {
+    const moduleDef = this.moduleRegistry.getModule(moduleId);
+    if (!moduleDef) {
+      throw new BadRequestException(`Module ${moduleId} not found`);
+    }
+
     const guildModule = await this.prisma.guildModule.update({
       where: {
-        guildId_moduleId: { guildId, moduleId },
+        guildId_moduleId: {
+          guildId,
+          moduleId,
+        },
       },
       data: {
         config,
-        updatedAt: new Date(),
       },
     });
 
-    this.logger.log(
-      `🔧 Module "${moduleId}" config updated for guild ${guildId}`,
-    );
-
-    // TODO: Notifier le Bot
-    // await this.notifyBot({ ... });
-
-    return this.mapToGuildModuleConfig(guildModule);
+    return this.mapToGuildModuleConfig(guildModule, moduleDef);
   }
 
   /**
-   * Map Prisma model vers DTO
+   * Convertit un SubscriptionPlan Prisma en SubscriptionPlan Shared
+   *
+   * @param prismaPlan - Plan depuis Prisma (enum)
+   * @returns Plan pour shared-types (string)
    */
-  private mapToGuildModuleConfig(guildModule: any): GuildModuleConfig {
+  private convertPrismaToSharedPlan(
+    prismaPlan: PrismaSubscriptionPlan,
+  ): SubscriptionPlan {
+    // Prisma enums are uppercase strings: "FREE", "PRO", "MAX"
+    // Shared-types enums are lowercase strings: "free", "premium", "max"
+    const mapping: Record<PrismaSubscriptionPlan, SubscriptionPlan> = {
+      [PrismaSubscriptionPlan.FREE]: SubscriptionPlan.FREE,
+      [PrismaSubscriptionPlan.PRO]: SubscriptionPlan.PREMIUM,
+      [PrismaSubscriptionPlan.MAX]: SubscriptionPlan.MAX,
+    };
+
+    return mapping[prismaPlan];
+  }
+
+  /**
+   * Transforme un GuildModule Prisma en GuildModuleConfig DTO
+   *
+   * @param guildModule - Model Prisma
+   * @param moduleDef - Définition du module (optionnel)
+   * @returns DTO pour le frontend
+   */
+  private mapToGuildModuleConfig(
+    guildModule: {
+      id: string;
+      guildId: string;
+      moduleId: string;
+      enabled: boolean;
+      enabledAt: Date | null;
+      disabledAt: Date | null;
+      config: any;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    moduleDef?: any,
+  ): GuildModuleConfig {
     return {
+      id: guildModule.id,
       guildId: guildModule.guildId,
       moduleId: guildModule.moduleId,
       enabled: guildModule.enabled,
-      status: guildModule.enabled
-        ? ModuleStatus.ENABLED
-        : ModuleStatus.DISABLED,
-      enabledAt: guildModule.enabledAt,
-      disabledAt: guildModule.disabledAt,
+      enabledAt: guildModule.enabledAt?.toISOString() ?? null,
+      disabledAt: guildModule.disabledAt?.toISOString() ?? null,
       config: guildModule.config as Record<string, any>,
+      createdAt: guildModule.createdAt.toISOString(),
+      updatedAt: guildModule.updatedAt.toISOString(),
+      // Ajouter les infos du module si disponibles
+      ...(moduleDef && {
+        moduleName: moduleDef.name,
+        moduleDescription: moduleDef.description,
+        moduleIcon: moduleDef.icon,
+        moduleCategory: moduleDef.category,
+      }),
     };
-  }
-
-  /**
-   * Récupère toutes les guilds où un module est activé
-   * Retourne les configs spécifiques au module
-   */
-  async getEnabledGuilds(
-    moduleId: string,
-  ): Promise<Array<{ guildId: string; config: any }>> {
-    // Récupérer les guild_modules activés
-    const guildModules = await this.prisma.guildModule.findMany({
-      where: {
-        moduleId,
-        enabled: true,
-      },
-      select: {
-        guildId: true,
-        config: true,
-      },
-    });
-
-    // Si le module a une table de config spécifique, la charger aussi
-    if (moduleId === 'welcome') {
-      // S'il n'y a pas de guild_modules, retourner tableau vide
-      if (guildModules.length === 0) {
-        return [];
-      }
-
-      const welcomeConfigs = await this.prisma.welcomeConfig.findMany({
-        where: {
-          enabled: true,
-          guildId: {
-            in: guildModules.map((gm) => gm.guildId),
-          },
-        },
-      });
-
-      // Retourner les configs spécifiques au module welcome
-      return welcomeConfigs.map((wc) => ({
-        guildId: wc.guildId,
-        config: {
-          id: wc.id,
-          enabled: wc.enabled,
-          channelId: wc.channelId,
-          messageType: wc.messageType,
-          messageContent: wc.messageContent,
-          embedColor: wc.embedColor,
-          embedTitle: wc.embedTitle,
-          embedDescription: wc.embedDescription,
-          embedThumbnail: wc.embedThumbnail,
-          embedFooter: wc.embedFooter,
-        },
-      }));
-    }
-
-    // Pour les autres modules futurs, retourner la config générique
-    return guildModules.map((gm) => ({
-      guildId: gm.guildId,
-      config: (gm.config as Record<string, any>) || {},
-    }));
   }
 }
