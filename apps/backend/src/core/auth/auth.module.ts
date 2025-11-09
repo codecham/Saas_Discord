@@ -30,7 +30,8 @@ import { OAuthStateService } from './services/oauth-state.service';
         secret: configService.getOrThrow<string>('JWT_SECRET'),
         signOptions: {
           expiresIn:
-            configService.get<string>('JWT_ACCESS_EXPIRATION') || '15m',
+            (configService.get<string>('JWT_ACCESS_EXPIRATION') as any) ||
+            '15m',
         },
       }),
     }),

@@ -1,4 +1,3 @@
-// apps/sakai/src/app/features/server-list/server-list.component.ts
 import { Component, inject, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';

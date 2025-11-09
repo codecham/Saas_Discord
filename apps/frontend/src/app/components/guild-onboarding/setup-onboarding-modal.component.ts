@@ -1,5 +1,3 @@
-// apps/sakai/src/app/components/guild-onboarding/setup-onboarding-modal.component.ts
-
 import { Component, inject, input, output, computed, effect, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';

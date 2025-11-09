@@ -1,4 +1,3 @@
-// apps/sakai/src/app/services/member/member-facade.service.ts
 import { Injectable, inject, effect } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { MemberApiService } from './member-api.service';

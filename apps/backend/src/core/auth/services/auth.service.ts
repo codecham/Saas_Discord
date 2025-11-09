@@ -88,14 +88,14 @@ export class AuthService {
     };
 
     // Générer access token
-    const accessToken = this.jwtService.sign(payload, {
-      expiresIn: this.accessTokenExpiration,
+    const accessToken = this.jwtService.sign(payload as any, {
+      expiresIn: this.accessTokenExpiration as any,
     });
 
     // Générer refresh token
-    const refreshToken = this.jwtService.sign(payload, {
+    const refreshToken = this.jwtService.sign(payload as any, {
       secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-      expiresIn: this.refreshTokenExpiration,
+      expiresIn: this.refreshTokenExpiration as any,
     });
 
     // Stocker le refresh token en DB
@@ -244,7 +244,6 @@ export class AuthService {
       email: user.email,
       role: user.role as any,
       createdAt: user.createdAt.toISOString(),
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
       lastLoginAt: user.lastLoginAt.toISOString(),
     };
   }

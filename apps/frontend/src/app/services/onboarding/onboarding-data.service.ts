@@ -1,5 +1,3 @@
-// apps/sakai/src/app/services/onboarding/onboarding-data.service.ts
-
 import { Injectable, signal, computed } from '@angular/core';
 import { GuildSetupStatusDto } from '@my-project/shared-types';
 

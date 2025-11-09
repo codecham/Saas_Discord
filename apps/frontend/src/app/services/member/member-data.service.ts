@@ -1,4 +1,3 @@
-// apps/sakai/src/app/services/member/member-data.service.ts
 import { Injectable, signal, computed } from '@angular/core';
 import { GuildMemberDTO, MemberListResponseDTO } from '@my-project/shared-types';
 

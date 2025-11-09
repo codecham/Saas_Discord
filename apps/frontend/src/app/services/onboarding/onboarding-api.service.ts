@@ -1,5 +1,3 @@
-// apps/sakai/src/app/services/onboarding/onboarding-api.service.ts
-
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { environment } from '@environments/environment';

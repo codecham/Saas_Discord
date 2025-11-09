@@ -255,7 +255,7 @@ Au reconnect → Restore + send batch
 
 **Structure (prévue) :**
 ```typescript
-apps/sakai/src/app/
+apps/frontend/src/app/
 ├── core/
 │   ├── services/         # API clients
 │   ├── guards/           # Auth guards

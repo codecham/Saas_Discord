@@ -94,7 +94,7 @@ discord-admin-app/
 │   ├── backend/          # NestJS API REST + OAuth + Discord API client
 │   ├── gateway/          # NestJS WebSocket hub (Backend ↔ Bots)
 │   ├── bot/              # SapphireJS Discord bot (event listeners)
-│   └── sakai/            # Angular 20 frontend (~60% complété)
+│   └── frontend/            # Angular 20 frontend (~60% complété)
 │
 ├── packages/
 │   └── shared-types/     # Types TypeScript partagés (DTOs, interfaces)
@@ -135,7 +135,7 @@ discord-admin-app/
 
 **Technologies** : SapphireJS, Discord.js, Socket.IO client, SQLite
 
-#### **Frontend** (`apps/sakai/`)
+#### **Frontend** (`apps/frontend/`)
 - Interface web Angular 20
 - Template Sakai (PrimeNG)
 - Pattern Facade (API + Data + Facade services)
@@ -303,7 +303,7 @@ export class ServerListComponent {
 ### Structure Frontend
 
 ```
-apps/sakai/src/app/
+apps/frontend/src/app/
 ├── features/                    # Pages principales (lazy loaded)
 │   ├── auth/                    # Login + OAuth callback
 │   ├── dashboard/               # Vue d'ensemble serveur
@@ -563,7 +563,7 @@ apps/backend/src/
 ### Frontend
 
 ```
-apps/sakai/src/app/
+apps/frontend/src/app/
 ├── features/
 │   └── [feature]/               # Pages feature
 │       ├── [feature].component.ts
@@ -637,10 +637,10 @@ packages/shared-types/src/
 - `apps/backend/.env` - Variables environnement
 
 ### Frontend
-- `apps/sakai/src/app.routes.ts` - Configuration routing
-- `apps/sakai/src/app.config.ts` - Configuration globale
-- `apps/sakai/src/environments/environment.ts` - Variables env
-- `apps/sakai/src/main.ts` - Bootstrap Angular
+- `apps/frontend/src/app.routes.ts` - Configuration routing
+- `apps/frontend/src/app.config.ts` - Configuration globale
+- `apps/frontend/src/environments/environment.ts` - Variables env
+- `apps/frontend/src/main.ts` - Bootstrap Angular
 
 ### Bot
 - `apps/bot/src/index.ts` - Bootstrap Sapphire client

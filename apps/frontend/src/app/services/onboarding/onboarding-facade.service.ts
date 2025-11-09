@@ -1,5 +1,3 @@
-// apps/sakai/src/app/services/onboarding/onboarding-facade.service.ts
-
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { OnboardingApiService } from './onboarding-api.service';

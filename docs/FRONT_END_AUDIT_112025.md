@@ -255,7 +255,7 @@ Aucun frontend implémenté pour :
 ### Structure des Fichiers
 
 ```
-apps/sakai/src/app/
+apps/frontend/src/app/
 ├── features/                               ✅ Pages principales
 │   ├── auth/                               ✅ 100%
 │   │   ├── login/                          ✅
@@ -572,7 +572,7 @@ apps/frontend/src/app/
 ```markdown
 **Structure actuelle :**
 ```typescript
-apps/sakai/src/app/              // ⚠️ Note: apps/sakai, pas apps/frontend
+apps/frontend/src/app/              // ⚠️ Note: apps/frontend
 ├── features/                    // ✅ Pages principales
 │   ├── auth/                    // ✅ Login + callback
 │   ├── dashboard/               // ✅ Vue d'ensemble
