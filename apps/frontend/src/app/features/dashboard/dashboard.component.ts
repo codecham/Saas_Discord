@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { GuildStatsWidget } from "@app/components/widgets/guild-stats-widget.component";
+import { GuildStatsWidget } from "@app/shared/components/widgets/guild-stats-widget.component";
 
 /**
  * 📊 Page Dashboard principale

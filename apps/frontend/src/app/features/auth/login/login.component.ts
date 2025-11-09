@@ -2,8 +2,8 @@ import { Component, inject } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { ButtonModule } from 'primeng/button';
 import { RippleModule } from 'primeng/ripple';
-import { AppFloatingConfiguratorComponent } from '@app/components/core/floatingconfigurator.component';
-import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
+import { AppFloatingConfiguratorComponent } from '@app/demo/components/floatingconfigurator.component';
+import { AuthFacadeService } from '@app/core/services/auth/auth-facade.service';
 
 @Component({
     selector: 'app-login',

@@ -1,9 +1,9 @@
 import { Routes } from '@angular/router';
-import { AppLayoutComponent } from '@/layout/layout.component';
+import { AppLayoutComponent } from '@app/core/layout/layout.component';
 import { LoginComponent } from '@app/features/auth/login/login.component';
-import { guestGuard } from '@app/guards/guest.guard';
-import { authGuard } from '@app/guards/auth.guard';
-import { guildGuard } from '@app/guards/guild.guard';
+import { guestGuard } from '@app/core/guards/guest.guard';
+import { authGuard } from '@app/core/guards/auth.guard';
+import { guildGuard } from '@app/core/guards/guild.guard';
 
 export const appRoutes: Routes = [
     {
@@ -34,8 +34,8 @@ export const appRoutes: Routes = [
             // Page de sélection de serveur (pas de guildGuard)
             {
                 path: 'server-list',
-                loadComponent: () => import('./app/features/server-list/server-list.component')
-                    .then(m => m.ServerListComponent)
+                loadComponent: () => import('./app/features/guild-list/guild-list.component')
+                    .then(m => m.GuildListComponent)
             },
             // Routes protégées par guildGuard (nécessitent une guild sélectionnée)
             {
@@ -47,8 +47,8 @@ export const appRoutes: Routes = [
             {
                 path: 'server-info',
                 canActivate: [guildGuard],
-                loadComponent: () => import('./app/features/server-info/server-info.component')
-                    .then(m => m.ServerInfoComponent)
+                loadComponent: () => import('./app/features/guild-info/guild-info.component')
+                    .then(m => m.GuildInfoComponent)
             },
             {
                 path: 'members',
@@ -91,7 +91,7 @@ export const appRoutes: Routes = [
             },
             { 
                 path: 'uikit', 
-                loadChildren: () => import('./app/features/uikit/uikit.routes') 
+                loadChildren: () => import('./app/demo/uikit/uikit.routes') 
             },
             // Redirection par défaut
             {

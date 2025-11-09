@@ -1,7 +1,7 @@
 import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
-import { AuthFacadeService } from '../../../services/auth/auth-facade.service';
+import { AuthFacadeService } from '../../../core/services/auth/auth-facade.service';
 
 @Component({
   selector: 'app-auth-callback',

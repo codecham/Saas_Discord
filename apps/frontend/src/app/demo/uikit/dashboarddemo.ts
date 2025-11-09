@@ -1,0 +1,25 @@
+import { Component } from '@angular/core';
+import { NotificationsWidget } from '@app/demo/components/notificationswidget.component';
+import { StatsWidget } from '@app/demo/components/statswidget.component';
+import { RecentSalesWidget } from '@app/demo/components/recentsaleswidget.component';
+import { BestSellingWidget } from '@app/demo/components/bestsellingwidget.component';
+import { RevenueStreamWidget } from '@app/demo/components/revenuestreamwidget.component';
+
+@Component({
+    selector: 'app-dashboard-demo',
+    imports: [StatsWidget, RecentSalesWidget, BestSellingWidget, RevenueStreamWidget, NotificationsWidget],
+    template: `
+        <div class="grid grid-cols-12 gap-8">
+            <app-stats-widget class="contents" />
+            <div class="col-span-12 xl:col-span-6">
+                <app-recent-sales-widget />
+                <app-best-selling-widget />
+            </div>
+            <div class="col-span-12 xl:col-span-6">
+                <app-revenue-stream-widget />
+                <app-notifications-widget />
+            </div>
+        </div>
+    `
+})
+export class DemoDashboardComponentDemo {}

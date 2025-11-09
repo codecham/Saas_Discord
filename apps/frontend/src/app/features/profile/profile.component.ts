@@ -10,8 +10,8 @@ import { SkeletonModule } from 'primeng/skeleton';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { TooltipModule } from 'primeng/tooltip';
 import { ConfirmationService, MessageService } from 'primeng/api';
-import { UserFacadeService } from '@app/services/user/user-facade.service';
-import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
+import { UserFacadeService } from '@app/core/services/user/user-facade.service';
+import { AuthFacadeService } from '@app/core/services/auth/auth-facade.service';
 
 @Component({
   selector: 'app-profile',

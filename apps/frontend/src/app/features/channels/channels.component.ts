@@ -18,8 +18,8 @@ import { DrawerModule } from 'primeng/drawer';
 import { DividerModule } from 'primeng/divider';
 import { ScrollPanelModule } from 'primeng/scrollpanel';
 import { MessageService } from 'primeng/api';
-import { ChannelFacadeService } from '@app/services/channel/channel-facade.service';
-import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
+import { ChannelFacadeService } from '@app/core/services/channel/channel-facade.service';
+import { GuildFacadeService } from '@app/core/services/guild/guild-facade.service';
 import { GuildChannelDTO, DiscordChannelType } from '@my-project/shared-types';
 
 /**

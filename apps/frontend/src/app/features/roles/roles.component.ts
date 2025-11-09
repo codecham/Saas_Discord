@@ -14,8 +14,8 @@ import { ChipModule } from 'primeng/chip';
 import { ToastModule } from 'primeng/toast';
 import { TabsModule } from 'primeng/tabs';
 import { MessageService } from 'primeng/api';
-import { RoleFacadeService } from '@app/services/role/role-facade.service';
-import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
+import { RoleFacadeService } from '@app/core/services/role/role-facade.service';
+import { GuildFacadeService } from '@app/core/services/guild/guild-facade.service';
 import { GuildRoleDTO } from '@my-project/shared-types';
 
 /**

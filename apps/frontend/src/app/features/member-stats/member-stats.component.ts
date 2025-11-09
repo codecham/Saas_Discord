@@ -14,7 +14,7 @@ import { TooltipModule } from 'primeng/tooltip';
 
 // Services
 import { StatisticsFacadeService } from '@app/services/statistics/statistics-facade.service';
-import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
+import { GuildFacadeService } from '@app/core/services/guild/guild-facade.service';
 
 // Types
 // import { MemberStatsDto } from '@packages/shared-types';

@@ -20,15 +20,15 @@
         "baseUrl": "./",
         "paths": {
             "@app/*": ["src/app/*"],
-            "@components/*": ["src/app/components/*"],
+            "@components/*": ["src/app/shared/components/*"],
             "@features/*": ["src/app/features/*"],
-            "@layout/*": ["src/app/layout/*"],
-            "@guards/*": ["src/app/guards/*"],
-            "@services/*": ["src/app/services/*"],
-            "@interceptor/*": ["src/app/interceptor/*"],
+            "@layout/*": ["src/app/core/layout/*"],
+            "@guards/*": ["src/app/core/guards/*"],
+            "@services/*": ["src/app/core/services/*"],
+            "@interceptor/*": ["src/app/core/interceptor/*"],
             "@environments/*": ["src/environments/*"],
-            "@interfaces/*": ["src/app/inerfaces/*"],
-            "@types/*": ["src/app/types/*"],
+            "@interfaces/*": ["src/app/shared/inerfaces/*"],
+            "@demo/*": ["src/app/demo/*"],
             "@/*": [
                 "src/app/*"
             ]

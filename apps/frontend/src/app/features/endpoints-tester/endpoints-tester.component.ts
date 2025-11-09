@@ -13,10 +13,10 @@ import { FloatLabelModule } from 'primeng/floatlabel';
 import { BadgeModule } from 'primeng/badge';
 
 // Services & Interfaces
-import { AuthFacadeService } from '@app/services/auth/auth-facade.service';
-import { TEST_ENDPOINTS, getEndpointsByCategory } from '@app/config/test-endpoints.config';
-import { ApiEndpoint, EndpointTestResult, ParameterValues } from '@app/interfaces/endpoint-tester.interface';
-import { EndpointTesterService } from '@app/services/endpoints-tester.service';
+import { AuthFacadeService } from '@app/core/services/auth/auth-facade.service';
+import { TEST_ENDPOINTS, getEndpointsByCategory } from '@app/shared/config/test-endpoints.config';
+import { ApiEndpoint, EndpointTestResult, ParameterValues } from '@app/shared/interfaces/endpoint-tester.interface';
+import { EndpointTesterService } from '@app/core/services/endoints-tester/endpoints-tester.service';
 
 @Component({
   selector: 'app-endpoint-tester',

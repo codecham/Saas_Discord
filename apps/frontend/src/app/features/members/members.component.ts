@@ -17,17 +17,17 @@ import { ChipModule } from 'primeng/chip';
 import { SkeletonModule } from 'primeng/skeleton';
 import { ToastModule } from 'primeng/toast';
 import { DividerModule } from 'primeng/divider';
-import { MemberFacadeService } from '@app/services/member/member-facade.service';
-import { GuildFacadeService } from '@app/services/guild/guild-facade.service';
+import { MemberFacadeService } from '@app/core/services/member/member-facade.service';
+import { GuildFacadeService } from '@app/core/services/guild/guild-facade.service';
 import { GuildMemberDTO } from '@my-project/shared-types';
-import { MemberRolesComponent } from '@app/components/core/member-roles.component';
+import { MemberRolesComponent } from '@app/shared/components/domain/member-roles.component';
 import { 
   MemberActionModalsComponent,
   KickMemberAction,
   BanMemberAction,
   TimeoutMemberAction,
   NicknameChangeAction
-} from '@app/components/core/member-action-modals.component';
+} from '@app/shared/components/domain/member-action-modals.component';
 
 /**
  * ✅ VERSION FINALE - Composant de gestion des membres
