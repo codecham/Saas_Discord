@@ -90,8 +90,12 @@ export const appRoutes: Routes = [
                     .then(m => m.EndpointTesterComponent)
             },
             { 
-                path: 'uikit', 
+                path: 'demo', 
                 loadChildren: () => import('./app/demo/uikit/uikit.routes') 
+            },
+            {
+                path: 'uikit',
+                loadChildren: () => import('./app/features/uikit/uikit.route')
             },
             // Redirection par défaut
             {

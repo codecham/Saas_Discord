@@ -51,24 +51,31 @@ export class AppMenuComponent {
                 ]
             },
             {
-                label: 'UI Components',
+                label: 'uikit',
                 items: [
-                    { label: 'Dashboard Demo', icon: 'pi pi-fw pi-home', routerLink: ['/uikit/DashboardDemo'] },
-                    { label: 'Form Layout', icon: 'pi pi-fw pi-id-card', routerLink: ['/uikit/formlayout'] },
-                    { label: 'Input', icon: 'pi pi-fw pi-check-square', routerLink: ['/uikit/input'] },
-                    { label: 'Button', icon: 'pi pi-fw pi-mobile', class: 'rotated-icon', routerLink: ['/uikit/button'] },
-                    { label: 'Table', icon: 'pi pi-fw pi-table', routerLink: ['/uikit/table'] },
-                    { label: 'List', icon: 'pi pi-fw pi-list', routerLink: ['/uikit/list'] },
-                    { label: 'Tree', icon: 'pi pi-fw pi-share-alt', routerLink: ['/uikit/tree'] },
-                    { label: 'Panel', icon: 'pi pi-fw pi-tablet', routerLink: ['/uikit/panel'] },
-                    { label: 'Overlay', icon: 'pi pi-fw pi-clone', routerLink: ['/uikit/overlay'] },
-                    { label: 'Media', icon: 'pi pi-fw pi-image', routerLink: ['/uikit/media'] },
-                    { label: 'Menu', icon: 'pi pi-fw pi-bars', routerLink: ['/uikit/menu'] },
-                    { label: 'Message', icon: 'pi pi-fw pi-comment', routerLink: ['/uikit/message'] },
-                    { label: 'File', icon: 'pi pi-fw pi-file', routerLink: ['/uikit/file'] },
-                    { label: 'Chart', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/uikit/charts'] },
-                    { label: 'Timeline', icon: 'pi pi-fw pi-calendar', routerLink: ['/uikit/timeline'] },
-                    { label: 'Misc', icon: 'pi pi-fw pi-circle', routerLink: ['/uikit/misc'] }
+                    { label: 'overview', icon: 'pi pi-objects-column', routerLink: ['/uikit/'] },
+                    { label: 'stat-card', icon: 'pi pi-fw pi-id-card', routerLink: ['/uikit/stat-card'] },
+                ]
+            },
+            {
+                label: 'Demo UI Components',
+                items: [
+                    { label: 'Dashboard Demo', icon: 'pi pi-fw pi-home', routerLink: ['/demo/DashboardDemo'] },
+                    { label: 'Form Layout', icon: 'pi pi-fw pi-id-card', routerLink: ['/demo/formlayout'] },
+                    { label: 'Input', icon: 'pi pi-fw pi-check-square', routerLink: ['/demo/input'] },
+                    { label: 'Button', icon: 'pi pi-fw pi-mobile', class: 'rotated-icon', routerLink: ['/demo/button'] },
+                    { label: 'Table', icon: 'pi pi-fw pi-table', routerLink: ['/demo/table'] },
+                    { label: 'List', icon: 'pi pi-fw pi-list', routerLink: ['/demo/list'] },
+                    { label: 'Tree', icon: 'pi pi-fw pi-share-alt', routerLink: ['/demo/tree'] },
+                    { label: 'Panel', icon: 'pi pi-fw pi-tablet', routerLink: ['/demo/panel'] },
+                    { label: 'Overlay', icon: 'pi pi-fw pi-clone', routerLink: ['/demo/overlay'] },
+                    { label: 'Media', icon: 'pi pi-fw pi-image', routerLink: ['/demo/media'] },
+                    { label: 'Menu', icon: 'pi pi-fw pi-bars', routerLink: ['/demo/menu'] },
+                    { label: 'Message', icon: 'pi pi-fw pi-comment', routerLink: ['/demo/message'] },
+                    { label: 'File', icon: 'pi pi-fw pi-file', routerLink: ['/demo/file'] },
+                    { label: 'Chart', icon: 'pi pi-fw pi-chart-bar', routerLink: ['/demo/charts'] },
+                    { label: 'Timeline', icon: 'pi pi-fw pi-calendar', routerLink: ['/demo/timeline'] },
+                    { label: 'Misc', icon: 'pi pi-fw pi-circle', routerLink: ['/demo/misc'] }
                 ]
             },
             {
