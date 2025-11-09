@@ -1,4 +1,5 @@
 import { Component, inject } from '@angular/core';
+import { GuildStatsWidget } from "@app/components/widgets/guild-stats-widget.component";
 
 /**
  * 📊 Page Dashboard principale
@@ -8,10 +9,10 @@ import { Component, inject } from '@angular/core';
 @Component({
     selector: 'app-dashboard',
     standalone: true,
-    imports: [],
+    imports: [GuildStatsWidget],
     template: `
         <div class="grid grid-cols-12 gap-8">
-            <!-- Stats Cards Widget -->
+            <app-guild-stats-widget class="contents" />
         </div>
     `
 })
