@@ -217,7 +217,7 @@ import {
           <!-- Loading Skeletons -->
           @if (memberFacade.isLoading()) {
             @for (i of [1,2,3,4,5]; track i) {
-              <div class="flex items-center gap-3 p-3 border-round surface-border border-1 mb-2">
+              <div class="flex items-center gap-3 p-3 border-round surface-border border mb-2">
                 <p-skeleton shape="circle" size="3rem" />
                 <div class="flex-1">
                   <p-skeleton width="60%" height="1.5rem" styleClass="mb-2" />

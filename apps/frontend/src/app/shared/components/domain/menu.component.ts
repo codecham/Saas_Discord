@@ -55,6 +55,8 @@ export class AppMenuComponent {
                 items: [
                     { label: 'overview', icon: 'pi pi-objects-column', routerLink: ['/uikit/'] },
                     { label: 'stat-card', icon: 'pi pi-fw pi-id-card', routerLink: ['/uikit/stat-card'] },
+                    { label: 'data-table', icon: 'pi pi-fw pi-table', routerLink: ['/uikit/data-table'] },
+                    { label: 'data-table-minimal', icon: 'pi pi-fw pi-table', routerLink: ['/uikit/data-table-minimal'] },
                 ]
             },
             {

@@ -19,6 +19,18 @@ export default [
         loadComponent: () => import('./pages/star-card-demo/stat-card-demo.component')
             .then(m => m.StatCardDemoComponent)
     },
+    {
+        path: 'data-table',
+        data: { breadcrumb: 'Data Table' },
+        loadComponent: () => import('./pages/data-table-demo/data-table-demo.component')
+            .then(m => m.DataTableDemoComponent)
+    },
+    {
+        path: 'data-table-minimal',
+        data: { breadcrumb: 'Data Table' },
+        loadComponent: () => import('./pages/data-table-demo/data-table-minimal.component')
+            .then(m => m.DataTableMinimalComponent)
+    },
     // 🔮 Future components
     // {
     //     path: 'data-table',
