@@ -40,20 +40,25 @@ interface Product {
   standalone: true,
   imports: [CommonModule, CardModule, ButtonModule, DataTableComponent],
   template: `
-    <div class="grid">
-      <div class="col-12">
+    <div class="grid grid-cols-12 gap-4 md:gap-6">
+      <!-- ============================================ -->
+      <!-- HEADER -->
+      <!-- ============================================ -->
+      <div class="col-span-12">
         <div class="card">
           <h1 class="text-4xl font-bold mb-2">DataTable Component</h1>
-          <p class="text-lg text-500 mb-4">
+          <p class="text-lg text-muted-color mb-0">
             A powerful and flexible table component with sorting, pagination, search, and actions.
           </p>
         </div>
       </div>
 
-      <!-- Basic Example -->
-      <div class="col-12">
+      <!-- ============================================ -->
+      <!-- BASIC EXAMPLE -->
+      <!-- ============================================ -->
+      <div class="col-span-12">
         <div class="card">
-          <div class="flex justify-content-between align-items-center mb-4">
+          <div class="flex justify-between items-center mb-4">
             <h2 class="text-2xl font-semibold m-0">Basic Table</h2>
             <p-button
               [label]="showBasicCode() ? 'Hide Code' : 'Show Code'"
@@ -72,17 +77,19 @@ interface Product {
           />
 
           @if (showBasicCode()) {
-            <div class="mt-4 p-3 surface-ground border-round">
+            <div class="mt-4 p-3 bg-surface-ground rounded-border">
               <pre class="m-0"><code>{{ basicCode }}</code></pre>
             </div>
           }
         </div>
       </div>
 
-      <!-- With Selection -->
-      <div class="col-12">
+      <!-- ============================================ -->
+      <!-- WITH SELECTION -->
+      <!-- ============================================ -->
+      <div class="col-span-12">
         <div class="card">
-          <div class="flex justify-content-between align-items-center mb-4">
+          <div class="flex justify-between items-center mb-4">
             <h2 class="text-2xl font-semibold m-0">With Selection</h2>
             <p-button
               [label]="showSelectionCode() ? 'Hide Code' : 'Show Code'"
@@ -92,42 +99,79 @@ interface Product {
             />
           </div>
 
-          @if (selectedUsers().length > 0) {
-            <div class="mb-4 p-3 bg-primary-50 border-round">
-              <p class="m-0 font-semibold">
-                {{ selectedUsers().length }} user(s) selected
-              </p>
-              <p class="m-0 text-sm mt-2">
-                IDs: {{ getSelectedUserIds() }}
-              </p>
-            </div>
-          }
-
           <app-data-table
             [data]="users()"
             [columns]="userColumns()"
-            [actions]="userActions()"
             [selectable]="true"
+            [loading]="loadingUsers()"
             (onSelectionChange)="handleSelectionChange($event)"
           />
 
+          @if (selectedUsers().length > 0) {
+            <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-border">
+              <p class="font-semibold mb-2">Selected: {{ selectedUsers().length }} user(s)</p>
+              <div class="flex gap-2 flex-wrap">
+                @for (user of selectedUsers(); track user.id) {
+                  <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/40 rounded-border text-sm">
+                    {{ user.username }}
+                  </span>
+                }
+              </div>
+            </div>
+          }
+
           @if (showSelectionCode()) {
-            <div class="mt-4 p-3 surface-ground border-round">
+            <div class="mt-4 p-3 bg-surface-ground rounded-border">
               <pre class="m-0"><code>{{ selectionCode }}</code></pre>
             </div>
           }
         </div>
       </div>
 
-      <!-- Different Sizes -->
-      <div class="col-12">
+      <!-- ============================================ -->
+      <!-- WITH CUSTOM ACTIONS -->
+      <!-- ============================================ -->
+      <div class="col-span-12">
+        <div class="card">
+          <h2 class="text-2xl font-semibold mb-4">Custom Actions & Conditional Visibility</h2>
+
+          <app-data-table
+            [data]="products()"
+            [columns]="productColumns()"
+            [actions]="productActions()"
+            (onAction)="handleProductAction($event)"
+          />
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- SCROLLABLE TABLE -->
+      <!-- ============================================ -->
+      <div class="col-span-12">
+        <div class="card">
+          <h2 class="text-2xl font-semibold mb-4">Scrollable Table (Fixed Height)</h2>
+
+          <app-data-table
+            [data]="users()"
+            [columns]="userColumns()"
+            [scrollable]="true"
+            [scrollHeight]="'300px'"
+            [paginated]="false"
+          />
+        </div>
+      </div>
+
+      <!-- ============================================ -->
+      <!-- SIZE VARIANTS -->
+      <!-- ============================================ -->
+      <div class="col-span-12">
         <div class="card">
           <h2 class="text-2xl font-semibold mb-4">Size Variants</h2>
         </div>
       </div>
 
       <!-- Compact -->
-      <div class="col-12">
+      <div class="col-span-12">
         <div class="card">
           <h3 class="text-lg font-semibold mb-3">Compact</h3>
           <app-data-table
@@ -142,7 +186,7 @@ interface Product {
       </div>
 
       <!-- Default -->
-      <div class="col-12">
+      <div class="col-span-12">
         <div class="card">
           <h3 class="text-lg font-semibold mb-3">Default</h3>
           <app-data-table
@@ -157,7 +201,7 @@ interface Product {
       </div>
 
       <!-- Comfortable -->
-      <div class="col-12">
+      <div class="col-span-12">
         <div class="card">
           <h3 class="text-lg font-semibold mb-3">Comfortable</h3>
           <app-data-table
@@ -171,15 +215,17 @@ interface Product {
         </div>
       </div>
 
-      <!-- Style Variants -->
-      <div class="col-12">
+      <!-- ============================================ -->
+      <!-- STYLE VARIANTS -->
+      <!-- ============================================ -->
+      <div class="col-span-12">
         <div class="card">
           <h2 class="text-2xl font-semibold mb-4">Style Variants</h2>
         </div>
       </div>
 
       <!-- Default -->
-      <div class="col-12">
+      <div class="col-span-12">
         <div class="card">
           <h3 class="text-lg font-semibold mb-3">Default</h3>
           <app-data-table
@@ -194,7 +240,7 @@ interface Product {
       </div>
 
       <!-- Striped -->
-      <div class="col-12">
+      <div class="col-span-12">
         <div class="card">
           <h3 class="text-lg font-semibold mb-3">Striped</h3>
           <app-data-table
@@ -209,7 +255,7 @@ interface Product {
       </div>
 
       <!-- Bordered -->
-      <div class="col-12">
+      <div class="col-span-12">
         <div class="card">
           <h3 class="text-lg font-semibold mb-3">Bordered</h3>
           <app-data-table
@@ -223,85 +269,19 @@ interface Product {
         </div>
       </div>
 
-      <!-- Loading State -->
-      <div class="col-12">
-        <div class="card">
-          <div class="flex justify-content-between align-items-center mb-4">
-            <h2 class="text-2xl font-semibold m-0">Loading State</h2>
-            <p-button
-              label="Toggle Loading"
-              icon="pi pi-sync"
-              [outlined]="true"
-              (onClick)="toggleLoading()"
-            />
-          </div>
-
-          <app-data-table
-            [data]="products()"
-            [columns]="productColumns()"
-            [loading]="loadingProducts()"
-            [pageSize]="5"
-          />
-        </div>
-      </div>
-
-      <!-- Empty State -->
-      <div class="col-12">
-        <div class="card">
-          <h2 class="text-2xl font-semibold mb-4">Empty State</h2>
-
-          <app-data-table
-            [data]="[]"
-            [columns]="productColumns()"
-            [emptyState]="{
-              icon: 'pi pi-shopping-cart',
-              title: 'No products found',
-              description: 'Start by adding your first product to the inventory.'
-            }"
-          />
-        </div>
-      </div>
-
-      <!-- With Custom Actions -->
-      <div class="col-12">
-        <div class="card">
-          <h2 class="text-2xl font-semibold mb-4">Custom Actions & Conditional Visibility</h2>
-
-          <app-data-table
-            [data]="products()"
-            [columns]="productColumns()"
-            [actions]="productActions()"
-            (onAction)="handleProductAction($event)"
-          />
-        </div>
-      </div>
-
-      <!-- Scrollable Table -->
-      <div class="col-12">
-        <div class="card">
-          <h2 class="text-2xl font-semibold mb-4">Scrollable Table (Fixed Height)</h2>
-
-          <app-data-table
-            [data]="users()"
-            [columns]="userColumns()"
-            [scrollable]="true"
-            [scrollHeight]="'300px'"
-            [paginated]="false"
-          />
-        </div>
-      </div>
-
-      <!-- API Reference -->
-      <div class="col-12">
+      <!-- ============================================ -->
+      <!-- API REFERENCE -->
+      <!-- ============================================ -->
+      <div class="col-span-12">
         <div class="card">
           <h2 class="text-2xl font-semibold mb-4">API Reference</h2>
 
           <div class="mb-4">
             <h3 class="text-xl font-semibold mb-3">Inputs</h3>
-            <div class="surface-ground p-3 border-round">
+            <div class="bg-surface-ground p-3 rounded-border overflow-x-auto">
               <table class="w-full">
                 <thead>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <th class="text-left p-2">Property</th>
                     <th class="text-left p-2">Type</th>
                     <th class="text-left p-2">Default</th>
@@ -309,83 +289,89 @@ interface Product {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>data</code></td>
                     <td class="p-2">T[]</td>
                     <td class="p-2">required</td>
                     <td class="p-2">Array of data to display</td>
                   </tr>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>columns</code></td>
                     <td class="p-2">DataTableColumn[]</td>
                     <td class="p-2">required</td>
                     <td class="p-2">Column definitions</td>
                   </tr>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>actions</code></td>
                     <td class="p-2">DataTableAction[]</td>
                     <td class="p-2">[]</td>
                     <td class="p-2">Action buttons for each row</td>
                   </tr>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>loading</code></td>
                     <td class="p-2">boolean</td>
                     <td class="p-2">false</td>
                     <td class="p-2">Show loading skeleton</td>
                   </tr>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>selectable</code></td>
                     <td class="p-2">boolean</td>
                     <td class="p-2">false</td>
                     <td class="p-2">Enable row selection</td>
                   </tr>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>searchable</code></td>
                     <td class="p-2">boolean</td>
                     <td class="p-2">true</td>
                     <td class="p-2">Enable search input</td>
                   </tr>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>paginated</code></td>
                     <td class="p-2">boolean</td>
                     <td class="p-2">true</td>
                     <td class="p-2">Enable pagination</td>
                   </tr>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>pageSize</code></td>
                     <td class="p-2">number</td>
                     <td class="p-2">10</td>
                     <td class="p-2">Rows per page</td>
                   </tr>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>size</code></td>
                     <td class="p-2">'compact' | 'default' | 'comfortable'</td>
                     <td class="p-2">'default'</td>
                     <td class="p-2">Table size variant</td>
                   </tr>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>variant</code></td>
                     <td class="p-2">'default' | 'striped' | 'bordered'</td>
                     <td class="p-2">'default'</td>
                     <td class="p-2">Table style variant</td>
                   </tr>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>scrollable</code></td>
                     <td class="p-2">boolean</td>
                     <td class="p-2">false</td>
                     <td class="p-2">Enable scrollable mode</td>
                   </tr>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>scrollHeight</code></td>
                     <td class="p-2">string</td>
                     <td class="p-2">'400px'</td>
-                    <td class="p-2">Scroll height when scrollable</td>
+                    <td class="p-2">Height when scrollable</td>
                   </tr>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
+                    <td class="p-2"><code>showHeader</code></td>
+                    <td class="p-2">boolean</td>
+                    <td class="p-2">true</td>
+                    <td class="p-2">Show header section</td>
+                  </tr>
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>emptyState</code></td>
                     <td class="p-2">DataTableEmptyState</td>
                     <td class="p-2">default</td>
-                    <td class="p-2">Empty state configuration</td>
+                    <td class="p-2">Empty state config</td>
                   </tr>
                 </tbody>
               </table>
@@ -394,22 +380,22 @@ interface Product {
 
           <div class="mb-4">
             <h3 class="text-xl font-semibold mb-3">Outputs</h3>
-            <div class="surface-ground p-3 border-round">
+            <div class="bg-surface-ground p-3 rounded-border overflow-x-auto">
               <table class="w-full">
                 <thead>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <th class="text-left p-2">Event</th>
                     <th class="text-left p-2">Type</th>
                     <th class="text-left p-2">Description</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr class="border-bottom-1 surface-border">
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>onAction</code></td>
                     <td class="p-2">DataTableActionEvent</td>
-                    <td class="p-2">Emitted when an action button is clicked</td>
+                    <td class="p-2">Emitted when action is clicked</td>
                   </tr>
-                  <tr>
+                  <tr class="border-b border-surface-border">
                     <td class="p-2"><code>onSelectionChange</code></td>
                     <td class="p-2">DataTableSelectionEvent</td>
                     <td class="p-2">Emitted when row selection changes</td>
@@ -421,7 +407,7 @@ interface Product {
 
           <div>
             <h3 class="text-xl font-semibold mb-3">Interfaces</h3>
-            <div class="surface-ground p-3 border-round">
+            <div class="bg-surface-ground p-3 rounded-border">
               <pre class="m-0"><code>{{ interfacesCode }}</code></pre>
             </div>
           </div>
@@ -512,56 +498,116 @@ export class DataTableDemoComponent {
       name: 'Basic Plan',
       category: 'Subscription',
       price: 9.99,
-      stock: 500,
-      rating: 4.5,
-      inStock: true,
+      stock: 0,
+      rating: 4.2,
+      inStock: false,
     },
     {
       id: 3,
-      name: 'Custom Bot',
-      category: 'Service',
-      price: 199.99,
-      stock: 5,
+      name: 'Enterprise Plan',
+      category: 'Subscription',
+      price: 99.99,
+      stock: 50,
       rating: 4.9,
       inStock: true,
     },
     {
       id: 4,
-      name: 'Pro Plan',
-      category: 'Subscription',
+      name: 'Custom Module',
+      category: 'Add-on',
       price: 49.99,
-      stock: 0,
-      rating: 4.7,
-      inStock: false,
+      stock: 25,
+      rating: 4.5,
+      inStock: true,
     },
     {
       id: 5,
-      name: 'Enterprise',
-      category: 'Subscription',
-      price: 299.99,
-      stock: 50,
-      rating: 5.0,
+      name: 'Support Package',
+      category: 'Service',
+      price: 199.99,
+      stock: 10,
+      rating: 4.7,
       inStock: true,
     },
   ]);
 
-  // User columns configuration
+  // Column definitions
   userColumns = signal<DataTableColumn<User>[]>([
-    { field: 'username', label: 'Username', sortable: true },
-    { field: 'email', label: 'Email', sortable: true },
-    { field: 'role', label: 'Role', sortable: true, align: 'center' },
-    { field: 'status', label: 'Status', sortable: true, align: 'center' },
-    { field: 'joinedAt', label: 'Joined', sortable: true, pipe: 'date', pipeArgs: 'short' },
-    { field: 'messagesCount', label: 'Messages', sortable: true, align: 'right' },
+    {
+      field: 'username',
+      label: 'Username',
+      sortable: true,
+    },
+    {
+      field: 'email',
+      label: 'Email',
+      sortable: true,
+    },
+    {
+      field: 'role',
+      label: 'Role',
+      sortable: true,
+    },
+    {
+      field: 'status',
+      label: 'Status',
+      sortable: true,
+      align: 'center',
+    },
+    {
+      field: 'messagesCount',
+      label: 'Messages',
+      sortable: true,
+      align: 'center',
+    },
   ]);
 
-  // User actions configuration
+  productColumns = signal<DataTableColumn<Product>[]>([
+    {
+      field: 'name',
+      label: 'Product',
+      sortable: true,
+    },
+    {
+      field: 'category',
+      label: 'Category',
+      sortable: true,
+    },
+    {
+      field: 'price',
+      label: 'Price',
+      sortable: true,
+      align: 'right',
+      pipe: 'currency',
+      pipeArgs: 'USD',
+    },
+    {
+      field: 'stock',
+      label: 'Stock',
+      sortable: true,
+      align: 'center',
+    },
+    {
+      field: 'inStock',
+      label: 'Status',
+      sortable: true,
+      align: 'center',
+    },
+  ]);
+
+  // Action definitions
   userActions = signal<DataTableAction[]>([
+    {
+      id: 'view',
+      label: 'View',
+      icon: 'pi pi-eye',
+      severity: 'secondary',
+    },
     {
       id: 'edit',
       label: 'Edit',
       icon: 'pi pi-pencil',
-      severity: 'info',
+      severity: 'secondary',
     },
     {
       id: 'delete',
@@ -571,30 +617,7 @@ export class DataTableDemoComponent {
     },
   ]);
 
-  // Product columns configuration
-  productColumns = signal<DataTableColumn<Product>[]>([
-    { field: 'name', label: 'Product', sortable: true },
-    { field: 'category', label: 'Category', sortable: true },
-    {
-      field: 'price',
-      label: 'Price',
-      sortable: true,
-      align: 'right',
-      pipe: 'currency',
-      pipeArgs: 'USD',
-    },
-    { field: 'stock', label: 'Stock', sortable: true, align: 'right' },
-    { field: 'rating', label: 'Rating', sortable: true, align: 'center' },
-  ]);
-
-  // Product actions with conditional visibility
   productActions = signal<DataTableAction[]>([
-    {
-      id: 'view',
-      label: 'View Details',
-      icon: 'pi pi-eye',
-      severity: 'info',
-    },
     {
       id: 'edit',
       label: 'Edit',
@@ -604,9 +627,9 @@ export class DataTableDemoComponent {
     {
       id: 'restock',
       label: 'Restock',
-      icon: 'pi pi-plus',
+      icon: 'pi pi-box',
       severity: 'success',
-      visible: (row: Product) => !row.inStock || row.stock < 10,
+      visible: (product: Product) => !product.inStock,
     },
     {
       id: 'delete',
@@ -616,106 +639,64 @@ export class DataTableDemoComponent {
     },
   ]);
 
-  /**
-   * Handle action click
-   */
+  // Event handlers
   handleAction(event: DataTableActionEvent<User>): void {
-    console.log('Action:', event.actionId, 'User:', event.row.username);
-    alert(`Action: ${event.actionId} on ${event.row.username}`);
+    console.log('Action clicked:', event);
+    alert(`Action: ${event.actionId} on user: ${event.row.username}`);
   }
 
-  /**
-   * Handle product action click
-   */
-  handleProductAction(event: DataTableActionEvent<Product>): void {
-    console.log('Action:', event.actionId, 'Product:', event.row.name);
-    alert(`Action: ${event.actionId} on ${event.row.name}`);
-  }
-
-  /**
-   * Handle selection change
-   */
   handleSelectionChange(event: DataTableSelectionEvent<User>): void {
     this.selectedUsers.set(event.selectedRows);
-    console.log('Selected users:', event.selectedRows);
+    console.log('Selection changed:', event);
   }
 
-  /**
-   * Get selected user IDs as comma-separated string
-   */
-  getSelectedUserIds(): string {
-    return this.selectedUsers().map(u => u.id).join(', ');
-  }
-
-  /**
-   * Toggle loading state
-   */
-  toggleLoading(): void {
-    this.loadingProducts.set(true);
-    setTimeout(() => {
-      this.loadingProducts.set(false);
-    }, 2000);
+  handleProductAction(event: DataTableActionEvent<Product>): void {
+    console.log('Product action clicked:', event);
+    alert(`Action: ${event.actionId} on product: ${event.row.name}`);
   }
 
   // Code examples
-  basicCode = `<app-data-table
-  [data]="users"
-  [columns]="columns"
-  [actions]="actions"
+  basicCode = `
+<app-data-table
+  [data]="users()"
+  [columns]="userColumns()"
+  [actions]="userActions()"
+  [loading]="loadingUsers()"
   (onAction)="handleAction($event)"
-/>
+/>`;
 
-// Column definition
-columns = [
-  { field: 'username', label: 'Username', sortable: true },
-  { field: 'email', label: 'Email', sortable: true },
-  { field: 'role', label: 'Role', sortable: true }
-];
-
-// Actions definition
-actions = [
-  { id: 'edit', label: 'Edit', icon: 'pi pi-pencil', severity: 'info' },
-  { id: 'delete', label: 'Delete', icon: 'pi pi-trash', severity: 'danger' }
-];`;
-
-  selectionCode = `<app-data-table
-  [data]="users"
-  [columns]="columns"
+  selectionCode = `
+<app-data-table
+  [data]="users()"
+  [columns]="userColumns()"
   [selectable]="true"
+  [loading]="loadingUsers()"
   (onSelectionChange)="handleSelectionChange($event)"
-/>
+/>`;
 
-handleSelectionChange(event: DataTableSelectionEvent) {
-  console.log('Selected:', event.selectedRows);
-}`;
-
-  interfacesCode = `interface DataTableColumn<T> {
-  field: keyof T | string;
+  interfacesCode = `
+interface DataTableColumn<T> {
+  field: string;
   label: string;
   sortable?: boolean;
-  width?: string;
   align?: 'left' | 'center' | 'right';
-  pipe?: string;  // 'date', 'currency', 'number', 'percent'
-  pipeArgs?: any;
+  format?: (value: any, row: T) => string;
 }
 
 interface DataTableAction {
   id: string;
   label: string;
-  icon: string;
-  severity?: 'success' | 'info' | 'warning' | 'danger';
-  disabled?: boolean;
-  visible?: boolean | ((row: any) => boolean);
+  icon?: string;
+  severity?: 'primary' | 'secondary' | 'success' | 'info' | 'warn' | 'danger';
+  visible?: (row: any) => boolean;
 }
 
 interface DataTableActionEvent<T> {
-  actionId: string;
+  action: DataTableAction;
   row: T;
-  index: number;
 }
 
 interface DataTableSelectionEvent<T> {
   selectedRows: T[];
-  selectedIndices: number[];
 }`;
 }
