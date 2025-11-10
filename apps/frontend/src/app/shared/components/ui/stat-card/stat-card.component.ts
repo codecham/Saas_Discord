@@ -110,7 +110,7 @@ import {
               [style.width]="iconContainerSize()"
               [style.height]="iconContainerSize()"
             >
-              <i [class]="iconClass()" [class]="iconSizeClass()"></i>
+              <i [class]="iconClass() + ' ' + iconSizeClass()"></i>
             </div>
           }
         </div>
@@ -288,9 +288,9 @@ export class StatCardComponent {
    */
   protected iconSizeClass = computed(() => {
     const sizeMap: Record<StatCardSize, string> = {
-      small: 'text-lg!',
-      medium: 'text-xl!',
-      large: 'text-2xl!'
+      small: 'text-lg',
+      medium: 'text-xl',
+      large: 'text-2xl'
     };
     return sizeMap[this.size()];
   });

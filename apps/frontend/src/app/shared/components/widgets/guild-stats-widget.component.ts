@@ -1,8 +1,11 @@
 import { Component, inject, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { MemberFacadeService } from '@app/core/services/member/member-facade.service';
 import { ChannelFacadeService } from '@app/core/services/channel/channel-facade.service';
 import { RoleFacadeService } from '@app/core/services/role/role-facade.service';
+import { StatCardComponent } from '@app/shared/components/ui/stat-card/stat-card.component';
+import { StatCardSubtitle } from '../ui/stat-card/stat-card.types';
 
 /**
  * 📊 Widget de statistiques de la guild
@@ -13,194 +16,165 @@ import { RoleFacadeService } from '@app/core/services/role/role-facade.service';
  * - Total Roles
  * - Total Moderators
  * 
- * Style identique à StatsWidget du template Sakai
+ * Utilise le composant réutilisable StatCard
+ * 
+ * @example
+ * ```html
+ * <app-guild-stats-widget class="contents" />
+ * ```
  */
 @Component({
   standalone: true,
   selector: 'app-guild-stats-widget',
-  imports: [CommonModule],
+  imports: [CommonModule, StatCardComponent],
   template: `
     <!-- Card 1: Total Membres -->
     <div class="col-span-12 lg:col-span-6 xl:col-span-3">
-      <div class="card mb-0">
-        <div class="flex justify-between mb-4">
-          <div>
-            <span class="block text-muted-color font-medium mb-4">Total Membres</span>
-            <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">
-              {{ totalMembers() }}
-            </div>
-          </div>
-          <div 
-            class="flex items-center justify-center bg-blue-100 dark:bg-blue-400/10 rounded-border" 
-            style="width: 2.5rem; height: 2.5rem"
-          >
-            <i class="pi pi-users text-blue-500 text-xl!"></i>
-          </div>
-        </div>
-        <span class="text-primary font-medium">{{ loadedMembers() }} </span>
-        <span class="text-muted-color">chargés en cache</span>
-      </div>
+      <app-stat-card
+        title="Total Membres"
+        [value]="totalMembers()"
+        icon="pi pi-users"
+        color="blue"
+        [clickable]="true"
+        (cardClick)="navigateToMembers()"
+      />
     </div>
 
     <!-- Card 2: Total Channels -->
     <div class="col-span-12 lg:col-span-6 xl:col-span-3">
-      <div class="card mb-0">
-        <div class="flex justify-between mb-4">
-          <div>
-            <span class="block text-muted-color font-medium mb-4">Total Channels</span>
-            <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">
-              {{ totalChannels() }}
-            </div>
-          </div>
-          <div 
-            class="flex items-center justify-center bg-orange-100 dark:bg-orange-400/10 rounded-border" 
-            style="width: 2.5rem; height: 2.5rem"
-          >
-            <i class="pi pi-hashtag text-orange-500 text-xl!"></i>
-          </div>
-        </div>
-        <span class="text-primary font-medium">{{ textChannelsCount() }} texte </span>
-        <span class="text-muted-color">· {{ voiceChannelsCount() }} vocal</span>
-      </div>
+      <app-stat-card
+        title="Total Channels"
+        [value]="totalChannels()"
+        icon="pi pi-hashtag"
+        color="orange"
+        [clickable]="true"
+        (cardClick)="navigateToChannels()"
+      />
     </div>
 
     <!-- Card 3: Total Roles -->
     <div class="col-span-12 lg:col-span-6 xl:col-span-3">
-      <div class="card mb-0">
-        <div class="flex justify-between mb-4">
-          <div>
-            <span class="block text-muted-color font-medium mb-4">Total Roles</span>
-            <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">
-              {{ totalRoles() }}
-            </div>
-          </div>
-          <div 
-            class="flex items-center justify-center bg-cyan-100 dark:bg-cyan-400/10 rounded-border" 
-            style="width: 2.5rem; height: 2.5rem"
-          >
-            <i class="pi pi-id-card text-cyan-500 text-xl!"></i>
-          </div>
-        </div>
-        <span class="text-primary font-medium">{{ adminRolesCount() }} admin </span>
-        <span class="text-muted-color">· {{ managedRolesCount() }} managés</span>
-      </div>
+      <app-stat-card
+        title="Total Roles"
+        [value]="totalRoles()"
+        icon="pi pi-shield"
+        color="cyan"
+        [clickable]="true"
+        (cardClick)="navigateToRoles()"
+      />
     </div>
 
     <!-- Card 4: Total Moderators -->
     <div class="col-span-12 lg:col-span-6 xl:col-span-3">
-      <div class="card mb-0">
-        <div class="flex justify-between mb-4">
-          <div>
-            <span class="block text-muted-color font-medium mb-4">Total Moderators</span>
-            <div class="text-surface-900 dark:text-surface-0 font-medium text-xl">
-              {{ totalModerators() }}
-            </div>
-          </div>
-          <div 
-            class="flex items-center justify-center bg-purple-100 dark:bg-purple-400/10 rounded-border" 
-            style="width: 2.5rem; height: 2.5rem"
-          >
-            <i class="pi pi-shield text-purple-500 text-xl!"></i>
-          </div>
-        </div>
-        <span class="text-primary font-medium">{{ adminsCount() }} admins </span>
-        <span class="text-muted-color">actifs</span>
-      </div>
+      <app-stat-card
+        title="Total Moderators"
+        [value]="totalModerators"
+        icon="pi pi-verified"
+        color="purple"
+      />
     </div>
   `
 })
 export class GuildStatsWidget {
-  // ============================================
-  // INJECTION DES SERVICES FACADE
-  // ============================================
+  // ========================================
+  // Dependencies
+  // ========================================
+  private memberFacade = inject(MemberFacadeService);
+  private channelFacade = inject(ChannelFacadeService);
+  private roleFacade = inject(RoleFacadeService);
+  private router = inject(Router);
 
-  private readonly memberFacade = inject(MemberFacadeService);
-  private readonly channelFacade = inject(ChannelFacadeService);
-  private readonly roleFacade = inject(RoleFacadeService);
-
-  // ============================================
-  // COMPUTED SIGNALS - STATISTIQUES MEMBRES
-  // ============================================
+  // ========================================
+  // Computed - Members
+  // ========================================
 
   /**
-   * Nombre total de membres du serveur
+   * Nombre total de membres
    */
-  readonly totalMembers = computed(() => 
-    this.memberFacade.totalMembers() || 0
-  );
+  protected totalMembers = computed(() => {
+    return this.memberFacade.totalMembers();
+  });
 
   /**
    * Nombre de membres chargés en cache
    */
-  readonly loadedMembers = computed(() => 
-    this.memberFacade.loadedCount() || 0
-  );
-
-  /**
-   * Nombre d'admins
-   */
-  readonly adminsCount = computed(() => 
-    this.memberFacade.admins().length || 0
-  );
-
-  /**
-   * Nombre total de moderators
-   * TODO: Implémenter la logique réelle quand le système de modération sera prêt
-   * Pour l'instant, on compte les admins + moderators
-   */
-  readonly totalModerators = computed(() => {
-    const admins = this.memberFacade.admins().length;
-    const moderators = this.memberFacade.moderators().length;
-    return admins + moderators;
+  protected loadedMembers = computed(() => {
+    return this.memberFacade.loadedCount();
   });
 
-  // ============================================
-  // COMPUTED SIGNALS - STATISTIQUES CHANNELS
-  // ============================================
+  /**
+   * Subtitle pour la card Members
+   */
+  protected membersSubtitle = computed((): StatCardSubtitle => {
+    const loaded = this.loadedMembers();
+    return {
+      highlight: `${loaded}`,
+      text: 'chargés en cache'
+    };
+  });
+
+  // ========================================
+  // Computed - Channels
+  // ========================================
 
   /**
    * Nombre total de channels
    */
-  readonly totalChannels = computed(() => 
-    this.channelFacade.totalChannels() || 0
-  );
+  protected totalChannels = computed(() => {
+    return this.channelFacade.totalChannels() || 0;
+  });
+
+
+  // ========================================
+  // Computed - Roles
+  // ========================================
 
   /**
-   * Nombre de channels texte
+   * Nombre total de roles
    */
-  readonly textChannelsCount = computed(() => 
-    this.channelFacade.textChannels().length || 0
-  );
+  protected totalRoles = computed(() => {
+    return this.roleFacade.totalRoles();
+  });
+
+
+  // ========================================
+  // Computed - Moderators
+  // ========================================
 
   /**
-   * Nombre de channels vocaux
+   * Nombre total de modérateurs
    */
-  readonly voiceChannelsCount = computed(() => 
-    this.channelFacade.voiceChannels().length || 0
-  );
-
-  // ============================================
-  // COMPUTED SIGNALS - STATISTIQUES ROLES
-  // ============================================
+  // protected totalModerators = computed(() => {
+  //   return this.memberFacade.totalModerators();
+  // });
+    protected totalModerators = 0;
 
   /**
-   * Nombre total de rôles
+   * Subtitle pour la card Moderators
    */
-  readonly totalRoles = computed(() => 
-    this.roleFacade.totalRoles() || 0
-  );
+
+  // ========================================
+  // Navigation Methods
+  // ========================================
 
   /**
-   * Nombre de rôles avec permissions admin
+   * Navigue vers la liste des membres
    */
-  readonly adminRolesCount = computed(() => 
-    this.roleFacade.adminRoles().length || 0
-  );
+  protected navigateToMembers(): void {
+    this.router.navigate(['/members']);
+  }
 
   /**
-   * Nombre de rôles managés (bots, intégrations)
+   * Navigue vers la liste des channels
    */
-  readonly managedRolesCount = computed(() => 
-    this.roleFacade.managedRoles().length || 0
-  );
+  protected navigateToChannels(): void {
+    this.router.navigate(['/channels']);
+  }
+
+  /**
+   * Navigue vers la liste des roles
+   */
+  protected navigateToRoles(): void {
+    this.router.navigate(['/roles']);
+  }
 }
